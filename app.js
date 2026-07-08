@@ -183,6 +183,11 @@ function syncProfileMeta() {
 }
 
 function bindEvents() {
+  const hardRefreshBtn = document.getElementById('hard-refresh-btn');
+  if (hardRefreshBtn) {
+    hardRefreshBtn.addEventListener('click', () => window.location.reload(true));
+  }
+
   els.tabs.forEach((tab) => {
     tab.addEventListener('click', () => switchView(tab.dataset.tab));
   });
@@ -263,7 +268,7 @@ function bindEvents() {
     els.reminderList.addEventListener('click', (event) => {
       const button = event.target.closest('button[data-reminder-key]');
       if (!button) return;
-      respondToReminder(button.dataset.reminderKey, button.dataset.reminderAction);
+      respondToReminder(button.dataset.reminderKey, button.dataset.reminderAction, button);
     });
   }
 
@@ -276,7 +281,7 @@ function bindEvents() {
   });
 
   document.querySelectorAll('[data-check]').forEach((button) => {
-    button.addEventListener('click', () => completeQuickCheck(button.dataset.check));
+    button.addEventListener('click', () => completeQuickCheck(button.dataset.check, button));
   });
 
   document.getElementById('close-modal').addEventListener('click', closeModal);
@@ -614,7 +619,28 @@ function analyzeMeal() {
   }, 1200);
 }
 
-function completeQuickCheck(type) {
+function completeQuickCheck(id, buttonEl = null) {
+  if (state.completedHabits.includes(id)) return;
+  
+  if (els.app) {
+    els.app.style.opacity = '0.6';
+    setTimeout(() => els.app.style.opacity = '1', 150);
+  }
+
+  if (buttonEl) {
+    buttonEl.style.backgroundColor = 'var(--primary)';
+    buttonEl.style.color = '#fff';
+    buttonEl.textContent = '✅ Done!';
+    setTimeout(() => finalizeQuickCheck(id), 400);
+  } else {
+    finalizeQuickCheck(id);
+  }
+}
+
+function finalizeQuickCheck(id) {
+  state.completedHabits.push(id);
+  state.score += 10;
+  saveState();
   const map = {
     water: 'Water check-in complete',
     stretch: 'Stretch break complete',
@@ -623,12 +649,11 @@ function completeQuickCheck(type) {
     walk: 'Walk check-in complete',
     sleep: 'Sleep goal logged'
   };
-  state.completedTasks.push(type);
-  recordActivity(map[type] || 'Wellness check-in complete', 15);
+  recordActivity(map[id] || 'Wellness check-in complete', 15);
   renderDashboard();
   renderRoutine();
   renderProfile();
-  showToast(map[type] || 'Check-in complete');
+  showToast(map[id] || 'Check-in complete');
 }
 
 function toggleDarkMode() {
@@ -798,11 +823,28 @@ function triggerReminder(key) {
   scheduleReminder(key, reminder.followUp);
 }
 
-function respondToReminder(key, action) {
+function respondToReminder(key, action, buttonEl = null) {
   if (els.app) {
     els.app.style.opacity = '0.6';
     setTimeout(() => els.app.style.opacity = '1', 150);
   }
+  
+  if (buttonEl) {
+    buttonEl.style.backgroundColor = 'var(--primary)';
+    buttonEl.style.color = '#fff';
+    buttonEl.style.transform = 'scale(0.95)';
+    if (action === 'done') buttonEl.textContent = '✅ Done!';
+    else if (action === 'skip') buttonEl.textContent = '⏭️ Skipped';
+    else if (action === 'later') buttonEl.textContent = '⏱️ Snoozed';
+    
+    // Delay state change so user can read the button text
+    setTimeout(() => finalizeReminderResponse(key, action), 400);
+  } else {
+    finalizeReminderResponse(key, action);
+  }
+}
+
+function finalizeReminderResponse(key, action) {
   const reminder = state.reminders[key];
   if (!reminder) return;
   reminder.pending = false;
