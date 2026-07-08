@@ -1,0 +1,1 @@
+Open index.html locally or upload folder to Netlify. Notifications require browser permission.

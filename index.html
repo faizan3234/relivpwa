@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ff7a00" />
+    <meta name="description" content="Relix Companion is a premium wellness companion that helps you build routines, track progress, and stay on top of your health goals." />
+    <meta property="og:title" content="Relix Companion" />
+    <meta property="og:description" content="A premium wellness PWA with routines, coaching, nutrition insights, and progress tracking." />
+    <meta property="og:type" content="website" />
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Relix" />
+    <title>Relix Companion</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="brand">
+          <img src="file.jpg" alt="Relix brand mark" />
+          <div>
+            <strong>Relix Companion</strong>
+            <span>Premium wellness companion</span>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <div class="top-bar-badge" id="unread-badge">0</div>
+          <button id="install-button" class="icon-btn install-button" type="button" aria-label="Install app">⬇</button>
+          <button class="icon-btn" id="theme-toggle-icon" type="button" aria-label="Toggle theme">🌙</button>
+        </div>
+      </header>
+
+      <div class="inline-banner" id="install-banner">
+        <div>
+          <strong>Install Relix</strong>
+          <p>Keep reminders, routines, and progress on your home screen.</p>
+        </div>
+        <button id="install-cta" class="primary-btn" type="button">Add to Home Screen</button>
+      </div>
+
+      <section class="view-section active" data-view="dashboard">
+        <div class="hero-card">
+          <div class="hero-head">
+            <div class="hero-title">
+              <p>Good morning</p>
+              <h1 id="hero-name">Your Name</h1>
+            </div>
+            <div class="hero-meta">
+              <span class="pill" id="level-pill">Level 1</span>
+              <button id="claim-xp" class="primary-btn" type="button">Claim XP</button>
+            </div>
+          </div>
+          <div class="hero-stats">
+            <div class="stat-chip"><strong id="xp-value">0</strong><span>XP earned</span></div>
+            <div class="stat-chip"><strong id="streak-value">0</strong><span>Daily streak</span></div>
+            <div class="stat-chip"><strong id="level-value">1</strong><span>Current level</span></div>
+          </div>
+          <div class="rings-row">
+            <div class="ring-card">
+              <strong>Today’s score</strong>
+              <div class="ring-visual"></div>
+              <div class="ring-copy">
+                <strong id="score-value">0</strong>
+                <span>Consistency is your superpower.</span>
+              </div>
+            </div>
+            <div class="ring-card">
+              <strong>Weekly progress</strong>
+              <div class="progress-track"><span id="progress-bar"></span></div>
+              <p id="progress-text">Weekly progress · 82% complete</p>
+              <div class="dashed-list">
+                <div class="checkin-pill"><span>Drink water</span><button data-check="water" type="button">Tap to complete</button></div>
+                <div class="checkin-pill"><span>Stretch</span><button data-check="stretch" type="button">Tap to complete</button></div>
+                <div class="checkin-pill"><span>Supplements</span><button data-check="supplement" type="button">Tap to complete</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card reminder-panel">
+          <div class="hero-head">
+            <div class="hero-title">
+              <p>Gentle nudges</p>
+              <h3>Daily check-ins</h3>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button id="enable-alerts-button" class="ghost-btn" type="button">Enable alerts</button>
+              <button id="pause-reminders" class="ghost-btn" type="button">Pause all</button>
+            </div>
+          </div>
+          <div id="reminder-list" class="reminder-list"></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="mission-card">
+            <strong>Daily mission</strong>
+            <h3>10-minute mobility flow</h3>
+            <p>Feel lighter, stronger, and more focused. Complete it to earn another boost of XP.</p>
+            <button class="primary-btn" type="button">Start mission</button>
+          </div>
+          <div class="quote-card">
+            <strong>Motivational quote</strong>
+            <p>“Small, repeatable actions build a life that feels calm and strong.”</p>
+            <div class="ring-copy">
+              <strong>Next reminder</strong>
+              <span id="reminder-value">Hydration check-in · 3:30 PM</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="activity-card">
+          <strong>Recent activity</strong>
+          <ul id="recent-list"></ul>
+        </div>
+      </section>
+
+      <section class="view-section" data-view="routine">
+        <div class="card" style="padding: 24px;">
+          <div class="hero-head">
+            <div class="hero-title">
+              <p>Your ritual engine</p>
+              <h1>Daily routine</h1>
+            </div>
+            <span class="pill">30-day transformation</span>
+          </div>
+          <div class="tracker-card">
+            <strong>Progress tracker</strong>
+            <div class="progress-track"><span id="routine-progress"></span></div>
+            <p class="tracker-copy">0 of 3 complete · 0%</p>
+            <p>Unlock your certificate at day 30 by staying consistent.</p>
+          </div>
+          <div id="routine-list" class="routine-list"></div>
+        </div>
+      </section>
+
+      <section class="view-section" data-view="coach">
+        <div class="coach-shell">
+          <div class="card" style="padding: 20px;">
+            <div class="hero-head">
+              <div class="hero-title">
+                <p>Health coach</p>
+                <h1>Relix AI</h1>
+              </div>
+              <span class="pill">Offline ready</span>
+            </div>
+            <div id="chat-messages" class="message-list"></div>
+            <div class="suggestion-row" style="margin-top: 12px;">
+              <button class="suggestion-pill" data-prompt="How can I improve my sleep tonight?" type="button">How can I improve my sleep?</button>
+              <button class="suggestion-pill" data-prompt="What foods help with energy?" type="button">What helps with energy?</button>
+              <button class="suggestion-pill" data-prompt="How do I recover after a workout?" type="button">Recovery tips</button>
+            </div>
+            <form id="coach-form" class="coach-form" style="margin-top: 12px;">
+              <input id="coach-input" placeholder="Ask Relix about health and wellness" aria-label="Ask Relix" />
+              <button class="primary-btn" type="submit">Send</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="view-section" data-view="meal">
+        <div class="camera-card">
+          <div class="hero-head">
+            <div class="hero-title">
+              <p>Meal camera</p>
+              <h1>Snap your plate</h1>
+            </div>
+            <span class="pill" id="meal-counter">5 uploads left today</span>
+          </div>
+          <div id="meal-preview" class="meal-preview">
+            <div style="text-align: center; padding: 16px; color: var(--muted);">
+              <strong style="display: block; margin-bottom: 8px;">Upload a meal photo</strong>
+              <span>We protect your privacy and delete images immediately after analysis.</span>
+            </div>
+          </div>
+          <div class="camera-actions">
+            <label class="primary-btn" for="meal-input" style="display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">Upload image</label>
+            <input id="meal-input" type="file" accept="image/*" hidden />
+            <button id="analyze-meal" class="ghost-btn" type="button">Analyze meal</button>
+          </div>
+          <div id="meal-status" style="color: var(--muted);">Food analysis is simulated locally. Only food photos are accepted.</div>
+        </div>
+      </section>
+
+      <section class="view-section" data-view="profile">
+        <div class="profile-card">
+          <div class="membership-card">
+            <div class="profile-top">
+              <div class="avatar">AC</div>
+              <div>
+                <strong id="member-name">Ava Chen</strong>
+                <p>Member since 2024</p>
+              </div>
+            </div>
+            <div class="profile-grid">
+              <div class="chip"><strong id="member-id">REL-2048</strong><span>Member ID</span></div>
+              <div class="chip"><strong id="access-code">A7Q-84X</strong><span>Access code</span></div>
+              <div class="chip"><strong id="referral-code">RELIX-Ava</strong><span>Referral code</span></div>
+            </div>
+          </div>
+
+          <div class="profile-grid">
+            <div class="chip"><strong id="profile-xp">0</strong><span>XP</span></div>
+            <div class="chip"><strong id="profile-level">1</strong><span>Level</span></div>
+            <div class="chip"><strong id="profile-streak">0</strong><span>Streak</span></div>
+          </div>
+
+          <div class="settings-card">
+            <div class="setting-row"><span>Name</span><div style="display:flex; gap:8px; align-items:center;"><input id="name-input" placeholder="Your name" aria-label="Your name" style="padding:8px 10px; border-radius:12px; border:1px solid var(--border); background: var(--card); color: var(--text);" /><button id="save-name" class="ghost-btn" type="button">Save</button></div></div>
+            <div class="setting-row"><span>Dark mode</span><label class="switch"><input id="dark-toggle" type="checkbox" /><span></span></label></div>
+            <div class="setting-row"><span>Notifications</span><div style="display:flex; gap:8px; align-items:center;"><label class="switch"><input id="notify-toggle" type="checkbox" checked /><span></span></label><button id="settings-enable-alerts" class="ghost-btn" type="button">Allow alerts</button></div></div>
+            <div class="setting-row"><span>Install app</span><button id="settings-install-button" class="ghost-btn install-action-btn" type="button">Install</button></div>
+            <div class="setting-row"><span>Language</span><select id="language-select"><option>English</option><option>Español</option><option>Français</option></select></div>
+            <div class="setting-row"><span>Export data</span><button id="export-data" class="ghost-btn" type="button">Export</button></div>
+            <div class="setting-row"><span>Delete data</span><button id="delete-data" class="ghost-btn" type="button">Forget me</button></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Bottom navigation">
+      <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Dashboard</span></button>
+      <button class="nav-pill" data-tab="routine" type="button">🧘<span>Routine</span></button>
+      <button class="nav-pill" data-tab="coach" type="button">🤖<span>Coach</span></button>
+      <button class="nav-pill" data-tab="meal" type="button">📸<span>Meal Cam</span></button>
+      <button class="nav-pill" data-tab="profile" type="button">👤<span>Profile</span></button>
+    </nav>
+
+    <div id="why-modal" class="modal-overlay" aria-hidden="true">
+      <div class="modal-card">
+        <div class="hero-head">
+          <div class="hero-title">
+            <p>Why this habit matters</p>
+            <h3 id="modal-title">Habit</h3>
+          </div>
+          <button id="close-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <div id="notification-modal" class="modal-overlay" aria-hidden="true">
+      <div class="modal-card">
+        <div class="hero-head">
+          <div class="hero-title">
+            <p>Stay on track</p>
+            <h3>Allow notifications</h3>
+          </div>
+          <button id="close-notification-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <p>Relix can nudge you for water, skin care, and nutrition check-ins. Allow notifications to keep these reminders active.</p>
+        <div class="modal-actions">
+          <button id="enable-notifications" class="primary-btn" type="button">Allow notifications</button>
+          <button id="dismiss-notifications" class="ghost-btn" type="button">Not now</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="install-modal" class="modal-overlay" aria-hidden="true">
+      <div class="modal-card">
+        <div class="hero-head">
+          <div class="hero-title">
+            <p>Install Relix</p>
+            <h3 id="install-modal-title">Add to your home screen</h3>
+          </div>
+          <button id="close-install-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <p id="install-modal-copy">Add Relix to your home screen for a faster, app-like experience.</p>
+        <div class="modal-actions">
+          <button id="install-modal-action" class="primary-btn" type="button">Install now</button>
+          <button id="dismiss-install-modal" class="ghost-btn" type="button">Later</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

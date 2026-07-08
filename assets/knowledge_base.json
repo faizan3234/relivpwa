@@ -1,0 +1,22 @@
+[
+  {
+    "keywords": ["sleep", "insomnia", "rest"],
+    "answer": "A steady wind-down routine, low light, and a cool room can support healthier sleep. Aim for a calm cue before bed and keep your room dark and quiet."
+  },
+  {
+    "keywords": ["protein", "muscle", "recovery"],
+    "answer": "Protein helps support muscle recovery and keeps you feeling fuller between meals. Pair it with vegetables, fruit, or whole grains for a balanced plate."
+  },
+  {
+    "keywords": ["water", "hydration", "fluid"],
+    "answer": "A simple hydration rhythm helps energy, focus, and digestion. Try a glass when you wake up, with each meal, and after a workout."
+  },
+  {
+    "keywords": ["stress", "anxiety", "calm"],
+    "answer": "A brief breathing session, a gentle walk, and a slower pace can reduce the feeling of stress. Small consistent resets work better than occasional extreme effort."
+  },
+  {
+    "keywords": ["meal", "nutrition", "breakfast", "lunch", "dinner"],
+    "answer": "Balanced meals make it easier to sustain steady energy. Aim for a mix of protein, fiber, healthy fats, and plenty of water."
+  }
+]
