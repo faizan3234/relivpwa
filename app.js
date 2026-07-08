@@ -107,7 +107,8 @@ const els = {
   saveNameButton: document.getElementById('save-name'),
   languageSelect: document.getElementById('language-select'),
   exportButton: document.getElementById('export-data'),
-  deleteButton: document.getElementById('delete-data')
+  deleteButton: document.getElementById('delete-data'),
+  inviteTeam: document.getElementById('invite-team')
 };
 
 function init() {
@@ -218,6 +219,21 @@ function bindEvents() {
 
   els.darkToggle.addEventListener('change', toggleDarkMode);
   els.notifyToggle.addEventListener('change', toggleNotifications);
+
+  if (els.inviteTeam) {
+    els.inviteTeam.addEventListener('click', () => {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Relix Companion',
+          text: 'Join my team on Relix!',
+          url: window.location.href
+        }).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        showToast('Link copied to clipboard!');
+      }
+    });
+  }
 
   els.exportButton.addEventListener('click', exportData);
   els.deleteButton.addEventListener('click', deleteData);
@@ -663,6 +679,7 @@ function enableNotifications() {
   updateActionButtons();
   subscribeToPushNotifications();
   showToast('Notifications enabled.');
+  showNotification('Notifications Started', 'You will now receive check-ins here.', 'welcome');
 }
 
 async function subscribeToPushNotifications() {
@@ -782,6 +799,10 @@ function triggerReminder(key) {
 }
 
 function respondToReminder(key, action) {
+  if (els.app) {
+    els.app.style.opacity = '0.6';
+    setTimeout(() => els.app.style.opacity = '1', 150);
+  }
   const reminder = state.reminders[key];
   if (!reminder) return;
   reminder.pending = false;
@@ -952,10 +973,7 @@ function registerInstallPrompt() {
     showToast('Installed to your device.');
   });
 
-  if (!window.matchMedia('(display-mode: standalone)').matches && !window.navigator.standalone) {
-    updateActionButtons();
-    setTimeout(() => showInstallPrompt(), 1400);
-  }
+  // Removed auto-showing install prompt instructions as requested
 }
 
 function showInstallPrompt() {
