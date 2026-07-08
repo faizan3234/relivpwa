@@ -641,7 +641,36 @@ function enableNotifications() {
   initializeReminderSystem();
   closeNotificationPrompt();
   updateActionButtons();
+  subscribeToPushNotifications();
   showToast('Notifications enabled.');
+}
+
+async function subscribeToPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const vapidRes = await fetch('http://localhost:4000/api/push/vapid-public-key');
+    const vapidPublicKey = await vapidRes.text();
+
+    const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
+    const base64 = (vapidPublicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: outputArray
+    });
+
+    await fetch('http://localhost:4000/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription })
+    });
+  } catch (err) {
+    console.error('Push setup failed:', err);
+  }
 }
 
 function showNotificationPrompt() {

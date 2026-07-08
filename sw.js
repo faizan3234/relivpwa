@@ -16,27 +16,69 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html'))));
 });
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const reminderKey = event.notification.data?.reminderKey || event.notification.tag;
-  const action = event.action || 'open';
-
+self.addEventListener('push', (event) => {
+  let data = { title: 'Reliv Reminder', body: 'Time to check in!' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch(err) {
+      data.body = event.data.text();
+    }
+  }
+  
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const appClient = clientList.find((client) => client.url.includes(self.location.origin)) || clientList[0];
-      if (action === 'open') {
-        if (appClient) {
-          return appClient.focus();
-        }
-        return clients.openWindow('./');
-      }
-
-      if (appClient) {
-        appClient.postMessage({ type: 'reminder-action', reminderKey, action });
-        return appClient.focus();
-      }
-
-      return clients.openWindow('./').then((newClient) => newClient.postMessage({ type: 'reminder-action', reminderKey, action }));
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: './icons/icon-192.svg',
+      badge: './icons/icon-192.svg',
+      vibrate: [200, 100, 200],
+      data: { reminderKey: data.reminderKey || 'push', originalBody: data.body },
+      actions: [
+        { action: 'done', title: '✅ Yes' },
+        { action: 'later', title: '⏱️ 5m' },
+        { action: 'skip', title: '❌ No' }
+      ]
     })
   );
 });
+
+self.addEventListener('notificationclick', (event) => {
+  // Instantly close the notification to make it "very very responsive"
+  event.notification.close();
+  
+  const reminderKey = event.notification.data?.reminderKey || event.notification.tag;
+  const action = event.action || 'open';
+  
+  if (action === 'later') {
+    // Tell backend to send another push in 5m
+    event.waitUntil(
+      fetch('http://localhost:4000/api/push/remind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: event.notification.data?.originalBody, delayMs: 5 * 60 * 1000 })
+      }).catch(() => console.error("Remind failed"))
+    );
+    // Also notify app if open
+  }
+  
+  if (action === 'skip') {
+    return; // Just dismissed, do nothing else
+  }
+  
+  // Handle "yes", "later" or normal click: focus the app and postMessage
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const appClient = clientList.find((client) => client.url.includes(self.location.origin)) || clientList[0];
+      
+      if (appClient) {
+        appClient.postMessage({ type: 'reminder-action', reminderKey, action: action === 'open' ? 'done' : action });
+        return appClient.focus();
+      }
+      
+      return clients.openWindow('./').then((newClient) => {
+        if (newClient) newClient.postMessage({ type: 'reminder-action', reminderKey, action: action === 'open' ? 'done' : action });
+      });
+    })
+  );
+});
+
