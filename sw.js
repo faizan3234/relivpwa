@@ -63,16 +63,18 @@ self.addEventListener('notificationclick', (event) => {
   // Handle "yes", "later" or normal click: focus the app and postMessage
   // (app.js handles rescheduling the 5m alarm locally)
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const appClient = clientList.find((client) => client.url.includes(self.location.origin)) || clientList[0];
-      
-      if (appClient) {
-        appClient.postMessage({ type: 'reminder-action', reminderKey, action: action === 'open' ? 'done' : action });
-        return appClient.focus();
-      }
-      
-      return clients.openWindow('./').then((newClient) => {
-        if (newClient) newClient.postMessage({ type: 'reminder-action', reminderKey, action: action === 'open' ? 'done' : action });
+    caches.open('reliv-actions').then(cache => {
+      return cache.put('/action/' + reminderKey + '/' + Date.now(), new Response(action));
+    }).then(() => {
+      return clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        const appClient = clientList.find((client) => client.url.includes(self.location.origin)) || clientList[0];
+        
+        if (appClient) {
+          appClient.postMessage({ type: 'reminder-action', reminderKey, action: action === 'open' ? 'done' : action });
+          return appClient.focus();
+        }
+        
+        return clients.openWindow('./');
       });
     })
   );

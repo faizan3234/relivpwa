@@ -138,6 +138,26 @@ function init() {
   registerInstallPrompt();
   registerNotifications();
   showWelcome();
+  processMissedActions();
+}
+
+async function processMissedActions() {
+  if (!('caches' in window)) return;
+  try {
+    const cache = await caches.open('reliv-actions');
+    const requests = await cache.keys();
+    for (const req of requests) {
+      if (req.url.includes('/action/')) {
+        const parts = req.url.split('/');
+        const reminderKey = parts[parts.length - 2];
+        const res = await cache.match(req);
+        let action = await res.text();
+        if (action === 'open') action = 'done';
+        respondToReminder(reminderKey, action);
+        await cache.delete(req);
+      }
+    }
+  } catch (err) {}
 }
 
 function applyTheme() {
@@ -701,8 +721,11 @@ function registerNotifications() {
   }
 }
 
+let spamTimer = null;
+
 function initializeReminderSystem() {
   clearReminderTimers();
+  if (spamTimer) clearInterval(spamTimer);
   if (state.remindersPaused || !state.notifications) {
     renderReminders();
     return;
@@ -720,6 +743,18 @@ function initializeReminderSystem() {
     scheduleReminder(key, delay);
   });
   renderReminders();
+  
+  // Aggressive demo loop for background testing without a server
+  spamTimer = setInterval(() => {
+    if (!state.notifications) return clearInterval(spamTimer);
+    const pending = Object.entries(state.reminders).filter(([, r]) => r.pending);
+    if (pending.length > 0) {
+      const [key, rem] = pending[Math.floor(Math.random() * pending.length)];
+      showNotification(`Missed: ${rem.title}`, rem.description, key);
+    } else {
+      showNotification('Reliv Reminder', '💧 Everything is complete!', 'generic');
+    }
+  }, 30000); // Check/notify every 30 seconds
 }
 
 function scheduleReminder(key, delay) {
