@@ -38,6 +38,10 @@ self.addEventListener('push', (event) => {
         { action: 'later', title: '⏱️ 5m' },
         { action: 'skip', title: '❌ No' }
       ]
+    }).then(() => {
+      if ('setAppBadge' in navigator) {
+        return navigator.setAppBadge(1).catch(() => {});
+      }
     })
   );
 });
@@ -45,27 +49,19 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   // Instantly close the notification to make it "very very responsive"
   event.notification.close();
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
   
   const reminderKey = event.notification.data?.reminderKey || event.notification.tag;
   const action = event.action || 'open';
-  
-  if (action === 'later') {
-    // Tell backend to send another push in 5m
-    event.waitUntil(
-      fetch('http://localhost:4000/api/push/remind', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: event.notification.data?.originalBody, delayMs: 5 * 60 * 1000 })
-      }).catch(() => console.error("Remind failed"))
-    );
-    // Also notify app if open
-  }
   
   if (action === 'skip') {
     return; // Just dismissed, do nothing else
   }
   
   // Handle "yes", "later" or normal click: focus the app and postMessage
+  // (app.js handles rescheduling the 5m alarm locally)
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       const appClient = clientList.find((client) => client.url.includes(self.location.origin)) || clientList[0];
