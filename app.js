@@ -154,7 +154,12 @@ function init() {
   renderDashboard();
   initializeReminderSystem();
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') initializeReminderSystem();
+    if (document.visibilityState === 'visible') {
+      initializeReminderSystem();
+      if (state.notifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        subscribeToPushNotifications();
+      }
+    }
   });
   window.addEventListener('focus', () => initializeReminderSystem());
   window.addEventListener('online', () => initializeReminderSystem());
@@ -170,6 +175,8 @@ function init() {
   
   if (!state.setupComplete && els.setupModal) {
     els.setupModal.style.display = 'flex';
+    els.setupModal.classList.add('open');
+    els.setupModal.setAttribute('aria-hidden', 'false');
   }
 }
 
@@ -211,6 +218,7 @@ function syncProfileMeta() {
   document.getElementById('access-code').textContent = 'A7Q-84X';
   document.getElementById('referral-code').textContent = `RELIX-${state.profileName.replace(/\s+/g, '').slice(0, 6).toUpperCase()}`;
   if (els.nameInput) els.nameInput.value = state.profileName;
+  if (els.groqInput) els.groqInput.value = state.groqKey;
 }
 
 function bindEvents() {
@@ -273,10 +281,10 @@ function bindEvents() {
 
   if (els.finishSetup) {
     els.finishSetup.addEventListener('click', () => {
-      const age = Number(els.setupAge.value) || 22;
-      const weight = Number(els.setupWeight.value) || 66;
-      const targetWeight = Number(els.setupTarget.value) || 72;
-      const diet = els.setupDiet.value || 'veg';
+      const age = Number(els.setupAge.value) || state.age || 22;
+      const weight = Number(els.setupWeight.value) || state.weight || 66;
+      const targetWeight = Number(els.setupTarget.value) || state.targetWeight || 72;
+      const diet = els.setupDiet.value || state.dietType || 'veg';
       
       state.age = age;
       state.weight = weight;
@@ -334,6 +342,12 @@ function bindEvents() {
   if (editStatsBtn) {
     editStatsBtn.addEventListener('click', () => {
       if (els.setupModal) {
+        if (els.setupAge) els.setupAge.value = state.age;
+        if (els.setupWeight) els.setupWeight.value = state.weight;
+        if (els.setupTarget) els.setupTarget.value = state.targetWeight;
+        if (els.setupDiet) els.setupDiet.value = state.dietType;
+
+        els.setupModal.style.display = 'flex';
         els.setupModal.classList.add('open');
         els.setupModal.setAttribute('aria-hidden', 'false');
       }
@@ -828,23 +842,81 @@ function enableNotifications() {
   showNotification('Notifications Started', 'You will now receive check-ins here.', 'welcome');
 }
 
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+function isStandalonePWA() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+  return outputArray;
+}
+
+// Compares an existing PushSubscription's key against the key the backend is
+// currently using. If the backend restarted and (in the old code) generated
+// a brand new VAPID key, the old subscription becomes useless and pushes
+// silently stop being delivered - this is exactly why it "only worked while
+// the app was open" (foreground fallbacks still fired) but never as a real
+// background/phone notification. We now detect that and resubscribe.
+function subscriptionKeyMatches(subscription, currentPublicKeyB64) {
+  try {
+    const currentKeyBytes = urlBase64ToUint8Array(currentPublicKeyB64);
+    const existingKeyBytes = new Uint8Array(subscription.options.applicationServerKey);
+    if (currentKeyBytes.length !== existingKeyBytes.length) return false;
+    for (let i = 0; i < currentKeyBytes.length; i++) {
+      if (currentKeyBytes[i] !== existingKeyBytes[i]) return false;
+    }
+    return true;
+  } catch (err) {
+    // Some browsers don't expose subscription.options reliably - assume
+    // mismatch so we take the safe path of resubscribing.
+    return false;
+  }
+}
+
 async function subscribeToPushNotifications() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  // iOS only supports background web push for PWAs launched from the Home
+  // Screen icon (standalone mode). Subscribing from a normal Safari tab will
+  // "succeed" but never actually deliver a notification when the phone is
+  // locked or the app is closed. Catch that here instead of failing silently.
+  if (isIOSDevice() && !isStandalonePWA()) {
+    console.warn('iOS: open Relix from the Home Screen icon (not Safari) to enable real push notifications.');
+    showToast('Add Relix to your Home Screen, then open it from there to enable phone notifications.');
+    return;
+  }
+
   try {
     const registration = await navigator.serviceWorker.ready;
     const vapidRes = await fetch(`${BACKEND_URL}/api/push/vapid-public-key`);
-    const vapidPublicKey = await vapidRes.text();
+    if (!vapidRes.ok) throw new Error('Could not reach backend for VAPID key.');
+    const vapidPublicKey = (await vapidRes.text()).trim();
+    const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
-    const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
-    const base64 = (vapidPublicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+    let subscription = await registration.pushManager.getSubscription();
 
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: outputArray
-    });
+    if (subscription && !subscriptionKeyMatches(subscription, vapidPublicKey)) {
+      // Backend key changed since we last subscribed (e.g. server restarted
+      // without persistent VAPID keys) - the old subscription is dead weight.
+      console.log('Push key changed on backend, resubscribing device...');
+      await subscription.unsubscribe().catch(() => {});
+      subscription = null;
+    }
+
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+    }
 
     await fetch(`${BACKEND_URL}/api/push/subscribe`, {
       method: 'POST',
@@ -854,6 +926,7 @@ async function subscribeToPushNotifications() {
     console.log("Successfully subscribed to real Push Notifications!");
   } catch (err) {
     console.error('Push setup failed:', err);
+    showToast('Could not set up phone notifications. Check your connection and try again.');
   }
 }
 
