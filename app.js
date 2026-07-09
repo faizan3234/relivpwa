@@ -397,15 +397,22 @@ function bindEvents() {
       forceResubBtn.textContent = '...';
       forceResubBtn.disabled = true;
       try {
+        showToast('1/5 Getting service worker...');
         if ('serviceWorker' in navigator && 'PushManager' in window) {
           const reg = await navigator.serviceWorker.ready;
+          showToast('2/5 Checking old subscription...');
           const sub = await reg.pushManager.getSubscription();
-          if (sub) await sub.unsubscribe().catch(() => {});
+          if (sub) {
+            showToast('3/5 Unsubscribing old push...');
+            await sub.unsubscribe().catch(() => {});
+          }
         }
-        await subscribeToPushNotifications();
-        showToast('Resubscribed to push notifications!');
+        showToast('4/5 Requesting new push token...');
+        await subscribeToPushNotifications(true);
+        showToast('5/5 Resubscribed successfully!');
       } catch (e) {
-        showToast('Force resubscribe failed.');
+        showToast(`Error: ${e.message}`);
+        alert(`Resubscribe Error: ${e.message}`);
       }
       forceResubBtn.textContent = 'Force Resubscribe';
       forceResubBtn.disabled = false;
@@ -969,13 +976,12 @@ function subscriptionKeyMatches(subscription, currentPublicKeyB64) {
   }
 }
 
-async function subscribeToPushNotifications() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+async function subscribeToPushNotifications(debug = false) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (debug) showToast('Push API not supported here.');
+    return;
+  }
 
-  // iOS only supports background web push for PWAs launched from the Home
-  // Screen icon (standalone mode). Subscribing from a normal Safari tab will
-  // "succeed" but never actually deliver a notification when the phone is
-  // locked or the app is closed. Catch that here instead of failing silently.
   if (isIOSDevice() && !isStandalonePWA()) {
     console.warn('iOS: open Relix from the Home Screen icon (not Safari) to enable real push notifications.');
     showToast('Add Relix to your Home Screen, then open it from there to enable phone notifications.');
@@ -983,38 +989,44 @@ async function subscribeToPushNotifications() {
   }
 
   try {
+    if (debug) showToast('Fetching VAPID key...');
     const registration = await navigator.serviceWorker.ready;
     const vapidRes = await fetch(`${BACKEND_URL}/api/push/vapid-public-key`);
     if (!vapidRes.ok) throw new Error('Could not reach backend for VAPID key.');
     const vapidPublicKey = (await vapidRes.text()).trim();
     const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
+    if (debug) showToast('Checking existing subscription...');
     let subscription = await registration.pushManager.getSubscription();
 
     if (subscription && !subscriptionKeyMatches(subscription, vapidPublicKey)) {
-      // Backend key changed since we last subscribed (e.g. server restarted
-      // without persistent VAPID keys) - the old subscription is dead weight.
+      if (debug) showToast('Keys changed! Unsubscribing...');
       console.log('Push key changed on backend, resubscribing device...');
       await subscription.unsubscribe().catch(() => { });
       subscription = null;
     }
 
     if (!subscription) {
+      if (debug) showToast('Asking Apple for push token (may hang here if blocked)...');
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey
       });
     }
 
+    if (debug) showToast('Sending token to backend...');
     await fetch(`${BACKEND_URL}/api/push/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription })
     });
     console.log("Successfully subscribed to real Push Notifications!");
+    if (debug) showToast('Backend saved subscription!');
   } catch (err) {
     console.error('Push setup failed:', err);
+    if (debug) alert(`Push setup failed: ${err.message}`);
     showToast('Could not set up phone notifications. Check your connection and try again.');
+    throw err; // Re-throw so forceResubBtn catches it
   }
 }
 
