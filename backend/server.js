@@ -83,7 +83,7 @@ function loadSubscriptions() {
       const arr = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf8'));
       return new Set(arr);
     }
-  } catch (err) {}
+  } catch (err) { }
   return new Set();
 }
 
@@ -151,6 +151,76 @@ app.post('/api/push/remind', (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------------------------------------------------------------------------
+// KEYED, PERSISTENT REMINDER SCHEDULER
+// ---------------------------------------------------------------------------
+// Used for the recurring water/skin/diet reminders. Two problems this fixes
+// vs. plain setTimeout:
+//   1. Duplicate pushes: the app re-syncs every time it's opened/focused. A
+//      bare setTimeout per call would stack N pending timers for the same
+//      reminder. Keying by `key` means a new call REPLACES the old timer.
+//   2. Missed pushes: if the server restarts (Render free tier sleeping)
+//      between "schedule" and "due", a plain in-memory timer is lost forever.
+//      Persisting to disk lets us recover on boot - firing immediately if the
+//      due time already passed, or re-arming with the remaining delay.
+// ---------------------------------------------------------------------------
+const SCHEDULE_FILE = path.join(__dirname, 'schedules.json');
+const scheduledTimers = {}; // key -> Node timeout handle (in-memory, not persisted)
+
+function loadSchedules() {
+  try {
+    if (fs.existsSync(SCHEDULE_FILE)) return JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
+  } catch (err) { }
+  return {};
+}
+
+function saveSchedules() {
+  try {
+    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(schedules, null, 2));
+  } catch (err) {
+    console.log('[schedule] WARNING: could not persist schedules.json.');
+  }
+}
+
+const schedules = loadSchedules();
+
+function armSchedule(key, title, body, dueAt) {
+  if (scheduledTimers[key]) clearTimeout(scheduledTimers[key]);
+  const delay = Math.max(0, dueAt - Date.now());
+  scheduledTimers[key] = setTimeout(() => {
+    broadcast({ title, body, reminderKey: key });
+    delete scheduledTimers[key];
+    delete schedules[key];
+    saveSchedules();
+  }, delay);
+}
+
+// Recover anything that was still pending when the server last stopped.
+const recoveredKeys = Object.keys(schedules);
+recoveredKeys.forEach((key) => {
+  const job = schedules[key];
+  if (job && job.dueAt) armSchedule(key, job.title, job.body, job.dueAt);
+});
+if (recoveredKeys.length) console.log(`[schedule] Recovered ${recoveredKeys.length} pending reminder(s) after restart.`);
+
+app.post('/api/push/schedule', (req, res) => {
+  const { key, title = 'Reliv Reminder', body, dueAt } = req.body || {};
+  if (!key || !body || !dueAt) return res.status(400).json({ ok: false });
+  schedules[key] = { title, body, dueAt };
+  saveSchedules();
+  armSchedule(key, title, body, dueAt);
+  res.json({ ok: true });
+});
+
+app.post('/api/push/cancel', (req, res) => {
+  const { key } = req.body || {};
+  if (key) {
+    if (scheduledTimers[key]) { clearTimeout(scheduledTimers[key]); delete scheduledTimers[key]; }
+    if (schedules[key]) { delete schedules[key]; saveSchedules(); }
+  }
+  res.json({ ok: true });
+});
+
 // Dynamic Background Timers
 let waterInterval = null;
 let testInterval = null;
@@ -189,7 +259,8 @@ app.get('/api/push/status', (req, res) => {
   res.json({
     subscriptions: subscriptions.size,
     waterLoopActive: Boolean(waterInterval),
-    testLoopActive: Boolean(testInterval)
+    testLoopActive: Boolean(testInterval),
+    scheduledReminders: Object.keys(schedules).length
   });
 });
 

@@ -172,7 +172,7 @@ function init() {
   registerNotifications();
   showWelcome();
   processMissedActions();
-  
+
   if (!state.setupComplete && els.setupModal) {
     els.setupModal.style.display = 'flex';
     els.setupModal.classList.add('open');
@@ -196,7 +196,7 @@ async function processMissedActions() {
         await cache.delete(req);
       }
     }
-  } catch (err) {}
+  } catch (err) { }
 }
 
 function applyTheme() {
@@ -271,7 +271,7 @@ function bindEvents() {
           title: 'Relix Companion',
           text: 'Join my team on Relix!',
           url: window.location.href
-        }).catch(() => {});
+        }).catch(() => { });
       } else {
         navigator.clipboard.writeText(window.location.href);
         showToast('Link copied to clipboard!');
@@ -285,21 +285,21 @@ function bindEvents() {
       const weight = Number(els.setupWeight.value) || state.weight || 66;
       const targetWeight = Number(els.setupTarget.value) || state.targetWeight || 72;
       const diet = els.setupDiet.value || state.dietType || 'veg';
-      
+
       state.age = age;
       state.weight = weight;
       state.targetWeight = targetWeight;
       state.dietType = diet;
-      
+
       // Basic Bulking Calculation
       const bmr = 10 * weight + 6.25 * 175 - 5 * age + 5; // Assume 175cm male
       const maintenance = bmr * 1.55; // Active
       state.targetCalories = Math.round(maintenance + 400); // Surplus
       state.targetProtein = Math.round(weight * 2.2); // ~2.2g per kg
-      
+
       state.setupComplete = true;
       saveState();
-      
+
       els.setupModal.style.display = 'none';
       renderDashboard();
       showToast('Macros calculated! Time to bulk up.');
@@ -320,10 +320,10 @@ function bindEvents() {
   const testStart = document.getElementById('server-test-start');
   const testStop = document.getElementById('server-test-stop');
 
-  if (waterStart) waterStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/start`, {method: 'POST'}); showToast('45m water loop started!'); });
-  if (waterStop) waterStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/stop`, {method: 'POST'}); showToast('Water loop stopped.'); });
-  if (testStart) testStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/start`, {method: 'POST'}); showToast('5s test loop started!'); });
-  if (testStop) testStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/stop`, {method: 'POST'}); showToast('Test loop stopped.'); });
+  if (waterStart) waterStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/start`, { method: 'POST' }); showToast('45m water loop started!'); });
+  if (waterStop) waterStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/stop`, { method: 'POST' }); showToast('Water loop stopped.'); });
+  if (testStart) testStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/start`, { method: 'POST' }); showToast('5s test loop started!'); });
+  if (testStop) testStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/stop`, { method: 'POST' }); showToast('Test loop stopped.'); });
 
   els.exportButton.addEventListener('click', exportData);
   els.deleteButton.addEventListener('click', deleteData);
@@ -337,7 +337,7 @@ function bindEvents() {
   if (els.saveNameButton) {
     els.saveNameButton.addEventListener('click', saveProfileName);
   }
-  
+
   const editStatsBtn = document.getElementById('edit-stats-btn');
   if (editStatsBtn) {
     editStatsBtn.addEventListener('click', () => {
@@ -450,7 +450,7 @@ function renderDashboard() {
   els.levelValue.textContent = state.level;
   els.streakValue.textContent = state.streak;
   els.scoreValue.textContent = state.dailyScore;
-  
+
   if (els.calBar && els.proBar) {
     const calPercent = Math.min(100, Math.round((state.consumedCalories / state.targetCalories) * 100)) || 0;
     const proPercent = Math.min(100, Math.round((state.consumedProtein / state.targetProtein) * 100)) || 0;
@@ -660,20 +660,20 @@ async function getCoachReply(message) {
         response_format: { type: "json_object" }
       })
     });
-    
+
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
-    
+
     const textRes = data.choices[0].message.content.trim();
     const result = JSON.parse(textRes);
-    
+
     if (result.calories || result.protein) {
       state.consumedCalories += (result.calories || 0);
       state.consumedProtein += (result.protein || 0);
       saveState();
       renderDashboard();
     }
-    
+
     return result.reply;
   } catch (e) {
     console.error(e);
@@ -756,7 +756,7 @@ function analyzeMeal() {
 
 function completeQuickCheck(id, buttonEl = null) {
   if (state.completedHabits.includes(id)) return;
-  
+
   if (els.app) {
     els.app.style.opacity = '0.6';
     setTimeout(() => els.app.style.opacity = '1', 150);
@@ -807,6 +807,7 @@ function toggleNotifications() {
   localStorage.setItem('relix-notify', 'false');
   localStorage.setItem('relix-reminders-paused', 'true');
   clearReminderTimers();
+  cancelServerReminders();
   renderReminders();
 }
 
@@ -907,7 +908,7 @@ async function subscribeToPushNotifications() {
       // Backend key changed since we last subscribed (e.g. server restarted
       // without persistent VAPID keys) - the old subscription is dead weight.
       console.log('Push key changed on backend, resubscribing device...');
-      await subscription.unsubscribe().catch(() => {});
+      await subscription.unsubscribe().catch(() => { });
       subscription = null;
     }
 
@@ -950,6 +951,7 @@ function handleNotificationPermission(allowed) {
     localStorage.setItem('relix-reminders-paused', 'true');
     els.notifyToggle.checked = false;
     clearReminderTimers();
+    cancelServerReminders();
     renderReminders();
     closeNotificationPrompt();
     updateActionButtons();
@@ -991,7 +993,7 @@ function initializeReminderSystem() {
     return;
   }
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().catch(() => { });
   }
   Object.entries(state.reminders).forEach(([key, reminder]) => {
     if (!reminder) return;
@@ -1003,11 +1005,11 @@ function initializeReminderSystem() {
     scheduleReminder(key, delay);
   });
   renderReminders();
-  
+
   // Aggressive demo loop for background testing without a server
   spamTimer = setInterval(() => {
     if (!state.notifications) return clearInterval(spamTimer);
-    
+
     // Check Macros first!
     if (state.setupComplete) {
       if (state.consumedProtein < state.targetProtein) {
@@ -1037,6 +1039,34 @@ function scheduleReminder(key, delay) {
   if (!reminder) return;
   const timerId = window.setTimeout(() => triggerReminder(key), delay);
   state.reminderTimers[key] = timerId;
+
+  // Client setTimeout only fires while this tab/app is open. Mirror the same
+  // due time to the backend (keyed by reminder key, so re-opening the app
+  // just REPLACES the pending schedule instead of stacking duplicate pushes)
+  // so a real push still arrives on the lock screen even if the phone is
+  // locked or the app is fully closed.
+  if (state.notifications && !state.remindersPaused) {
+    fetch(`${BACKEND_URL}/api/push/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key,
+        title: `Relix · ${reminder.title}`,
+        body: reminder.description,
+        dueAt: reminder.nextDue
+      })
+    }).catch(() => { });
+  }
+}
+
+function cancelServerReminders() {
+  Object.keys(defaultReminders).forEach((key) => {
+    fetch(`${BACKEND_URL}/api/push/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key })
+    }).catch(() => { });
+  });
 }
 
 function clearReminderTimers() {
@@ -1061,7 +1091,7 @@ function respondToReminder(key, action, buttonEl = null) {
     els.app.style.opacity = '0.6';
     setTimeout(() => els.app.style.opacity = '1', 150);
   }
-  
+
   if (buttonEl) {
     buttonEl.style.backgroundColor = 'var(--primary)';
     buttonEl.style.color = '#fff';
@@ -1069,7 +1099,7 @@ function respondToReminder(key, action, buttonEl = null) {
     if (action === 'done') buttonEl.textContent = '✅ Done!';
     else if (action === 'skip') buttonEl.textContent = '⏭️ Skipped';
     else if (action === 'later') buttonEl.textContent = '⏱️ Snoozed';
-    
+
     // Delay state change so user can read the button text
     setTimeout(() => finalizeReminderResponse(key, action), 400);
   } else {
@@ -1115,6 +1145,7 @@ function toggleAllReminders() {
     showToast('Reminders resumed.');
   } else {
     clearReminderTimers();
+    cancelServerReminders();
     renderReminders();
     showToast('All reminders paused.');
   }
@@ -1127,9 +1158,9 @@ function renderReminders() {
   const unreadCount = pendingEntries.length;
   if ('setAppBadge' in navigator) {
     if (unreadCount > 0) {
-      navigator.setAppBadge(unreadCount).catch(() => {});
+      navigator.setAppBadge(unreadCount).catch(() => { });
     } else {
-      navigator.clearAppBadge().catch(() => {});
+      navigator.clearAppBadge().catch(() => { });
     }
   }
 
@@ -1139,9 +1170,9 @@ function renderReminders() {
       <span>${unreadCount} waiting</span>
     </div>
     ${pendingEntries.map(([key, reminder]) => {
-      const bubbleClass = reminder.lastAction === 'done' ? 'response-bubble done' : reminder.lastAction === 'skip' ? 'response-bubble later' : reminder.lastAction === 'later' ? 'response-bubble later' : 'response-bubble';
-      const bubbleText = reminder.lastAction === 'done' ? '✓ Done' : reminder.lastAction === 'skip' ? '↺ Later' : reminder.lastAction === 'later' ? '⏰ Snoozed' : 'Ready';
-      return `
+    const bubbleClass = reminder.lastAction === 'done' ? 'response-bubble done' : reminder.lastAction === 'skip' ? 'response-bubble later' : reminder.lastAction === 'later' ? 'response-bubble later' : 'response-bubble';
+    const bubbleText = reminder.lastAction === 'done' ? '✓ Done' : reminder.lastAction === 'skip' ? '↺ Later' : reminder.lastAction === 'later' ? '⏰ Snoozed' : 'Ready';
+    return `
         <div class="reminder-item pending">
           <div>
             <strong>${reminder.title}</strong>
@@ -1156,7 +1187,7 @@ function renderReminders() {
           </div>
         </div>
       `;
-    }).join('')}
+  }).join('')}
   ` : '';
 
   const standardMarkup = standardEntries.length ? `
@@ -1165,11 +1196,11 @@ function renderReminders() {
       <span>${standardEntries.length} ready</span>
     </div>
     ${standardEntries.map(([key, reminder]) => {
-      const diff = Math.max(0, reminder.nextDue - Date.now());
-      const nextText = diff < 60000 ? 'Almost ready' : `Next in ${Math.max(1, Math.round(diff / 60000))} min`;
-      const bubbleClass = reminder.lastAction === 'done' ? 'response-bubble done' : reminder.lastAction === 'skip' ? 'response-bubble later' : reminder.lastAction === 'later' ? 'response-bubble later' : 'response-bubble';
-      const bubbleText = reminder.lastAction === 'done' ? '✓ Done' : reminder.lastAction === 'skip' ? '↺ Later' : reminder.lastAction === 'later' ? '⏰ Snoozed' : 'Ready';
-      return `
+    const diff = Math.max(0, reminder.nextDue - Date.now());
+    const nextText = diff < 60000 ? 'Almost ready' : `Next in ${Math.max(1, Math.round(diff / 60000))} min`;
+    const bubbleClass = reminder.lastAction === 'done' ? 'response-bubble done' : reminder.lastAction === 'skip' ? 'response-bubble later' : reminder.lastAction === 'later' ? 'response-bubble later' : 'response-bubble';
+    const bubbleText = reminder.lastAction === 'done' ? '✓ Done' : reminder.lastAction === 'skip' ? '↺ Later' : reminder.lastAction === 'later' ? '⏰ Snoozed' : 'Ready';
+    return `
         <div class="reminder-item">
           <div>
             <strong>${reminder.title}</strong>
@@ -1184,7 +1215,7 @@ function renderReminders() {
           </div>
         </div>
       `;
-    }).join('')}
+  }).join('')}
   ` : '';
 
   els.reminderList.innerHTML = `${pendingMarkup}${standardMarkup}`;
@@ -1218,7 +1249,7 @@ function showNotification(title, body, tag) {
       if ('Notification' in window && Notification.permission === 'granted') {
         registration.showNotification(title, options);
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return;
   }
 
@@ -1230,7 +1261,7 @@ function showNotification(title, body, tag) {
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+    navigator.serviceWorker.register('./service-worker.js').catch(() => { });
   }
 }
 

@@ -1,0 +1,18 @@
+name: Keep Reliv backend awake
+
+# Render's free tier sleeps the server after ~15 min with no HTTP traffic.
+# If it's asleep when a reminder is due, that push is missed until something
+# wakes it back up. This pings it every 10 minutes so it never gets the
+# chance to sleep - the actual fix for "no notification miss".
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend
+        run: curl -fsS https://relivpwa.onrender.com/api/ping
