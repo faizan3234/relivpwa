@@ -89,7 +89,10 @@
               </div>
               <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
 
-              <strong style="margin-top:16px;">Quick-Pick Log</strong>
+              <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
+                <strong>Quick-Pick Log</strong>
+                <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset Daily</button>
+              </div>
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                 <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍛</span>Dal Chawal</button>
                 <button class="ghost-btn quick-pick-btn" data-food="burger" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍔</span>Burger</button>
@@ -97,10 +100,10 @@
                 <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍪</span>Chai & Biscuit</button>
               </div>
 
-              <div class="dashed-list" style="margin-top:12px;">
-                <div class="checkin-pill"><span>Drink water</span><button data-check="water" type="button">Tap to complete</button></div>
-                <div class="checkin-pill"><span>Stretch</span><button data-check="stretch" type="button">Tap to complete</button></div>
-              </div>
+              <form id="custom-food-form" style="display:flex; gap:8px; margin-top:8px;">
+                <input type="text" id="custom-food-input" placeholder="Or type e.g. 1 slice of pizza..." aria-label="Custom food" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" required />
+                <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
+              </form>
             </div>
           </div>
         </div>
@@ -111,32 +114,22 @@
               <p>Gentle nudges</p>
               <h3>Daily check-ins</h3>
             </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 12px;">
-              <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3;">Start 45m Water Loop</button>
-              <button id="server-water-stop" class="ghost-btn" type="button">Stop Water</button>
-            </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <button id="server-test-start" class="primary-btn" type="button" style="background:#f44336;">Start 5s Test Loop</button>
-              <button id="server-test-stop" class="ghost-btn" type="button">Stop Test</button>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom: 8px;">
+              <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3; font-size:0.8rem; padding:8px;">▶ 45m Water</button>
+              <button id="server-water-stop" class="ghost-btn" type="button" style="font-size:0.8rem; padding:8px;">⏹ Stop Water</button>
+              <button id="server-test-start" class="primary-btn" type="button" style="background:#f44336; font-size:0.8rem; padding:8px;">▶ 5s Test</button>
+              <button id="server-test-stop" class="ghost-btn" type="button" style="font-size:0.8rem; padding:8px;">⏹ Stop Test</button>
             </div>
           </div>
           <div id="reminder-list" class="reminder-list"></div>
         </div>
 
-        <div class="grid-2">
-          <div class="mission-card">
-            <strong>Daily mission</strong>
-            <h3>10-minute mobility flow</h3>
-            <p>Feel lighter, stronger, and more focused. Complete it to earn another boost of XP.</p>
-            <button class="primary-btn" type="button">Start mission</button>
-          </div>
-          <div class="quote-card">
-            <strong>Motivational quote</strong>
-            <p>“Small, repeatable actions build a life that feels calm and strong.”</p>
-            <div class="ring-copy">
-              <strong>Next reminder</strong>
-              <span id="reminder-value">Hydration check-in · 3:30 PM</span>
-            </div>
+        <div class="quote-card" style="margin-bottom: 24px;">
+          <strong>Motivational quote</strong>
+          <p>“Small, repeatable actions build a life that feels calm and strong.”</p>
+          <div class="ring-copy">
+            <strong>Next reminder</strong>
+            <span id="reminder-value">Hydration check-in · 3:30 PM</span>
           </div>
         </div>
 
@@ -289,6 +282,7 @@
           <button id="close-notification-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
         </div>
         <p>Relix can nudge you for water, skin care, and nutrition check-ins. Allow notifications to keep these reminders active.</p>
+        <p style="font-size: 0.8rem; color: var(--muted); margin-top: 8px;"><strong>iPhone users:</strong> Apple requires you to add this app to your Home Screen first. Tap the Share icon &gt; 'Add to Home Screen', then open it from there to enable notifications!</p>
         <div class="modal-actions">
           <button id="enable-notifications" class="primary-btn" type="button">Allow notifications</button>
           <button id="dismiss-notifications" class="ghost-btn" type="button">Not now</button>

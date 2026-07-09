@@ -310,6 +310,42 @@ function bindEvents() {
     });
   });
 
+  const resetDailyBtn = document.getElementById('reset-daily-progress');
+  if (resetDailyBtn) {
+    resetDailyBtn.addEventListener('click', () => {
+      state.consumedCalories = 0;
+      state.consumedProtein = 0;
+      saveState();
+      renderDashboard();
+      showToast('Daily progress reset.');
+    });
+  }
+
+  const customFoodForm = document.getElementById('custom-food-form');
+  const customFoodInput = document.getElementById('custom-food-input');
+  if (customFoodForm && customFoodInput) {
+    customFoodForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const foodItem = customFoodInput.value.trim();
+      if (!foodItem) return;
+      
+      const btn = customFoodForm.querySelector('button');
+      const originalText = btn.textContent;
+      btn.textContent = '...';
+      btn.disabled = true;
+      
+      try {
+        const reply = await getCoachReply(foodItem);
+        showToast(reply.includes('trouble processing') ? 'Error logging food. Check API key.' : '✅ Custom food logged!');
+      } catch (err) {
+        showToast('Error logging food.');
+      }
+      
+      btn.textContent = originalText;
+      btn.disabled = false;
+      customFoodInput.value = '';
+    });
+  }
 
   if (els.saveGroq) {
     els.saveGroq.addEventListener('click', () => {
