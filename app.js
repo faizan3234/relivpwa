@@ -279,32 +279,37 @@ function bindEvents() {
     });
   }
 
-  if (els.finishSetup) {
-    els.finishSetup.addEventListener('click', () => {
-      const age = Number(els.setupAge.value) || state.age || 22;
-      const weight = Number(els.setupWeight.value) || state.weight || 66;
-      const targetWeight = Number(els.setupTarget.value) || state.targetWeight || 72;
-      const diet = els.setupDiet.value || state.dietType || 'veg';
-
-      state.age = age;
-      state.weight = weight;
-      state.targetWeight = targetWeight;
-      state.dietType = diet;
-
-      // Basic Bulking Calculation
-      const bmr = 10 * weight + 6.25 * 175 - 5 * age + 5; // Assume 175cm male
-      const maintenance = bmr * 1.55; // Active
-      state.targetCalories = Math.round(maintenance + 400); // Surplus
-      state.targetProtein = Math.round(weight * 2.2); // ~2.2g per kg
-
+  document.querySelectorAll('.vibe-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Vibe-based setup: no strict tracking, just assign generic hidden macros so the rings work
+      state.targetCalories = 2500;
+      state.targetProtein = 100;
       state.setupComplete = true;
       saveState();
 
-      els.setupModal.style.display = 'none';
+      if (els.setupModal) els.setupModal.style.display = 'none';
       renderDashboard();
-      showToast('Macros calculated! Time to bulk up.');
+      showToast('Vibe set! You are ready to go.');
     });
-  }
+  });
+
+  document.querySelectorAll('.quick-pick-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const food = e.currentTarget.dataset.food;
+      let cals = 0, pro = 0;
+      if (food === 'dal') { cals = 350; pro = 10; }
+      else if (food === 'burger') { cals = 500; pro = 15; }
+      else if (food === 'coffee') { cals = 100; pro = 2; }
+      else if (food === 'chai') { cals = 150; pro = 3; }
+      
+      state.consumedCalories += cals;
+      state.consumedProtein += pro;
+      saveState();
+      renderDashboard();
+      showToast('✅ Logged! No math required.');
+    });
+  });
+
 
   if (els.saveGroq) {
     els.saveGroq.addEventListener('click', () => {
@@ -1006,32 +1011,22 @@ function initializeReminderSystem() {
   });
   renderReminders();
 
-  // Aggressive demo loop for background testing without a server
+  // Lazy mode demo loop: gentle check-in instead of aggressive macro nags
   spamTimer = setInterval(() => {
     if (!state.notifications) return clearInterval(spamTimer);
 
-    // Check Macros first!
-    if (state.setupComplete) {
-      if (state.consumedProtein < state.targetProtein) {
-        const diff = state.targetProtein - state.consumedProtein;
-        showNotification('Coach Relix', `You are slacking! You still need ${diff}g of protein today to reach your goal. Eat up!`, 'macro-nag');
-        return; // Only nag one thing at a time
-      }
-      if (state.consumedCalories < state.targetCalories) {
-        const diff = state.targetCalories - state.consumedCalories;
-        showNotification('Coach Relix', `You are missing ${diff} calories today! Drink a shake or eat some peanut butter!`, 'macro-nag');
+    // No strict macro nagging. Just a vibe check.
+    if (state.setupComplete && Math.random() > 0.5) {
+        showNotification('Coach Relix', 'Ate something good today? 🍛👍 Tap a quick-pick when you can.', 'macro-nag');
         return;
-      }
     }
 
     const pending = Object.entries(state.reminders).filter(([, r]) => r.pending);
     if (pending.length > 0) {
       const [key, rem] = pending[Math.floor(Math.random() * pending.length)];
-      showNotification(`Missed: ${rem.title}`, rem.description, key);
-    } else {
-      showNotification('Reliv Reminder', '💧 Everything is complete!', 'generic');
+      showNotification(`Missed: ${rem.title}`, "No big deal — quick tap now?", key);
     }
-  }, 30000); // Check/notify every 30 seconds
+  }, 120000); // Check/notify every 2 mins instead of 30s
 }
 
 function scheduleReminder(key, delay) {

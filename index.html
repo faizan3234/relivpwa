@@ -76,7 +76,7 @@
               </div>
             </div>
             <div class="ring-card" style="display:flex; flex-direction:column; gap:8px;">
-              <strong>Daily Macros (Bulk Phase)</strong>
+              <strong>Daily Overview</strong>
               <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
                 <span style="font-size:0.9rem;">Calories</span>
                 <span id="cal-text" style="font-size:0.8rem; color:var(--muted);">0 / 2800 kcal</span>
@@ -88,6 +88,14 @@
                 <span id="pro-text" style="font-size:0.8rem; color:var(--muted);">0 / 140g</span>
               </div>
               <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
+
+              <strong style="margin-top:16px;">Quick-Pick Log</strong>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍛</span>Dal Chawal</button>
+                <button class="ghost-btn quick-pick-btn" data-food="burger" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍔</span>Burger</button>
+                <button class="ghost-btn quick-pick-btn" data-food="coffee" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">☕</span>Coffee</button>
+                <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍪</span>Chai & Biscuit</button>
+              </div>
 
               <div class="dashed-list" style="margin-top:12px;">
                 <div class="checkin-pill"><span>Drink water</span><button data-check="water" type="button">Tap to complete</button></div>
@@ -312,18 +320,14 @@
         <div class="hero-head">
           <div class="hero-title">
             <p>Welcome to Relix</p>
-            <h3>Set your target</h3>
+            <h3>What's your vibe?</h3>
           </div>
         </div>
         <div id="setup-body" style="display:flex; flex-direction:column; gap:12px; padding:20px;">
-          <input id="setup-age" type="number" placeholder="Age (e.g. 22)" class="text-input" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
-          <input id="setup-weight" type="number" placeholder="Current Weight (kg) e.g. 66" class="text-input" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
-          <input id="setup-target" type="number" placeholder="Target Weight (kg) e.g. 72" class="text-input" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
-          <select id="setup-diet" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
-            <option value="veg">Vegetarian (Indian)</option>
-            <option value="nonveg">Non-Vegetarian (Indian)</option>
-          </select>
-          <button id="finish-setup" class="primary-btn" style="margin-top:12px; width:100%;">Calculate My Macros</button>
+          <p style="color: var(--muted); margin-top:-8px; margin-bottom: 8px;">No complex math. No strict tracking. Just tap your goal.</p>
+          <button class="ghost-btn vibe-btn" data-vibe="chill" type="button" style="justify-content: flex-start; font-size: 1.1rem; padding: 16px;">🧘 Just chilling</button>
+          <button class="ghost-btn vibe-btn" data-vibe="health" type="button" style="justify-content: flex-start; font-size: 1.1rem; padding: 16px;">🥗 Get healthier</button>
+          <button class="ghost-btn vibe-btn" data-vibe="muscle" type="button" style="justify-content: flex-start; font-size: 1.1rem; padding: 16px;">💪 Build muscle</button>
         </div>
       </div>
     </div>
