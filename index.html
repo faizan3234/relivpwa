@@ -75,14 +75,23 @@
                 <span>Consistency is your superpower.</span>
               </div>
             </div>
-            <div class="ring-card">
-              <strong>Weekly progress</strong>
-              <div class="progress-track"><span id="progress-bar"></span></div>
-              <p id="progress-text">Weekly progress · 82% complete</p>
-              <div class="dashed-list">
+            <div class="ring-card" style="display:flex; flex-direction:column; gap:8px;">
+              <strong>Daily Macros (Bulk Phase)</strong>
+              <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
+                <span style="font-size:0.9rem;">Calories</span>
+                <span id="cal-text" style="font-size:0.8rem; color:var(--muted);">0 / 2800 kcal</span>
+              </div>
+              <div class="progress-track"><span id="cal-bar" style="width:0%"></span></div>
+              
+              <div style="display:flex; justify-content:space-between; margin-top:8px; margin-bottom:-4px;">
+                <span style="font-size:0.9rem;">Protein</span>
+                <span id="pro-text" style="font-size:0.8rem; color:var(--muted);">0 / 140g</span>
+              </div>
+              <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
+
+              <div class="dashed-list" style="margin-top:12px;">
                 <div class="checkin-pill"><span>Drink water</span><button data-check="water" type="button">Tap to complete</button></div>
                 <div class="checkin-pill"><span>Stretch</span><button data-check="stretch" type="button">Tap to complete</button></div>
-                <div class="checkin-pill"><span>Supplements</span><button data-check="supplement" type="button">Tap to complete</button></div>
               </div>
             </div>
           </div>
@@ -217,6 +226,13 @@
 
           <div class="settings-card">
             <div class="setting-row"><span>Name</span><div style="display:flex; gap:8px; align-items:center;"><input id="name-input" placeholder="Your name" aria-label="Your name" style="padding:8px 10px; border-radius:12px; border:1px solid var(--border); background: var(--card); color: var(--text);" /><button id="save-name" class="ghost-btn" type="button">Save</button></div></div>
+            <div class="setting-row">
+              <span style="line-height:1.2;">Gemini AI Key<br><small style="font-size:0.7rem; color:var(--muted);"><a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--primary);">Get Free Key</a></small></span>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input id="gemini-input" type="password" placeholder="AI Key" aria-label="Gemini API Key" style="padding:8px 10px; border-radius:12px; border:1px solid var(--border); background: var(--card); color: var(--text); width: 120px;" />
+                <button id="save-gemini" class="ghost-btn" type="button">Save</button>
+              </div>
+            </div>
             <div class="setting-row"><span>Team</span><button id="invite-team" class="primary-btn" type="button" style="background: var(--text); color: var(--bg);">Invite your Team</button></div>
             <div class="setting-row"><span>Dark mode</span><label class="switch"><input id="dark-toggle" type="checkbox" /><span></span></label></div>
             <div class="setting-row"><span>Notifications</span><div style="display:flex; gap:8px; align-items:center;"><label class="switch"><input id="notify-toggle" type="checkbox" checked /><span></span></label><button id="settings-enable-alerts" class="ghost-btn" type="button">Allow alerts</button></div></div>
@@ -280,6 +296,29 @@
         <div class="modal-actions">
           <button id="install-modal-action" class="primary-btn" type="button">Install now</button>
           <button id="dismiss-install-modal" class="ghost-btn" type="button">Later</button>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- Onboarding Setup Modal -->
+    <div id="setup-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:9999;">
+      <div class="modal-card">
+        <div class="hero-head">
+          <div class="hero-title">
+            <p>Welcome to Relix</p>
+            <h3>Set your target</h3>
+          </div>
+        </div>
+        <div id="setup-body" style="display:flex; flex-direction:column; gap:12px; padding:20px;">
+          <input id="setup-age" type="number" placeholder="Age (e.g. 22)" class="text-input" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
+          <input id="setup-weight" type="number" placeholder="Current Weight (kg) e.g. 66" class="text-input" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
+          <input id="setup-target" type="number" placeholder="Target Weight (kg) e.g. 72" class="text-input" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
+          <select id="setup-diet" style="padding:10px; border-radius:8px; border:1px solid var(--border); width:100%; box-sizing:border-box;">
+            <option value="veg">Vegetarian (Indian)</option>
+            <option value="nonveg">Non-Vegetarian (Indian)</option>
+          </select>
+          <button id="finish-setup" class="primary-btn" style="margin-top:12px; width:100%;">Calculate My Macros</button>
         </div>
       </div>
     </div>

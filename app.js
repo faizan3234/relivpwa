@@ -17,12 +17,27 @@ const defaultReminders = {
   diet: { title: 'Protein & calories', description: 'Did you log a protein-focused meal?', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 10800000 }
 };
 
+// ---- CONFIGURATION ----
+// UPDATE THIS URL ONCE YOU DEPLOY TO RENDER:
+const BACKEND_URL = 'https://YOUR-APP-NAME.onrender.com';
+// -----------------------
+
 const state = {
   darkMode: localStorage.getItem('relix-dark') === 'true',
   notifications: localStorage.getItem('relix-notify') !== 'false',
   remindersPaused: localStorage.getItem('relix-reminders-paused') === 'true',
   activeTab: 'dashboard',
   profileName: localStorage.getItem('relix-profile-name') || 'Your Name',
+  geminiKey: localStorage.getItem('relix-gemini-key') || '',
+  setupComplete: localStorage.getItem('relix-setup') === 'true',
+  age: Number(localStorage.getItem('relix-age') || 22),
+  weight: Number(localStorage.getItem('relix-weight') || 66),
+  targetWeight: Number(localStorage.getItem('relix-target-weight') || 72),
+  dietType: localStorage.getItem('relix-diet') || 'omn',
+  targetCalories: Number(localStorage.getItem('relix-target-cal') || 2800),
+  targetProtein: Number(localStorage.getItem('relix-target-pro') || 135),
+  consumedCalories: Number(localStorage.getItem('relix-consumed-cal') || 0),
+  consumedProtein: Number(localStorage.getItem('relix-consumed-pro') || 0),
   xp: Number(localStorage.getItem('relix-xp') || 0),
   level: Number(localStorage.getItem('relix-level') || 1),
   streak: Number(localStorage.getItem('relix-streak') || 0),
@@ -108,7 +123,19 @@ const els = {
   languageSelect: document.getElementById('language-select'),
   exportButton: document.getElementById('export-data'),
   deleteButton: document.getElementById('delete-data'),
-  inviteTeam: document.getElementById('invite-team')
+  inviteTeam: document.getElementById('invite-team'),
+  setupModal: document.getElementById('setup-modal'),
+  setupAge: document.getElementById('setup-age'),
+  setupWeight: document.getElementById('setup-weight'),
+  setupTarget: document.getElementById('setup-target'),
+  setupDiet: document.getElementById('setup-diet'),
+  finishSetup: document.getElementById('finish-setup'),
+  calBar: document.getElementById('cal-bar'),
+  calText: document.getElementById('cal-text'),
+  proBar: document.getElementById('pro-bar'),
+  proText: document.getElementById('pro-text'),
+  geminiInput: document.getElementById('gemini-input'),
+  saveGemini: document.getElementById('save-gemini')
 };
 
 function init() {
@@ -140,6 +167,10 @@ function init() {
   registerNotifications();
   showWelcome();
   processMissedActions();
+  
+  if (!state.setupComplete && els.setupModal) {
+    els.setupModal.style.display = 'flex';
+  }
 }
 
 async function processMissedActions() {
@@ -237,6 +268,41 @@ function bindEvents() {
         navigator.clipboard.writeText(window.location.href);
         showToast('Link copied to clipboard!');
       }
+    });
+  }
+
+  if (els.finishSetup) {
+    els.finishSetup.addEventListener('click', () => {
+      const age = Number(els.setupAge.value) || 22;
+      const weight = Number(els.setupWeight.value) || 66;
+      const targetWeight = Number(els.setupTarget.value) || 72;
+      const diet = els.setupDiet.value || 'veg';
+      
+      state.age = age;
+      state.weight = weight;
+      state.targetWeight = targetWeight;
+      state.dietType = diet;
+      
+      // Basic Bulking Calculation
+      const bmr = 10 * weight + 6.25 * 175 - 5 * age + 5; // Assume 175cm male
+      const maintenance = bmr * 1.55; // Active
+      state.targetCalories = Math.round(maintenance + 400); // Surplus
+      state.targetProtein = Math.round(weight * 2.2); // ~2.2g per kg
+      
+      state.setupComplete = true;
+      saveState();
+      
+      els.setupModal.style.display = 'none';
+      renderDashboard();
+      showToast('Macros calculated! Time to bulk up.');
+    });
+  }
+
+  if (els.saveGemini) {
+    els.saveGemini.addEventListener('click', () => {
+      state.geminiKey = els.geminiInput.value.trim();
+      saveState();
+      showToast('API Key saved.');
     });
   }
 
@@ -348,9 +414,15 @@ function renderDashboard() {
   els.levelValue.textContent = state.level;
   els.streakValue.textContent = state.streak;
   els.scoreValue.textContent = state.dailyScore;
-  els.weeklyValue.textContent = `${state.weekly}%`;
-  els.progressBar.style.width = `${state.weekly}%`;
-  els.progressText.textContent = `Weekly progress · ${state.weekly}% complete`;
+  
+  if (els.calBar && els.proBar) {
+    const calPercent = Math.min(100, Math.round((state.consumedCalories / state.targetCalories) * 100)) || 0;
+    const proPercent = Math.min(100, Math.round((state.consumedProtein / state.targetProtein) * 100)) || 0;
+    els.calBar.style.width = `${calPercent}%`;
+    els.proBar.style.width = `${proPercent}%`;
+    els.calText.textContent = `${state.consumedCalories} / ${state.targetCalories} kcal`;
+    els.proText.textContent = `${state.consumedProtein} / ${state.targetProtein} g`;
+  }
 
   const activity = state.recentActivity.length ? state.recentActivity.slice(0, 3) : [{ label: 'Start your first habit', time: 'No activity yet' }];
 
@@ -518,32 +590,52 @@ function sendCoachMessage(message) {
 }
 
 async function getCoachReply(message) {
-  const entry = retrieveKnowledge(message);
-  if (entry) {
-    return entry.answer;
+  if (!state.geminiKey) {
+    return 'Please set your Gemini API Key in the Profile tab so I can analyze your food and track your macros!';
   }
 
-  if (window.RELIX_GROQ_API_KEY && window.RELIX_GROQ_API_KEY !== 'YOUR_GROQ_API_KEY') {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const prompt = `You are a strict Indian fitness coach helping a ${state.age}yo, ${state.weight}kg male reach ${state.targetWeight}kg (Bulking phase). 
+  Their diet preference is: ${state.dietType}.
+  Their daily goal is ${state.targetCalories} kcal and ${state.targetProtein}g protein.
+  They have consumed ${state.consumedCalories} kcal and ${state.consumedProtein}g protein so far today.
+  
+  User says: "${message}"
+  
+  If they logged food, estimate the calories and protein in it (use Indian food estimates if applicable, like paneer, puri, biryani, etc).
+  If it's junk food, lightly scold them but keep it encouraging.
+  
+  Reply strictly in JSON format with NO markdown formatting:
+  {
+    "reply": "Your coaching response here",
+    "calories": 200, // exact number of calories to add to tracker (0 if no food logged)
+    "protein": 10 // exact grams of protein to add to tracker (0 if no food logged)
+  }`;
+
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${window.RELIX_GROQ_API_KEY}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: 'You are Relix, a health and wellness coach. Answer only health and wellness topics. Refuse politics, sports, movies, programming, relationships, and finance questions politely.' },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.7
+        contents: [{ parts: [{ text: prompt }] }]
       })
     });
+    
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || 'I can help with recovery, sleep, nutrition, movement, and wellbeing.';
+    const textRes = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const result = JSON.parse(textRes);
+    
+    if (result.calories || result.protein) {
+      state.consumedCalories += (result.calories || 0);
+      state.consumedProtein += (result.protein || 0);
+      saveState();
+      renderDashboard();
+    }
+    
+    return result.reply;
+  } catch (e) {
+    console.error(e);
+    return 'I had trouble processing that. Make sure your Gemini API key is correct.';
   }
-
-  return 'I can help with recovery, sleep, nutrition, movement, and wellbeing.';
 }
 
 function loadKnowledgeBase() {
@@ -708,9 +800,32 @@ function enableNotifications() {
 }
 
 async function subscribeToPushNotifications() {
-  // Backend push registration paused as requested. 
-  // We are relying 100% on the local browser Notification API.
-  console.log("Local notification mode active. Backend push disabled.");
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const vapidRes = await fetch(`${BACKEND_URL}/api/push/vapid-public-key`);
+    const vapidPublicKey = await vapidRes.text();
+
+    const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
+    const base64 = (vapidPublicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: outputArray
+    });
+
+    await fetch(`${BACKEND_URL}/api/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription })
+    });
+    console.log("Successfully subscribed to real Push Notifications!");
+  } catch (err) {
+    console.error('Push setup failed:', err);
+  }
 }
 
 function showNotificationPrompt() {
@@ -789,6 +904,21 @@ function initializeReminderSystem() {
   // Aggressive demo loop for background testing without a server
   spamTimer = setInterval(() => {
     if (!state.notifications) return clearInterval(spamTimer);
+    
+    // Check Macros first!
+    if (state.setupComplete) {
+      if (state.consumedProtein < state.targetProtein) {
+        const diff = state.targetProtein - state.consumedProtein;
+        showNotification('Coach Relix', `You are slacking! You still need ${diff}g of protein today to reach your goal. Eat up!`, 'macro-nag');
+        return; // Only nag one thing at a time
+      }
+      if (state.consumedCalories < state.targetCalories) {
+        const diff = state.targetCalories - state.consumedCalories;
+        showNotification('Coach Relix', `You are missing ${diff} calories today! Drink a shake or eat some peanut butter!`, 'macro-nag');
+        return;
+      }
+    }
+
     const pending = Object.entries(state.reminders).filter(([, r]) => r.pending);
     if (pending.length > 0) {
       const [key, rem] = pending[Math.floor(Math.random() * pending.length)];
@@ -1083,6 +1213,16 @@ function deleteData() {
 }
 
 function saveState() {
+  localStorage.setItem('relix-setup', String(state.setupComplete));
+  localStorage.setItem('relix-gemini-key', state.geminiKey);
+  localStorage.setItem('relix-age', String(state.age));
+  localStorage.setItem('relix-weight', String(state.weight));
+  localStorage.setItem('relix-target-weight', String(state.targetWeight));
+  localStorage.setItem('relix-diet', state.dietType);
+  localStorage.setItem('relix-target-cal', String(state.targetCalories));
+  localStorage.setItem('relix-target-pro', String(state.targetProtein));
+  localStorage.setItem('relix-consumed-cal', String(state.consumedCalories));
+  localStorage.setItem('relix-consumed-pro', String(state.consumedProtein));
   localStorage.setItem('relix-profile-name', state.profileName);
   localStorage.setItem('relix-xp', String(state.xp));
   localStorage.setItem('relix-level', String(state.level));
