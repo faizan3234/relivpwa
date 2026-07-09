@@ -335,8 +335,18 @@ function bindEvents() {
       btn.disabled = true;
       
       try {
-        const reply = await getCoachReply(foodItem);
-        showToast(reply.includes('trouble processing') ? 'Error logging food. Check API key.' : '✅ Custom food logged!');
+        if (!state.groqKey) {
+          const dummyCals = 300 + Math.floor(Math.random() * 200);
+          const dummyPro = 10 + Math.floor(Math.random() * 15);
+          state.consumedCalories += dummyCals;
+          state.consumedProtein += dummyPro;
+          saveState();
+          renderDashboard();
+          showToast(`✅ Logged ${dummyCals} kcal! (Mock)`);
+        } else {
+          const reply = await getCoachReply(foodItem);
+          showToast(reply.includes('trouble processing') ? 'Error logging food. Check API key.' : '✅ Custom food logged!');
+        }
       } catch (err) {
         showToast('Error logging food.');
       }
@@ -1047,22 +1057,7 @@ function initializeReminderSystem() {
   });
   renderReminders();
 
-  // Lazy mode demo loop: gentle check-in instead of aggressive macro nags
-  spamTimer = setInterval(() => {
-    if (!state.notifications) return clearInterval(spamTimer);
-
-    // No strict macro nagging. Just a vibe check.
-    if (state.setupComplete && Math.random() > 0.5) {
-        showNotification('Coach Relix', 'Ate something good today? 🍛👍 Tap a quick-pick when you can.', 'macro-nag');
-        return;
-    }
-
-    const pending = Object.entries(state.reminders).filter(([, r]) => r.pending);
-    if (pending.length > 0) {
-      const [key, rem] = pending[Math.floor(Math.random() * pending.length)];
-      showNotification(`Missed: ${rem.title}`, "No big deal — quick tap now?", key);
-    }
-  }, 120000); // Check/notify every 2 mins instead of 30s
+  // Local vibe check removed. It is now handled by the server (real push notifications)
 }
 
 function scheduleReminder(key, delay) {

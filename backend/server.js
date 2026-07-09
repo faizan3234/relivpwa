@@ -242,10 +242,10 @@ app.post('/api/push/water/stop', (req, res) => {
 
 app.post('/api/push/test/start', (req, res) => {
   if (testInterval) clearInterval(testInterval);
-  broadcast({ title: 'Reliv Test', body: '🔔 5-second test notification!' });
+  broadcast({ title: 'Coach Relix', body: 'Ate something good today? 🍛👍 Tap a quick-pick when you can.', reminderKey: 'macro-nag' });
   testInterval = setInterval(() => {
-    broadcast({ title: 'Reliv Test', body: '🔔 5-second test notification!' });
-  }, 5000); // 5 seconds
+    broadcast({ title: 'Coach Relix', body: 'Ate something good today? 🍛👍 Tap a quick-pick when you can.', reminderKey: 'macro-nag' });
+  }, 60000); // 60 seconds
   res.json({ ok: true, status: 'started' });
 });
 
