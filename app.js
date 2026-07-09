@@ -28,7 +28,7 @@ const state = {
   remindersPaused: localStorage.getItem('relix-reminders-paused') === 'true',
   activeTab: 'dashboard',
   profileName: localStorage.getItem('relix-profile-name') || 'Your Name',
-  geminiKey: localStorage.getItem('relix-gemini-key') || '',
+  groqKey: localStorage.getItem('relix-groq-key') || '',
   setupComplete: localStorage.getItem('relix-setup') === 'true',
   age: Number(localStorage.getItem('relix-age') || 22),
   weight: Number(localStorage.getItem('relix-weight') || 66),
@@ -134,8 +134,8 @@ const els = {
   calText: document.getElementById('cal-text'),
   proBar: document.getElementById('pro-bar'),
   proText: document.getElementById('pro-text'),
-  geminiInput: document.getElementById('gemini-input'),
-  saveGemini: document.getElementById('save-gemini')
+  groqInput: document.getElementById('groq-input'),
+  saveGroq: document.getElementById('save-groq')
 };
 
 function init() {
@@ -298,11 +298,11 @@ function bindEvents() {
     });
   }
 
-  if (els.saveGemini) {
-    els.saveGemini.addEventListener('click', () => {
-      state.geminiKey = els.geminiInput.value.trim();
+  if (els.saveGroq) {
+    els.saveGroq.addEventListener('click', () => {
+      state.groqKey = els.groqInput.value.trim();
       saveState();
-      showToast('API Key saved.');
+      showToast('Groq API Key saved.');
     });
   }
 
@@ -601,8 +601,8 @@ function sendCoachMessage(message) {
 }
 
 async function getCoachReply(message) {
-  if (!state.geminiKey) {
-    return 'Please set your Gemini API Key in the Profile tab so I can analyze your food and track your macros!';
+  if (!state.groqKey) {
+    return 'Please set your Groq API Key in the Profile tab so I can analyze your food and track your macros!';
   }
 
   const prompt = `You are a strict Indian fitness coach helping a ${state.age}yo, ${state.weight}kg male reach ${state.targetWeight}kg (Bulking phase). 
@@ -623,16 +623,23 @@ async function getCoachReply(message) {
   }`;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiKey}`, {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${state.groqKey}`
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" }
       })
     });
     
     const data = await response.json();
-    const textRes = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+    if (data.error) throw new Error(data.error.message);
+    
+    const textRes = data.choices[0].message.content.trim();
     const result = JSON.parse(textRes);
     
     if (result.calories || result.protein) {
@@ -645,7 +652,7 @@ async function getCoachReply(message) {
     return result.reply;
   } catch (e) {
     console.error(e);
-    return 'I had trouble processing that. Make sure your Gemini API key is correct.';
+    return 'I had trouble processing that. Make sure your Groq API key is correct.';
   }
 }
 
@@ -1225,7 +1232,7 @@ function deleteData() {
 
 function saveState() {
   localStorage.setItem('relix-setup', String(state.setupComplete));
-  localStorage.setItem('relix-gemini-key', state.geminiKey);
+  localStorage.setItem('relix-groq-key', state.groqKey);
   localStorage.setItem('relix-age', String(state.age));
   localStorage.setItem('relix-weight', String(state.weight));
   localStorage.setItem('relix-target-weight', String(state.targetWeight));
