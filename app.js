@@ -19,7 +19,7 @@ const defaultReminders = {
 
 // ---- CONFIGURATION ----
 // UPDATE THIS URL ONCE YOU DEPLOY TO RENDER:
-const BACKEND_URL = 'https://YOUR-APP-NAME.onrender.com';
+const BACKEND_URL = 'https://relivpwa.onrender.com';
 // -----------------------
 
 const state = {
