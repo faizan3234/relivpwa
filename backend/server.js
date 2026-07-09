@@ -143,6 +143,14 @@ app.post('/api/push/unsubscribe', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/push/debug', (req, res) => {
+  res.json({
+    subscriberCount: subscriptions.size,
+    hasEnvVapidKeys: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+    vapidPublicKey: vapidKeys.publicKey
+  });
+});
+
 app.post('/api/push/remind', (req, res) => {
   const { message = "💧 Reminding you: Time to check in!", delayMs = 300000 } = req.body || {};
   setTimeout(() => {

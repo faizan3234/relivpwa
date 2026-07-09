@@ -373,8 +373,44 @@ function bindEvents() {
 
   if (waterStart) waterStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/start`, { method: 'POST' }); showToast('45m water loop started!'); });
   if (waterStop) waterStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/stop`, { method: 'POST' }); showToast('Water loop stopped.'); });
-  if (testStart) testStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/start`, { method: 'POST' }); showToast('5s test loop started!'); });
-  if (testStop) testStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/stop`, { method: 'POST' }); showToast('Test loop stopped.'); });
+  if (testStart) testStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/start`, { method: 'POST' }); showToast('Vibe check loop started!'); });
+  if (testStop) testStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/stop`, { method: 'POST' }); showToast('Vibe check loop stopped.'); });
+
+  const debugPushBtn = document.getElementById('debug-push-btn');
+  const forceResubBtn = document.getElementById('force-resub-btn');
+
+  if (debugPushBtn) {
+    debugPushBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/push/debug`);
+        const data = await res.json();
+        const hasKeys = data.hasEnvVapidKeys ? '✅ Stable Env Keys' : '❌ Ephemeral Keys (WILL BREAK ON DEPLOY)';
+        alert(`Push System Status:\n\nSubscribers: ${data.subscriberCount}\nVAPID Keys: ${hasKeys}`);
+      } catch (e) {
+        alert('Could not reach backend. Is Render awake?');
+      }
+    });
+  }
+
+  if (forceResubBtn) {
+    forceResubBtn.addEventListener('click', async () => {
+      forceResubBtn.textContent = '...';
+      forceResubBtn.disabled = true;
+      try {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) await sub.unsubscribe().catch(() => {});
+        }
+        await subscribeToPushNotifications();
+        showToast('Resubscribed to push notifications!');
+      } catch (e) {
+        showToast('Force resubscribe failed.');
+      }
+      forceResubBtn.textContent = 'Force Resubscribe';
+      forceResubBtn.disabled = false;
+    });
+  }
 
   els.exportButton.addEventListener('click', exportData);
   els.deleteButton.addEventListener('click', deleteData);
