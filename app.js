@@ -329,6 +329,17 @@ function bindEvents() {
   if (els.saveNameButton) {
     els.saveNameButton.addEventListener('click', saveProfileName);
   }
+  
+  const editStatsBtn = document.getElementById('edit-stats-btn');
+  if (editStatsBtn) {
+    editStatsBtn.addEventListener('click', () => {
+      if (els.setupModal) {
+        els.setupModal.classList.add('open');
+        els.setupModal.setAttribute('aria-hidden', 'false');
+      }
+    });
+  }
+
   if (els.pauseRemindersButton) {
     els.pauseRemindersButton.addEventListener('click', toggleAllReminders);
   }
@@ -891,6 +902,7 @@ function registerNotifications() {
   updateActionButtons();
   if (state.notifications && Notification.permission === 'granted') {
     initializeReminderSystem();
+    subscribeToPushNotifications(); // ALWAYS sync with backend on boot
   } else if (state.notifications && Notification.permission === 'default') {
     showNotificationPrompt();
   }
