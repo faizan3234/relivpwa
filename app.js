@@ -306,6 +306,17 @@ function bindEvents() {
     });
   }
 
+  // Backend Timer Controls
+  const waterStart = document.getElementById('server-water-start');
+  const waterStop = document.getElementById('server-water-stop');
+  const testStart = document.getElementById('server-test-start');
+  const testStop = document.getElementById('server-test-stop');
+
+  if (waterStart) waterStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/start`, {method: 'POST'}); showToast('45m water loop started!'); });
+  if (waterStop) waterStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/stop`, {method: 'POST'}); showToast('Water loop stopped.'); });
+  if (testStart) testStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/start`, {method: 'POST'}); showToast('5s test loop started!'); });
+  if (testStop) testStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/stop`, {method: 'POST'}); showToast('Test loop stopped.'); });
+
   els.exportButton.addEventListener('click', exportData);
   els.deleteButton.addEventListener('click', deleteData);
   if (els.installCta) els.installCta.addEventListener('click', () => showInstallPrompt());

@@ -50,25 +50,48 @@ app.post('/api/push/remind', (req, res) => {
   res.json({ ok: true });
 });
 
-// Automatic Always-On Notification Loop
-// Blasts a notification every 60 minutes (3600000 ms)
-const AUTOMATIC_INTERVAL_MS = 60 * 60 * 1000; 
+// Dynamic Background Timers
+let waterInterval = null;
+let testInterval = null;
 
-setInterval(async () => {
-  const payload = JSON.stringify({ 
-    title: 'Reliv Reminder', 
-    body: '💧 This is your automatic check-in from the server!' 
-  });
-  console.log(`Sending automatic push to ${subscriptions.size} subscribers...`);
-  for (const subStr of subscriptions) {
-    try { 
-      await webpush.sendNotification(JSON.parse(subStr), payload, { TTL: 86400, urgency: 'high' }); 
-    } catch(e) {
-      // If subscription expired/invalid, remove it
-      if (e.statusCode === 410 || e.statusCode === 404) subscriptions.delete(subStr);
+app.post('/api/push/water/start', (req, res) => {
+  if (waterInterval) clearInterval(waterInterval);
+  // Send one immediately too
+  const payload = JSON.stringify({ title: 'Reliv Coach', body: '💧 Drink Water! Stay hydrated.' });
+  subscriptions.forEach(sub => webpush.sendNotification(JSON.parse(sub), payload).catch(()=>{}));
+  
+  waterInterval = setInterval(async () => {
+    for (const subStr of subscriptions) {
+      try { await webpush.sendNotification(JSON.parse(subStr), payload, { TTL: 86400, urgency: 'high' }); } catch(e) {}
     }
-  }
-}, AUTOMATIC_INTERVAL_MS);
+  }, 45 * 60 * 1000); // 45 minutes
+  res.json({ ok: true, status: 'started' });
+});
+
+app.post('/api/push/water/stop', (req, res) => {
+  if (waterInterval) clearInterval(waterInterval);
+  waterInterval = null;
+  res.json({ ok: true, status: 'stopped' });
+});
+
+app.post('/api/push/test/start', (req, res) => {
+  if (testInterval) clearInterval(testInterval);
+  const payload = JSON.stringify({ title: 'Reliv Test', body: '🔔 5-second test notification!' });
+  subscriptions.forEach(sub => webpush.sendNotification(JSON.parse(sub), payload).catch(()=>{}));
+  
+  testInterval = setInterval(async () => {
+    for (const subStr of subscriptions) {
+      try { await webpush.sendNotification(JSON.parse(subStr), payload, { TTL: 86400, urgency: 'high' }); } catch(e) {}
+    }
+  }, 5000); // 5 seconds
+  res.json({ ok: true, status: 'started' });
+});
+
+app.post('/api/push/test/stop', (req, res) => {
+  if (testInterval) clearInterval(testInterval);
+  testInterval = null;
+  res.json({ ok: true, status: 'stopped' });
+});
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

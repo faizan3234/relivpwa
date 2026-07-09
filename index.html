@@ -103,9 +103,13 @@
               <p>Gentle nudges</p>
               <h3>Daily check-ins</h3>
             </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 12px;">
+              <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3;">Start 45m Water Loop</button>
+              <button id="server-water-stop" class="ghost-btn" type="button">Stop Water</button>
+            </div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <button id="enable-alerts-button" class="primary-btn" type="button">Start Notifications</button>
-              <button id="pause-reminders" class="ghost-btn" type="button">Stop Notifications</button>
+              <button id="server-test-start" class="primary-btn" type="button" style="background:#f44336;">Start 5s Test Loop</button>
+              <button id="server-test-stop" class="ghost-btn" type="button">Stop Test</button>
             </div>
           </div>
           <div id="reminder-list" class="reminder-list"></div>
