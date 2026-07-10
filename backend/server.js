@@ -290,7 +290,7 @@ app.post('/api/push/test/start', (req, res) => {
   broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
   testInterval = setInterval(() => {
     broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
-  }, 30000); // 30 seconds for testing
+  }, 5000); // 5 seconds for testing
   res.json({ ok: true, status: 'started' });
 });
 
