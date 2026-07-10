@@ -28,8 +28,8 @@ function loadOrCreateVapidKeys() {
   if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     console.log('[vapid] Using VAPID keys from environment variables (persistent). Good.');
     return {
-      publicKey: process.env.VAPID_PUBLIC_KEY,
-      privateKey: process.env.VAPID_PRIVATE_KEY
+      publicKey: process.env.VAPID_PUBLIC_KEY.trim(),
+      privateKey: process.env.VAPID_PRIVATE_KEY.trim()
     };
   }
 
@@ -67,7 +67,7 @@ const vapidKeys = loadOrCreateVapidKeys();
 process.env.VAPID_PUBLIC_KEY = vapidKeys.publicKey;
 process.env.VAPID_PRIVATE_KEY = vapidKeys.privateKey;
 
-webpush.setVapidDetails('mailto:test@reliv.local', vapidKeys.publicKey, vapidKeys.privateKey);
+webpush.setVapidDetails('mailto:admin@relivpwa.onrender.com', vapidKeys.publicKey, vapidKeys.privateKey);
 
 // ---------------------------------------------------------------------------
 // SUBSCRIPTIONS - persisted to disk so a restart doesn't silently drop every
