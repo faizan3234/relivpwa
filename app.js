@@ -418,15 +418,16 @@ function bindEvents() {
   document.querySelectorAll('.quick-pick-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const food = e.currentTarget.dataset.food;
-      let cals = 0, pro = 0;
-      if (food === 'dal') { cals = 350; pro = 10; }
-      else if (food === 'burger') { cals = 500; pro = 15; }
-      else if (food === 'coffee') { cals = 100; pro = 2; }
-      else if (food === 'chai') { cals = 150; pro = 3; }
+      let cals = 0, pro = 0, foodName = '';
+      if (food === 'dal') { cals = 350; pro = 10; foodName = 'Dal Chawal'; }
+      else if (food === 'burger') { cals = 500; pro = 15; foodName = 'Burger'; }
+      else if (food === 'coffee') { cals = 100; pro = 2; foodName = 'Coffee'; }
+      else if (food === 'chai') { cals = 150; pro = 3; foodName = 'Chai & Biscuit'; }
       
       state.consumedCalories += cals;
       state.consumedProtein += pro;
       state.lastLog = { calories: cals, protein: pro, hydration: 0 };
+      state.loggedFoods.push({ name: foodName, calories: cals, protein: pro, timestamp: Date.now() });
       saveState();
       renderDashboard();
       showToast('✅ Logged! No math required.');
@@ -437,13 +438,17 @@ function bindEvents() {
     btn.addEventListener('click', (e) => {
       const type = e.currentTarget.dataset.type;
       const val = Number(e.currentTarget.dataset.val);
+      let foodName = '';
       if (type === 'cal') {
         state.consumedCalories += val;
         state.lastLog = { calories: val, protein: 0, hydration: 0 };
+        foodName = `Manual Calorie Adjustment (+${val} kcal)`;
       } else {
         state.consumedProtein += val;
         state.lastLog = { calories: 0, protein: val, hydration: 0 };
+        foodName = `Manual Protein Adjustment (+${val}g)`;
       }
+      state.loggedFoods.push({ name: foodName, calories: type === 'cal' ? val : 0, protein: type === 'pro' ? val : 0, timestamp: Date.now() });
       saveState();
       renderDashboard();
       showToast(`✅ Added +${val}${type === 'cal' ? ' kcal' : 'g Protein'}!`);
@@ -456,6 +461,7 @@ function bindEvents() {
       if (!confirm("Are you sure you want to reset today's food macro counters?")) return;
       state.consumedCalories = 0;
       state.consumedProtein = 0;
+      state.loggedFoods = [];
       saveState();
       renderDashboard();
       showToast('Daily progress reset.');
@@ -469,6 +475,7 @@ function bindEvents() {
         state.consumedCalories = Math.max(0, state.consumedCalories - (state.lastLog.calories || 0));
         state.consumedProtein = Math.max(0, state.consumedProtein - (state.lastLog.protein || 0));
         state.lastLog = null;
+        state.loggedFoods.pop();
         saveState();
         renderDashboard();
         showToast('🔄 Last log undone!');
@@ -567,6 +574,7 @@ function parseLocalFoodIntake(text) {
           state.consumedCalories += localEst.calories;
           state.consumedProtein += localEst.protein;
           state.lastLog = { calories: localEst.calories, protein: localEst.protein, hydration: 0 };
+          state.loggedFoods.push({ name: foodItem, calories: localEst.calories, protein: localEst.protein, timestamp: Date.now() });
           saveState();
           renderDashboard();
           showToast(`✅ Logged: ${localEst.calories} kcal & ${localEst.protein}g protein! (Offline)`);
