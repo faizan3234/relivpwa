@@ -407,7 +407,8 @@ function bindEvents() {
       try {
         showToast('1/5 Getting service worker...');
         if ('serviceWorker' in navigator && 'PushManager' in window) {
-          const reg = await navigator.serviceWorker.ready;
+          showToast('1.5/5 Registering SW explicitly...');
+          const reg = await navigator.serviceWorker.register('./service-worker.js');
           showToast('2/5 Checking old subscription...');
           const sub = await reg.pushManager.getSubscription();
           if (sub) {
@@ -998,14 +999,14 @@ async function subscribeToPushNotifications(debug = false) {
 
   try {
     if (debug) showToast('Fetching VAPID key...');
-    const registration = await navigator.serviceWorker.ready;
+    const reg = await navigator.serviceWorker.register('./service-worker.js');
     const vapidRes = await fetch(`${BACKEND_URL}/api/push/vapid-public-key`);
     if (!vapidRes.ok) throw new Error('Could not reach backend for VAPID key.');
     const vapidPublicKey = (await vapidRes.text()).trim();
     const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
     if (debug) showToast('Checking existing subscription...');
-    let subscription = await registration.pushManager.getSubscription();
+    let subscription = await reg.pushManager.getSubscription();
 
     if (subscription && !subscriptionKeyMatches(subscription, vapidPublicKey)) {
       if (debug) showToast('Keys changed! Unsubscribing...');
@@ -1016,7 +1017,7 @@ async function subscribeToPushNotifications(debug = false) {
 
     if (!subscription) {
       if (debug) showToast('Asking Apple for push token (may hang here if blocked)...');
-      subscription = await registration.pushManager.subscribe({
+      subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey
       });
