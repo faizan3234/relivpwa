@@ -1038,10 +1038,17 @@ async function getCoachReply(message) {
     return 'Please set your Groq API Key in the Profile tab so I can analyze your food and track your macros!';
   }
 
+  const now = new Date();
+  const timeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
+  const deviceLocalTime = now.toLocaleString('en-US', timeOpts);
+
   const prompt = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo, ${state.weight}kg user with target weight ${state.targetWeight}kg.
   Their height is ${state.height} and diet preference is: ${state.dietType}.
   Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Korean Skincare & Hydration'}.
   Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
+  
+  The user's current local device clock is: ${deviceLocalTime}.
+  Use this clock time as your absolute source of truth when user talks about timing (e.g., "in 30 mins", "tonight", "at 9 PM"). Calculate HH:MM 24-hour targets relative to this clock.
   
   User says: "${message}"
   
