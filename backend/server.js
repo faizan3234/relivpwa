@@ -125,7 +125,6 @@ app.get('/api/ping', (req, res) => {
     status: 'awake',
     uptime: `${mins}m ${secs}s`,
     subscribers: subscriptions.size,
-    vibeLoopActive: testInterval !== null,
     waterLoopActive: waterInterval !== null
   });
 });
@@ -260,13 +259,12 @@ app.post('/api/push/cancel', (req, res) => {
 
 // Dynamic Background Timers
 let waterInterval = null;
-let testInterval = null;
 
 app.post('/api/push/water/start', (req, res) => {
   if (waterInterval) clearInterval(waterInterval);
-  broadcast({ title: 'Reliv Coach', body: '💧 Drink Water! Stay hydrated.' });
+  broadcast({ title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.' });
   waterInterval = setInterval(() => {
-    broadcast({ title: 'Reliv Coach', body: '💧 Drink Water! Stay hydrated.' });
+    broadcast({ title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.' });
   }, 45 * 60 * 1000); // 45 minutes
   res.json({ ok: true, status: 'started' });
 });
@@ -277,34 +275,10 @@ app.post('/api/push/water/stop', (req, res) => {
   res.json({ ok: true, status: 'stopped' });
 });
 
-app.post('/api/push/test/start', (req, res) => {
-  if (testInterval) clearInterval(testInterval);
-  const msgs = [
-    '🍛 Ate something good today?',
-    '💧 Quick water check!',
-    '🔔 Just checking in!',
-    '💪 How are you feeling?',
-    '🥗 Log a quick meal?',
-    '☀️ Take a stretch break!'
-  ];
-  broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
-  testInterval = setInterval(() => {
-    broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
-  }, 5000); // 5 seconds for testing
-  res.json({ ok: true, status: 'started' });
-});
-
-app.post('/api/push/test/stop', (req, res) => {
-  if (testInterval) clearInterval(testInterval);
-  testInterval = null;
-  res.json({ ok: true, status: 'stopped' });
-});
-
 app.get('/api/push/status', (req, res) => {
   res.json({
     subscriptions: subscriptions.size,
     waterLoopActive: Boolean(waterInterval),
-    testLoopActive: Boolean(testInterval),
     scheduledReminders: Object.keys(schedules).length
   });
 });

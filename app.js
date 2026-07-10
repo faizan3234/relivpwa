@@ -11,16 +11,27 @@ const brand = {
   reminder: 'Hydration check-in · 3:30 PM'
 };
 
-const defaultReminders = {
-  water: { title: 'Drink water', description: 'Did you drink water yet?', nextDue: Date.now() + 60000, pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
-  skin: { title: 'Face wash', description: 'Did you wash your face yet?', nextDue: Date.now() + 120000, pending: false, lastAction: '', missedCount: 0, followUp: 7200000 },
-  diet: { title: 'Protein & calories', description: 'Did you log a protein-focused meal?', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 10800000 }
-};
-
-// ---- CONFIGURATION ----
-// UPDATE THIS URL ONCE YOU DEPLOY TO RENDER:
-const BACKEND_URL = 'https://relivpwa.onrender.com';
-// -----------------------
+function getRemindersForGoal(goal) {
+  if (goal === 'skin') {
+    return {
+      cleanse: { title: 'Morning Cleanse', description: 'Double cleanse with a gentle wash!', nextDue: Date.now() + 60000, pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+      sunscreen: { title: 'SPF Shield', description: 'Apply/reapply your SPF 50 sunscreen.', nextDue: Date.now() + 120000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      acne: { title: 'Acne Treatment', description: 'Apply your Korean skincare serums & acne patches.', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+    };
+  } else if (goal === 'lose') {
+    return {
+      water: { title: 'Hydration Nudge', description: 'Sip water to stay full and boost metabolism.', nextDue: Date.now() + 60000, pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
+      portion: { title: 'Portion Control', description: 'Eat slowly. Stop eating when you are 80% full.', nextDue: Date.now() + 120000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      walk: { title: 'Active Walk', description: 'Take a short 10-minute active walking break.', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 }
+    };
+  } else {
+    return {
+      water: { title: 'Hydration Boost', description: 'Drink water to support protein synthesis.', nextDue: Date.now() + 60000, pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
+      shake: { title: 'Calorie Shake', description: 'Time for your high-calorie banana peanut butter shake!', nextDue: Date.now() + 120000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      diet: { title: 'Protein & calories', description: 'Eat paneer, eggs, chicken, or curd now!', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 10800000 }
+    };
+  }
+}
 
 const state = {
   darkMode: localStorage.getItem('relix-dark') === 'true',
@@ -30,12 +41,14 @@ const state = {
   profileName: localStorage.getItem('relix-profile-name') || 'Your Name',
   groqKey: localStorage.getItem('relix-groq-key') || '',
   setupComplete: localStorage.getItem('relix-setup') === 'true',
+  goalType: localStorage.getItem('relix-goal') || 'muscle',
   age: Number(localStorage.getItem('relix-age') || 22),
-  weight: Number(localStorage.getItem('relix-weight') || 66),
-  targetWeight: Number(localStorage.getItem('relix-target-weight') || 72),
-  dietType: localStorage.getItem('relix-diet') || 'omn',
-  targetCalories: Number(localStorage.getItem('relix-target-cal') || 2800),
-  targetProtein: Number(localStorage.getItem('relix-target-pro') || 135),
+  height: localStorage.getItem('relix-height') || "6'1\"",
+  weight: Number(localStorage.getItem('relix-weight') || 65),
+  targetWeight: Number(localStorage.getItem('relix-target-weight') || 75),
+  dietType: localStorage.getItem('relix-diet') || 'nonveg',
+  targetCalories: Number(localStorage.getItem('relix-target-cal') || 3000),
+  targetProtein: Number(localStorage.getItem('relix-target-pro') || 140),
   consumedCalories: Number(localStorage.getItem('relix-consumed-cal') || 0),
   consumedProtein: Number(localStorage.getItem('relix-consumed-pro') || 0),
   xp: Number(localStorage.getItem('relix-xp') || 0),
@@ -51,8 +64,10 @@ const state = {
   completedTasks: JSON.parse(localStorage.getItem('relix-completed') || '[]'),
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
-    if (!saved) return JSON.parse(JSON.stringify(defaultReminders));
-    return Object.fromEntries(Object.entries(defaultReminders).map(([key, baseReminder]) => {
+    const goal = localStorage.getItem('relix-goal') || 'muscle';
+    const defaults = getRemindersForGoal(goal);
+    if (!saved) return JSON.parse(JSON.stringify(defaults));
+    return Object.fromEntries(Object.entries(defaults).map(([key, baseReminder]) => {
       const savedReminder = saved[key] || {};
       return [key, {
         ...baseReminder,
@@ -125,11 +140,15 @@ const els = {
   deleteButton: document.getElementById('delete-data'),
   inviteTeam: document.getElementById('invite-team'),
   setupModal: document.getElementById('setup-modal'),
+  setupName: document.getElementById('setup-name'),
+  setupGoal: document.getElementById('setup-goal'),
   setupAge: document.getElementById('setup-age'),
+  setupHeight: document.getElementById('setup-height'),
   setupWeight: document.getElementById('setup-weight'),
   setupTarget: document.getElementById('setup-target'),
   setupDiet: document.getElementById('setup-diet'),
   finishSetup: document.getElementById('finish-setup'),
+  closeSetupModal: document.getElementById('close-setup-modal'),
   calBar: document.getElementById('cal-bar'),
   calText: document.getElementById('cal-text'),
   proBar: document.getElementById('pro-bar'),
@@ -156,8 +175,8 @@ function init() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       initializeReminderSystem();
-      if (state.notifications && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        subscribeToPushNotifications();
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        subscribeToPushNotifications(false);
       }
     }
   });
@@ -172,6 +191,10 @@ function init() {
   registerNotifications();
   showWelcome();
   processMissedActions();
+
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    subscribeToPushNotifications(false);
+  }
 
   if (!state.setupComplete && els.setupModal) {
     els.setupModal.style.display = 'flex';
@@ -232,7 +255,14 @@ function syncProfileMeta() {
 function bindEvents() {
   const hardRefreshBtn = document.getElementById('hard-refresh-btn');
   if (hardRefreshBtn) {
-    hardRefreshBtn.addEventListener('click', () => window.location.reload(true));
+    hardRefreshBtn.addEventListener('click', async () => {
+      const originalText = hardRefreshBtn.textContent;
+      hardRefreshBtn.textContent = '...';
+      try {
+        await triggerForceResubscribe();
+      } catch (err) {}
+      hardRefreshBtn.textContent = originalText;
+    });
   }
 
   els.tabs.forEach((tab) => {
@@ -287,19 +317,69 @@ function bindEvents() {
     });
   }
 
-  document.querySelectorAll('.vibe-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      // Vibe-based setup: no strict tracking, just assign generic hidden macros so the rings work
-      state.targetCalories = 2500;
-      state.targetProtein = 100;
-      state.setupComplete = true;
-      saveState();
+  if (els.finishSetup) {
+    els.finishSetup.addEventListener('click', () => {
+      const nameVal = (els.setupName?.value || '').trim();
+      const goalVal = els.setupGoal?.value || 'muscle';
+      const ageVal = Number(els.setupAge?.value || 22);
+      const heightVal = (els.setupHeight?.value || "6'1\"").trim();
+      const weightVal = Number(els.setupWeight?.value || 65);
+      const targetWeightVal = Number(els.setupTarget?.value || 75);
+      const dietVal = els.setupDiet?.value || 'nonveg';
 
-      if (els.setupModal) els.setupModal.style.display = 'none';
+      if (!nameVal) {
+        showToast('Please enter your name.');
+        return;
+      }
+
+      state.profileName = nameVal;
+      state.goalType = goalVal;
+      state.age = ageVal;
+      state.height = heightVal;
+      state.weight = weightVal;
+      state.targetWeight = targetWeightVal;
+      state.dietType = dietVal;
+      state.setupComplete = true;
+
+      // Dynamic calculation based on goal
+      if (goalVal === 'muscle') {
+        state.targetCalories = Math.round(2400 + (weightVal * 10)); // bulking surplus
+        state.targetProtein = Math.round(weightVal * 2.2); // high protein
+      } else if (goalVal === 'lose') {
+        state.targetCalories = Math.max(1500, Math.round(2000 - (weightVal * 2))); // cutting deficit
+        state.targetProtein = Math.round(weightVal * 1.8);
+      } else { // skin
+        state.targetCalories = 2200;
+        state.targetProtein = 80;
+      }
+
+      // Re-populate goal specific default reminders
+      state.reminders = getRemindersForGoal(goalVal);
+
+      saveState();
+      syncProfileMeta();
       renderDashboard();
-      showToast('Vibe set! You are ready to go.');
+      renderRoutine();
+      renderProfile();
+
+      if (els.setupModal) {
+        els.setupModal.style.display = 'none';
+        els.setupModal.classList.remove('open');
+        els.setupModal.setAttribute('aria-hidden', 'true');
+      }
+      showToast('Profile & goal targets updated successfully!');
     });
-  });
+  }
+
+  if (els.closeSetupModal) {
+    els.closeSetupModal.addEventListener('click', () => {
+      if (els.setupModal) {
+        els.setupModal.style.display = 'none';
+        els.setupModal.classList.remove('open');
+        els.setupModal.setAttribute('aria-hidden', 'true');
+      }
+    });
+  }
 
   document.querySelectorAll('.quick-pick-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -405,24 +485,8 @@ function bindEvents() {
       forceResubBtn.textContent = '...';
       forceResubBtn.disabled = true;
       try {
-        showToast('1/5 Getting service worker...');
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-          showToast('1.5/5 Registering SW explicitly...');
-          const reg = await navigator.serviceWorker.register('./service-worker.js');
-          showToast('2/5 Checking old subscription...');
-          const sub = await reg.pushManager.getSubscription();
-          if (sub) {
-            showToast('3/5 Unsubscribing old push...');
-            await sub.unsubscribe().catch(() => {});
-          }
-        }
-        showToast('4/5 Requesting new push token...');
-        await subscribeToPushNotifications(true);
-        showToast('5/5 Resubscribed successfully!');
-      } catch (e) {
-        showToast(`Error: ${e.message}`);
-        alert(`Resubscribe Error: ${e.message}`);
-      }
+        await triggerForceResubscribe();
+      } catch (err) {}
       forceResubBtn.textContent = 'Force Resubscribe';
       forceResubBtn.disabled = false;
     });
@@ -445,7 +509,10 @@ function bindEvents() {
   if (editStatsBtn) {
     editStatsBtn.addEventListener('click', () => {
       if (els.setupModal) {
+        if (els.setupName) els.setupName.value = state.profileName;
+        if (els.setupGoal) els.setupGoal.value = state.goalType;
         if (els.setupAge) els.setupAge.value = state.age;
+        if (els.setupHeight) els.setupHeight.value = state.height;
         if (els.setupWeight) els.setupWeight.value = state.weight;
         if (els.setupTarget) els.setupTarget.value = state.targetWeight;
         if (els.setupDiet) els.setupDiet.value = state.dietType;
@@ -563,6 +630,9 @@ function renderDashboard() {
     els.proText.textContent = `${state.consumedProtein} / ${state.targetProtein} g`;
   }
 
+  // Render close the gap analytics
+  renderCloseTheGap();
+
   const activity = state.recentActivity.length ? state.recentActivity.slice(0, 3) : [{ label: 'Start your first habit', time: 'No activity yet' }];
 
   els.recentList.innerHTML = activity.map((item) => `
@@ -576,6 +646,95 @@ function renderDashboard() {
   `).join('');
 
   renderReminders();
+}
+
+function renderCloseTheGap() {
+  const gapContainer = document.getElementById('gap-analytics');
+  if (!gapContainer) return;
+
+  const leftCal = Math.max(0, state.targetCalories - state.consumedCalories);
+  const leftPro = Math.max(0, state.targetProtein - state.consumedProtein);
+
+  let html = '';
+  
+  if (state.goalType === 'skin') {
+    html = `
+      <div style="font-size:0.9rem; color:var(--text); line-height:1.4;">
+        <p style="margin:0 0 8px 0;">💧 Ensure you drink <strong>3.5L of water</strong> today to flush toxins and maintain skin elasticity.</p>
+        <p style="margin:0 0 8px 0;">🌙 Aim for <strong>8+ hours of sleep</strong> tonight for cellular skin repair.</p>
+        <strong style="color:var(--primary); font-size:0.85rem; display:block; margin-top:10px;">Recommended skincare ingredients today:</strong>
+        <ul style="margin:6px 0 0 0; padding-left:20px; font-size:0.85rem; color:var(--muted);">
+          <li>Salicylic Acid (if facing active breakouts)</li>
+          <li>Hyaluronic Acid (apply to damp skin for maximum bounce)</li>
+          <li>Centella Asiatica (Cica) to soothe any redness</li>
+        </ul>
+      </div>
+    `;
+  } else if (state.goalType === 'lose') {
+    if (leftCal === 0) {
+      html = `
+        <div style="text-align:center; padding:12px; background:rgba(22,163,74,0.08); border-radius:16px;">
+          <strong style="color:#16a34a; font-size:1.1rem; display:block;">🎉 Deficit targets hit!</strong>
+          <span style="font-size:0.85rem; color:var(--muted);">Drink black coffee, green tea, or warm water if you feel late cravings.</span>
+        </div>
+      `;
+    } else {
+      html = `
+        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:8px;">
+          <span>Calories Remaining: <strong>${leftCal} kcal</strong></span>
+          <span>Protein Remaining: <strong>${leftPro} g</strong></span>
+        </div>
+        <div style="font-size:0.85rem; color:var(--muted); line-height:1.4;">
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Low-calorie suggestions to close the gap:</strong>
+          <div style="display:grid; grid-template-columns:1fr; gap:6px;">
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
+              🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
+              🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
+              🍗 <strong>Grilled Breast Chicken (150g)</strong>: ~165 kcal | 31g protein
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  } else { // muscle gain / bulking
+    if (leftCal === 0 && leftPro === 0) {
+      html = `
+        <div style="text-align:center; padding:12px; background:rgba(22,163,74,0.08); border-radius:16px;">
+          <strong style="color:#16a34a; font-size:1.1rem; display:block;">💪 Bulking targets hit!</strong>
+          <span style="font-size:0.85rem; color:var(--muted);">Great muscle synthesis. Keep up the high-protein nutrition!</span>
+        </div>
+      `;
+    } else {
+      html = `
+        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:8px;">
+          <span>Calories Remaining: <strong>${leftCal} kcal</strong></span>
+          <span>Protein Remaining: <strong>${leftPro} g</strong></span>
+        </div>
+        <div style="font-size:0.85rem; color:var(--muted); line-height:1.4;">
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Quick high-calorie/protein food suggestions:</strong>
+          <div style="display:grid; grid-template-columns:1fr; gap:6px;">
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
+              🥤 <strong>Hardgainer Banana Peanut Shake</strong>: 1 glass milk, 2 bananas, 2 tbsp peanut butter (~700 kcal | 22g protein)
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
+              🍳 <strong>4 Whole Eggs + Toast</strong>: 4 eggs cooked with butter + 2 slices of bread (~550 kcal | 24g protein)
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
+              🧀 <strong>200g Paneer/Tofu Bhurji</strong>: Sautéed paneer in ghee (~380 kcal | 36g protein)
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
+              🥛 <strong>Full Cream Dahi (250g)</strong>: ~160 kcal | 10g protein
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+  gapContainer.innerHTML = html;
 }
 
 function renderRoutine() {
@@ -716,9 +875,16 @@ function sendCoachMessage(message) {
   els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
 
   getCoachReply(message)
-    .then((reply) => {
+    .then((result) => {
       typing.remove();
-      chatMessages.push({ role: 'assistant', text: reply });
+      if (typeof result === 'string') {
+        chatMessages.push({ role: 'assistant', text: result });
+      } else {
+        chatMessages.push({ role: 'assistant', text: result.reply });
+        if (result.schedule) {
+          scheduleCoachReminder(result.schedule);
+        }
+      }
       renderMessages();
     })
     .catch(() => {
@@ -728,26 +894,75 @@ function sendCoachMessage(message) {
     });
 }
 
+function scheduleCoachReminder(schedule) {
+  const [hours, minutes] = schedule.time.split(':').map(Number);
+  const targetDate = new Date();
+  targetDate.setHours(hours, minutes, 0, 0);
+  if (targetDate.getTime() <= Date.now()) {
+    targetDate.setDate(targetDate.getDate() + 1);
+  }
+
+  showToast(`⏰ Setting reminder for ${schedule.time}...`);
+
+  fetch(`${BACKEND_URL}/api/push/schedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      key: schedule.key || 'coach-nag',
+      title: schedule.title || 'Relix Coach',
+      body: schedule.body || 'Time to complete your goal!',
+      dueAt: targetDate.getTime()
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      showToast(`✅ Scheduled lockscreen reminder!`);
+      state.reminders[schedule.key || 'coach-nag'] = {
+        title: schedule.title || 'Relix Coach',
+        description: schedule.body || 'Scheduled reminder',
+        nextDue: targetDate.getTime(),
+        pending: false,
+        lastAction: '',
+        missedCount: 0,
+        followUp: 3600000
+      };
+      persistReminderState();
+      renderDashboard();
+    } else {
+      showToast('❌ Could not sync reminder to server.');
+    }
+  })
+  .catch(() => showToast('❌ Backend offline. Could not schedule push.'));
+}
+
 async function getCoachReply(message) {
   if (!state.groqKey) {
     return 'Please set your Groq API Key in the Profile tab so I can analyze your food and track your macros!';
   }
 
-  const prompt = `You are a strict Indian fitness coach helping a ${state.age}yo, ${state.weight}kg male reach ${state.targetWeight}kg (Bulking phase). 
-  Their diet preference is: ${state.dietType}.
-  Their daily goal is ${state.targetCalories} kcal and ${state.targetProtein}g protein.
-  They have consumed ${state.consumedCalories} kcal and ${state.consumedProtein}g protein so far today.
+  const prompt = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo, ${state.weight}kg user with target weight ${state.targetWeight}kg.
+  Their height is ${state.height} and diet preference is: ${state.dietType}.
+  Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Korean Skincare & Hydration'}.
+  Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
   
   User says: "${message}"
   
-  If they logged food, estimate the calories and protein in it (use Indian food estimates if applicable, like paneer, puri, biryani, etc).
-  If it's junk food, lightly scold them but keep it encouraging.
+  1. If they logged food, estimate the calories & protein (use Indian estimates like dal-chawal: 350 kcal/10g protein, 2 aloo puri: 550 kcal/10g protein, curd: 40 kcal/2g protein, etc).
+  2. If they ask for a reminder, or if you suggest a specific action at a time (e.g. face wash at 9:00 PM, meal at 4:30 PM, shake at 8:00 AM), include a "schedule" object in the JSON response to schedule a real lockscreen push notification!
+  
+  The "schedule" object must contain:
+    - "key": Unique key for the reminder (e.g. "skin", "diet", "water")
+    - "title": Short title (e.g. "Meal: Paneer bhurji" or "Skincare: Face Wash")
+    - "body": Short instructions (e.g. "Eat your paneer now to hit protein target!")
+    - "time": The exact time in "HH:MM" format (24-hour style, e.g., "16:30" or "21:00")
   
   Reply strictly in JSON format with NO markdown formatting:
   {
     "reply": "Your coaching response here",
     "calories": 200, // exact number of calories to add to tracker (0 if no food logged)
-    "protein": 10 // exact grams of protein to add to tracker (0 if no food logged)
+    "protein": 10, // exact grams of protein to add to tracker (0 if no food logged)
+    "schedule": null // or the schedule object
   }`;
 
   try {
@@ -777,7 +992,7 @@ async function getCoachReply(message) {
       renderDashboard();
     }
 
-    return result.reply;
+    return result;
   } catch (e) {
     console.error(e);
     return 'I had trouble processing that. Make sure your Groq API key is correct.';
@@ -1037,6 +1252,23 @@ async function subscribeToPushNotifications(debug = false) {
     showToast('Could not set up phone notifications. Check your connection and try again.');
     throw err; // Re-throw so forceResubBtn catches it
   }
+}
+
+async function triggerForceResubscribe() {
+  showToast('1/5 Getting service worker...');
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    showToast('1.5/5 Registering SW explicitly...');
+    const reg = await navigator.serviceWorker.register('./service-worker.js');
+    showToast('2/5 Checking old subscription...');
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      showToast('3/5 Unsubscribing old push...');
+      await sub.unsubscribe().catch(() => {});
+    }
+  }
+  showToast('4/5 Requesting new push token...');
+  await subscribeToPushNotifications(true);
+  showToast('5/5 Resubscribed successfully!');
 }
 
 function showNotificationPrompt() {
@@ -1432,7 +1664,9 @@ function deleteData() {
 function saveState() {
   localStorage.setItem('relix-setup', String(state.setupComplete));
   localStorage.setItem('relix-groq-key', state.groqKey);
+  localStorage.setItem('relix-goal', state.goalType);
   localStorage.setItem('relix-age', String(state.age));
+  localStorage.setItem('relix-height', state.height);
   localStorage.setItem('relix-weight', String(state.weight));
   localStorage.setItem('relix-target-weight', String(state.targetWeight));
   localStorage.setItem('relix-diet', state.dietType);

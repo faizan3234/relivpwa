@@ -1,22 +1,22 @@
 :root {
-  --bg: #f8f9fb;
-  --card: #ffffff;
-  --text: #111111;
-  --muted: #6b7280;
-  --primary: #ff7a00;
-  --accent: #ffb347;
-  --border: rgba(17, 17, 17, 0.08);
-  --shadow: 0 20px 45px rgba(17, 17, 17, 0.08);
+  --bg: #f3f4f6;
+  --card: rgba(255, 255, 255, 0.92);
+  --text: #111827;
+  --muted: #4b5563;
+  --primary: #ff6a00;
+  --accent: #ff9f1a;
+  --border: rgba(17, 17, 17, 0.06);
+  --shadow: 0 16px 40px rgba(17, 17, 17, 0.05);
   color-scheme: light;
 }
 
 :root.dark {
-  --bg: #070b12;
-  --card: #111827;
-  --text: #f8fafc;
+  --bg: #030712;
+  --card: rgba(17, 24, 39, 0.88);
+  --text: #f9fafb;
   --muted: #9ca3af;
-  --border: rgba(248, 250, 252, 0.12);
-  --shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+  --border: rgba(248, 250, 252, 0.08);
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
   color-scheme: dark;
 }
 
@@ -52,7 +52,7 @@ img { max-width: 100%; display: block; }
 .ghost-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 .view-section { display: none; animation: fadeUp 360ms cubic-bezier(.2,.8,.2,1); }
 .view-section.active { display: block; }
-.hero-card, .card, .routine-card, .coach-shell, .profile-card, .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 28px; box-shadow: var(--shadow); }
+.hero-card, .card, .routine-card, .coach-shell, .profile-card, .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 28px; box-shadow: var(--shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .hero-card { padding: 24px; position: relative; overflow: hidden; }
 .hero-card::after { content: ''; position: absolute; inset: auto -10% -60px auto; width: 220px; height: 220px; background: radial-gradient(circle, rgba(255, 179, 71, 0.24), transparent 70%); filter: blur(18px); }
 .hero-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }

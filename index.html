@@ -108,7 +108,20 @@
           </div>
         </div>
 
-        <div class="card reminder-panel">
+        <!-- Hitting Your Targets (Close the Gap) -->
+        <div id="close-the-gap-card" class="card" style="margin-top: 18px;">
+          <div class="hero-head" style="margin-bottom: 10px;">
+            <div class="hero-title">
+              <p>Close the gap</p>
+              <h3>Target Suggestions</h3>
+            </div>
+          </div>
+          <div id="gap-analytics" style="display:flex; flex-direction:column; gap:10px;">
+            <!-- Dynamically populated by app.js -->
+          </div>
+        </div>
+
+        <div class="card reminder-panel" style="margin-top: 18px;">
           <div class="hero-head">
             <div class="hero-title">
               <p>Gentle nudges</p>
@@ -117,12 +130,10 @@
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom: 8px;">
               <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3; font-size:0.8rem; padding:8px;">▶ 45m Water</button>
               <button id="server-water-stop" class="ghost-btn" type="button" style="font-size:0.8rem; padding:8px;">⏹ Stop Water</button>
-              <button id="server-test-start" class="primary-btn" type="button" style="background:#f44336; font-size:0.8rem; padding:8px;">▶ Vibe Loop</button>
-              <button id="server-test-stop" class="ghost-btn" type="button" style="font-size:0.8rem; padding:8px;">⏹ Stop Vibe</button>
             </div>
             
-            <div style="background: var(--card); padding: 8px; border-radius: 8px; border: 1px dashed var(--border); margin-bottom: 8px;">
-              <strong style="font-size: 0.8rem; color: var(--muted); display:block; margin-bottom: 4px;">Push Troubleshooting</strong>
+            <div style="background: var(--card); padding: 8px; border-radius: 8px; border: 1px dashed var(--border); margin-bottom: 8px; width: 100%;">
+              <strong style="font-size: 0.8rem; color: var(--muted); display:block; margin-bottom: 4px;">Push Notification Sync</strong>
               <div style="display:flex; gap: 8px;">
                 <button id="debug-push-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:4px 8px; flex:1;">System Status</button>
                 <button id="force-resub-btn" class="primary-btn" type="button" style="font-size:0.75rem; padding:4px 8px; flex:1; background: #9c27b0;">Force Resubscribe</button>
@@ -318,18 +329,63 @@
 
     <!-- Onboarding Setup Modal -->
     <div id="setup-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:9999;">
-      <div class="modal-card">
+      <div class="modal-card" style="max-height: 90vh; overflow-y: auto;">
         <div class="hero-head">
           <div class="hero-title">
-            <p>Welcome to Relix</p>
-            <h3>What's your vibe?</h3>
+            <p>Goal & Body Metrics</p>
+            <h3>Customize Your Vibe</h3>
           </div>
+          <button id="close-setup-modal" class="icon-btn" type="button" aria-label="Close" style="width: 32px; height: 32px; font-size: 0.8rem;">✕</button>
         </div>
-        <div id="setup-body" style="display:flex; flex-direction:column; gap:12px; padding:20px;">
-          <p style="color: var(--muted); margin-top:-8px; margin-bottom: 8px;">No complex math. No strict tracking. Just tap your goal.</p>
-          <button class="ghost-btn vibe-btn" data-vibe="chill" type="button" style="justify-content: flex-start; font-size: 1.1rem; padding: 16px;">🧘 Just chilling</button>
-          <button class="ghost-btn vibe-btn" data-vibe="health" type="button" style="justify-content: flex-start; font-size: 1.1rem; padding: 16px;">🥗 Get healthier</button>
-          <button class="ghost-btn vibe-btn" data-vibe="muscle" type="button" style="justify-content: flex-start; font-size: 1.1rem; padding: 16px;">💪 Build muscle</button>
+        <div id="setup-body" style="display:flex; flex-direction:column; gap:12px; padding:10px 0;">
+          <p style="color: var(--muted); margin-top:-8px; margin-bottom: 8px;">Let's customize your targets, suggestions, and reminders.</p>
+          
+          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-weight:600; font-size:0.9rem;">Your Name</label>
+            <input id="setup-name" type="text" placeholder="Ava Chen" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+          </div>
+
+          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-weight:600; font-size:0.9rem;">Primary Focus Goal</label>
+            <select id="setup-goal" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <option value="muscle">💪 Muscle & Weight Gain</option>
+              <option value="lose">📉 Weight Loss & Tone</option>
+              <option value="skin">🧴 Korean Skincare Routine</option>
+            </select>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; font-size:0.9rem;">Age</label>
+              <input id="setup-age" type="number" placeholder="22" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            </div>
+            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; font-size:0.9rem;">Height</label>
+              <input id="setup-height" type="text" placeholder="6'1\" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; font-size:0.9rem;">Weight (kg)</label>
+              <input id="setup-weight" type="number" placeholder="65" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            </div>
+            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; font-size:0.9rem;">Target Weight (kg)</label>
+              <input id="setup-target" type="number" placeholder="75" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            </div>
+          </div>
+
+          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-weight:600; font-size:0.9rem;">Diet Preference</label>
+            <select id="setup-diet" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <option value="omni">🍱 Omnivore</option>
+              <option value="veg">🥦 Vegetarian</option>
+              <option value="nonveg">🍗 Non-Vegetarian (High Protein)</option>
+            </select>
+          </div>
+
+          <button id="finish-setup" class="primary-btn" type="button" style="margin-top:10px; padding:12px; font-weight:700;">Save Stats & Adjust Target</button>
         </div>
       </div>
     </div>
