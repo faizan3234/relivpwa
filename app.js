@@ -182,9 +182,14 @@ function init() {
         subscribeToPushNotifications(false);
       }
     }
+  updateConnectionStatus();
+  window.addEventListener('online', () => {
+    updateConnectionStatus();
+    initializeReminderSystem();
   });
-  window.addEventListener('focus', () => initializeReminderSystem());
-  window.addEventListener('online', () => initializeReminderSystem());
+  window.addEventListener('offline', () => {
+    updateConnectionStatus();
+  });
   renderRoutine();
   renderProfile();
   renderMealCounter();
@@ -356,6 +361,12 @@ function bindEvents() {
         state.targetProtein = 80;
       }
 
+      // Custom manual overrides
+      const customCalVal = document.getElementById('setup-custom-cal')?.value;
+      const customProVal = document.getElementById('setup-custom-pro')?.value;
+      if (customCalVal) state.targetCalories = Number(customCalVal);
+      if (customProVal) state.targetProtein = Number(customProVal);
+
       // Re-populate goal specific default reminders
       state.reminders = getRemindersForGoal(goalVal);
 
@@ -364,6 +375,7 @@ function bindEvents() {
       renderDashboard();
       renderRoutine();
       renderProfile();
+      renderChatSuggestions();
 
       if (els.setupModal) {
         els.setupModal.style.display = 'none';
@@ -402,9 +414,27 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll('.adjust-macro-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const type = e.currentTarget.dataset.type;
+      const val = Number(e.currentTarget.dataset.val);
+      if (type === 'cal') {
+        state.consumedCalories += val;
+        state.lastLog = { calories: val, protein: 0, hydration: 0 };
+      } else {
+        state.consumedProtein += val;
+        state.lastLog = { calories: 0, protein: val, hydration: 0 };
+      }
+      saveState();
+      renderDashboard();
+      showToast(`✅ Added +${val}${type === 'cal' ? ' kcal' : 'g Protein'}!`);
+    });
+  });
+
   const resetDailyBtn = document.getElementById('reset-daily-progress');
   if (resetDailyBtn) {
     resetDailyBtn.addEventListener('click', () => {
+      if (!confirm("Are you sure you want to reset today's food macro counters?")) return;
       state.consumedCalories = 0;
       state.consumedProtein = 0;
       saveState();
@@ -441,6 +471,7 @@ function bindEvents() {
   const resetHydrationBtn = document.getElementById('reset-hydration');
   if (resetHydrationBtn) {
     resetHydrationBtn.addEventListener('click', () => {
+      if (!confirm("Are you sure you want to reset today's hydration progress?")) return;
       state.consumedHydration = 0;
       saveState();
       renderDashboard();
@@ -461,6 +492,43 @@ function bindEvents() {
     });
   }
 
+function parseLocalFoodIntake(text) {
+  const normalized = text.toLowerCase();
+  let calories = 0;
+  let protein = 0;
+  
+  const calMatch = normalized.match(/(\d+)\s*(?:kcal|calories|cal)/i);
+  const proMatch = normalized.match(/(\d+)\s*(?:g\s*protein|g\s*pro)/i);
+  
+  if (calMatch) calories = Number(calMatch[1]);
+  if (proMatch) protein = Number(proMatch[1]);
+  
+  if (calories === 0 && protein === 0) {
+    if (normalized.includes('banana')) { calories += 100; protein += 1; }
+    if (normalized.includes('egg')) {
+      const countMatch = normalized.match(/(\d+)\s*egg/i);
+      const count = countMatch ? Number(countMatch[1]) : 1;
+      calories += count * 70;
+      protein += count * 6;
+    }
+    if (normalized.includes('paneer')) { calories += 260; protein += 18; }
+    if (normalized.includes('chicken')) { calories += 220; protein += 25; }
+    if (normalized.includes('dal') || normalized.includes('chawal')) { calories += 350; protein += 10; }
+    if (normalized.includes('burger')) { calories += 500; protein += 15; }
+    if (normalized.includes('coffee')) { calories += 100; protein += 2; }
+    if (normalized.includes('chai') || normalized.includes('tea')) { calories += 120; protein += 3; }
+    if (normalized.includes('roti') || normalized.includes('chapati')) {
+      const countMatch = normalized.match(/(\d+)\s*(?:roti|chapati)/i);
+      const count = countMatch ? Number(countMatch[1]) : 1;
+      calories += count * 80;
+      protein += count * 2.5;
+    }
+    if (normalized.includes('milk')) { calories += 150; protein += 8; }
+  }
+  
+  return { calories, protein };
+}
+
   const customFoodForm = document.getElementById('custom-food-form');
   const customFoodInput = document.getElementById('custom-food-input');
   if (customFoodForm && customFoodInput) {
@@ -476,25 +544,28 @@ function bindEvents() {
       
       try {
         if (!state.groqKey) {
-          const dummyCals = 300 + Math.floor(Math.random() * 200);
-          const dummyPro = 10 + Math.floor(Math.random() * 15);
-          state.consumedCalories += dummyCals;
-          state.consumedProtein += dummyPro;
-          state.lastLog = { calories: dummyCals, protein: dummyPro, hydration: 0 };
+          const localEst = parseLocalFoodIntake(foodItem);
+          state.consumedCalories += localEst.calories;
+          state.consumedProtein += localEst.protein;
+          state.lastLog = { calories: localEst.calories, protein: localEst.protein, hydration: 0 };
           saveState();
           renderDashboard();
-          showToast(`✅ Logged ${dummyCals} kcal! (Mock)`);
+          showToast(`✅ Logged: ${localEst.calories} kcal & ${localEst.protein}g protein! (Offline)`);
         } else {
           const reply = await getCoachReply(foodItem);
-          showToast(reply.includes('trouble processing') ? 'Error logging food. Check API key.' : '✅ Custom food logged!');
+          if (typeof reply === 'string') {
+            showToast('Error logging food. Check API key.');
+          } else {
+            showToast(`✅ Custom food logged: +${reply.calories || 0} kcal, +${reply.protein || 0}g protein!`);
+          }
         }
       } catch (err) {
         showToast('Error logging food.');
       }
       
+      customFoodInput.value = '';
       btn.textContent = originalText;
       btn.disabled = false;
-      customFoodInput.value = '';
     });
   }
 
@@ -679,8 +750,8 @@ function renderDashboard() {
     const proPercent = Math.min(100, Math.round((state.consumedProtein / state.targetProtein) * 100)) || 0;
     els.calBar.style.width = `${calPercent}%`;
     els.proBar.style.width = `${proPercent}%`;
-    els.calText.textContent = `${state.consumedCalories} / ${state.targetCalories} kcal`;
-    els.proText.textContent = `${state.consumedProtein} / ${state.targetProtein} g`;
+    els.calText.textContent = `${state.consumedCalories} / ${state.targetCalories} kcal (${calPercent}%)`;
+    els.proText.textContent = `${state.consumedProtein} / ${state.targetProtein} g (${proPercent}%)`;
   }
 
   const nutritionCard = document.getElementById('nutrition-overview-card');
@@ -697,7 +768,7 @@ function renderDashboard() {
       const hydBar = document.getElementById('hydration-bar');
       const hydText = document.getElementById('hydration-text');
       if (hydBar) hydBar.style.width = `${hydPercent}%`;
-      if (hydText) hydText.textContent = `${state.consumedHydration} / ${state.targetHydration} ml`;
+      if (hydText) hydText.textContent = `${state.consumedHydration} / ${state.targetHydration} ml (${hydPercent}%)`;
 
       if (undoHydrationBtn) undoHydrationBtn.style.display = state.lastLog ? 'inline-block' : 'none';
       if (undoLogBtn) undoLogBtn.style.display = 'none';
@@ -766,14 +837,17 @@ function renderCloseTheGap() {
         <div style="font-size:0.85rem; color:var(--muted); line-height:1.4;">
           <strong style="color:var(--text); display:block; margin-bottom:4px;">Low-calorie suggestions to close the gap:</strong>
           <div style="display:grid; grid-template-columns:1fr; gap:6px;">
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
-              🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein</div>
+              <button class="primary-btn log-suggested-btn" data-cal="50" data-pro="12" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
             </div>
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
-              🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
+              <button class="primary-btn log-suggested-btn" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
             </div>
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
-              🍗 <strong>Grilled Breast Chicken (150g)</strong>: ~165 kcal | 31g protein
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🍗 <strong>Grilled Breast Chicken (150g)</strong>: ~165 kcal | 31g protein</div>
+              <button class="primary-btn log-suggested-btn" data-cal="165" data-pro="31" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
             </div>
           </div>
         </div>
@@ -796,30 +870,53 @@ function renderCloseTheGap() {
         <div style="font-size:0.85rem; color:var(--muted); line-height:1.4;">
           <strong style="color:var(--text); display:block; margin-bottom:4px;">Quick high-calorie/protein food suggestions:</strong>
           <div style="display:grid; grid-template-columns:1fr; gap:6px;">
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); line-height: 1.45;">
-              🥤 <strong>Hardgainer Banana Peanut Shake</strong>: (~730 kcal | 23g protein)
-              <div style="font-size:0.75rem; margin-top:4px; padding-left:8px; border-left:2px solid var(--primary); color:var(--muted);">
-                • Full cream milk (250ml): 150 kcal / 8g pro<br>
-                • 2 Bananas: 200 kcal / 2g pro<br>
-                • Oats (50g): 190 kcal / 6g pro<br>
-                • Peanut Butter (2 tbsp): 190 kcal / 7g pro
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="line-height: 1.45; flex:1;">
+                🥤 <strong>Hardgainer Banana Peanut Shake</strong>: (~730 kcal | 23g protein)
+                <div style="font-size:0.75rem; margin-top:4px; padding-left:8px; border-left:2px solid var(--primary); color:var(--muted);">
+                  • Full cream milk (250ml): 150 kcal / 8g pro<br>
+                  • 2 Bananas: 200 kcal / 2g pro<br>
+                  • Oats (50g): 190 kcal / 6g pro<br>
+                  • Peanut Butter (2 tbsp): 190 kcal / 7g pro
+                </div>
               </div>
+              <button class="primary-btn log-suggested-btn" data-cal="730" data-pro="23" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none; margin-top:2px;">+ Log</button>
             </div>
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
-              🍳 <strong>4 Whole Eggs + Toast</strong>: 4 eggs cooked with butter + 2 slices of bread (~550 kcal | 24g protein)
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🍳 <strong>4 Whole Eggs + Toast</strong>: (~550 kcal | 24g protein)</div>
+              <button class="primary-btn log-suggested-btn" data-cal="550" data-pro="24" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
             </div>
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
-              🧀 <strong>200g Paneer/Tofu Bhurji</strong>: Sautéed paneer in ghee (~380 kcal | 36g protein)
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🧀 <strong>200g Paneer/Tofu Bhurji</strong>: (~380 kcal | 36g protein)</div>
+              <button class="primary-btn log-suggested-btn" data-cal="380" data-pro="36" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
             </div>
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
-              🥛 <strong>Full Cream Dahi (250g)</strong>: ~160 kcal | 10g protein
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥛 <strong>Full Cream Dahi (250g)</strong>: (~160 kcal | 10g protein)</div>
+              <button class="primary-btn log-suggested-btn" data-cal="160" data-pro="10" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
             </div>
+          </div>
+          <div style="background:rgba(239,68,68,0.05); padding:12px; border-radius:16px; border:1px solid rgba(239,68,68,0.15); margin-top:10px; font-size:0.78rem; line-height:1.45; color:var(--text);">
+            ⚠️ <strong>Under-eating protein (Below benchmark)?</strong>
+            If your daily protein intake drops below your target, your body enters a catabolic state. Instead of growing new muscle, it will break down existing muscle tissue for energy. Your weight growth will stall or even decrease below standard limits. Make sure to hit your target of <strong>${state.targetProtein}g</strong>!
           </div>
         </div>
       `;
     }
   }
   gapContainer.innerHTML = html;
+
+  document.querySelectorAll('.log-suggested-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const cal = Number(e.currentTarget.dataset.cal);
+      const pro = Number(e.currentTarget.dataset.pro);
+      state.consumedCalories += cal;
+      state.consumedProtein += pro;
+      state.lastLog = { calories: cal, protein: pro, hydration: 0 };
+      saveState();
+      renderDashboard();
+      showToast(`✅ Logged suggested food (+${cal} kcal, +${pro}g Pro)!`);
+    });
+  });
 }
 
 function renderRoutine() {
@@ -877,11 +974,44 @@ function renderMealCounter() {
   els.mealCounter.textContent = `${remaining} uploads left today`;
 }
 
+function renderChatSuggestions() {
+  const container = document.querySelector('.suggestion-row');
+  if (!container) return;
+  let html = '';
+  if (state.goalType === 'skin') {
+    html = `
+      <button class="suggestion-pill" data-prompt="How can I reduce redness and acne?" type="button">Soothe Redness & Acne</button>
+      <button class="suggestion-pill" data-prompt="I just washed my face and applied hyaluronic acid" type="button">Log Skincare Routine</button>
+      <button class="suggestion-pill" data-prompt="Show me skincare hydration habits" type="button">Skincare Habits</button>
+    `;
+  } else if (state.goalType === 'lose') {
+    html = `
+      <button class="suggestion-pill" data-prompt="What are some high-volume low-calorie foods?" type="button">Low-Calorie Foods</button>
+      <button class="suggestion-pill" data-prompt="I just completed a 15-minute active walk" type="button">Log Active Walk</button>
+      <button class="suggestion-pill" data-prompt="How do I control evening cravings?" type="button">Stop Cravings</button>
+    `;
+  } else {
+    html = `
+      <button class="suggestion-pill" data-prompt="How can I easily hit my protein target?" type="button">Hit Protein Target</button>
+      <button class="suggestion-pill" data-prompt="I just drank the Hardgainer Banana Peanut Shake" type="button">Log Banana Shake</button>
+      <button class="suggestion-pill" data-prompt="Give me high-protein snacks" type="button">High-Protein Snacks</button>
+    `;
+  }
+  container.innerHTML = html;
+  
+  container.querySelectorAll('.suggestion-pill').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      sendSuggestedQuestion(btn.dataset.prompt);
+    });
+  });
+}
+
 function renderChat() {
   chatMessages = [
     { role: 'assistant', text: 'I can guide you with nutrition, sleep, movement, and recovery. Ask me something health-focused.' }
   ];
   renderMessages();
+  renderChatSuggestions();
 }
 
 function renderMessages() {
@@ -1187,7 +1317,7 @@ function analyzeMeal() {
 }
 
 function completeQuickCheck(id, buttonEl = null) {
-  if (state.completedHabits.includes(id)) return;
+  if (state.completedTasks.includes(id)) return;
 
   if (els.app) {
     els.app.style.opacity = '0.6';
@@ -1205,8 +1335,10 @@ function completeQuickCheck(id, buttonEl = null) {
 }
 
 function finalizeQuickCheck(id) {
-  state.completedHabits.push(id);
-  state.score += 10;
+  if (!state.completedTasks.includes(id)) {
+    state.completedTasks.push(id);
+  }
+  state.dailyScore = Math.min(100, state.dailyScore + 10);
   saveState();
   const map = {
     water: 'Water check-in complete',
@@ -1626,7 +1758,9 @@ function renderReminders() {
     </div>
     ${standardEntries.map(([key, reminder]) => {
     const diff = Math.max(0, reminder.nextDue - Date.now());
-    const nextText = diff < 60000 ? 'Almost ready' : `Next in ${Math.max(1, Math.round(diff / 60000))} min`;
+    const dueTime = new Date(reminder.nextDue);
+    const formattedTime = dueTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const nextText = diff < 60000 ? 'Almost ready' : `Due at ${formattedTime} (in ${Math.max(1, Math.round(diff / 60000))} min)`;
     const bubbleClass = reminder.lastAction === 'done' ? 'response-bubble done' : reminder.lastAction === 'skip' ? 'response-bubble later' : reminder.lastAction === 'later' ? 'response-bubble later' : 'response-bubble';
     const bubbleText = reminder.lastAction === 'done' ? '✓ Done' : reminder.lastAction === 'skip' ? '↺ Later' : reminder.lastAction === 'later' ? '⏰ Snoozed' : 'Ready';
     return `
@@ -1758,6 +1892,9 @@ function exportData() {
 }
 
 function deleteData() {
+  if (!confirm('Are you sure you want to delete all user data and reset? This cannot be undone.')) {
+    return;
+  }
   localStorage.removeItem('relix-dark');
   localStorage.removeItem('relix-notify');
   localStorage.removeItem('relix-profile-name');
@@ -1774,6 +1911,22 @@ function deleteData() {
   localStorage.removeItem('relix-completed');
   localStorage.removeItem('relix-last-log');
   window.location.reload();
+}
+
+function updateConnectionStatus() {
+  const statusEl = document.getElementById('connection-status');
+  if (!statusEl) return;
+  if (navigator.onLine) {
+    statusEl.className = 'status-badge online';
+    statusEl.style.background = 'rgba(34,197,94,0.1)';
+    statusEl.style.color = '#22c55e';
+    statusEl.innerHTML = `<span class="dot" style="width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block;"></span>Online`;
+  } else {
+    statusEl.className = 'status-badge offline';
+    statusEl.style.background = 'rgba(239,68,68,0.1)';
+    statusEl.style.color = '#ef4444';
+    statusEl.innerHTML = `<span class="dot" style="width:8px; height:8px; border-radius:50%; background:#ef4444; display:inline-block;"></span>Offline`;
+  }
 }
 
 function saveState() {

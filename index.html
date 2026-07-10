@@ -32,6 +32,7 @@
           </div>
         </div>
         <div class="top-bar-actions">
+          <span id="connection-status" class="status-badge online" style="font-size:0.75rem; padding:4px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px; border:1px solid var(--border); background:rgba(34,197,94,0.1); color:#22c55e;"><span class="dot" style="width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block;"></span>Online</span>
           <div class="top-bar-badge" id="unread-badge">0</div>
           <button id="install-button" class="icon-btn install-button" type="button" aria-label="Install app">⬇</button>
           <button class="icon-btn" id="theme-toggle-icon" type="button" aria-label="Toggle theme">🌙</button>
@@ -89,6 +90,13 @@
               </div>
               <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
  
+              <div style="display:flex; justify-content:space-between; margin-top:8px; gap:4px;">
+                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="100" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+100 kcal</button>
+                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="500" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+500 kcal</button>
+                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="10" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+10g Pro</button>
+                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="25" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+25g Pro</button>
+              </div>
+
               <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
                 <strong>Quick-Pick Log</strong>
                 <div style="display:flex; gap:6px;">
@@ -409,6 +417,17 @@
               <option value="veg">🥦 Vegetarian</option>
               <option value="nonveg">🍗 Non-Vegetarian (High Protein)</option>
             </select>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; font-size:0.85rem;">Calorie Override (Optional)</label>
+              <input id="setup-custom-cal" type="number" placeholder="e.g. 2800" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            </div>
+            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; font-size:0.85rem;">Protein Override (Optional)</label>
+              <input id="setup-custom-pro" type="number" placeholder="e.g. 150" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            </div>
           </div>
 
           <button id="finish-setup" class="primary-btn" type="button" style="margin-top:10px; padding:12px; font-weight:700;">Save Stats & Adjust Target</button>
