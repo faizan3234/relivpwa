@@ -285,9 +285,7 @@ function bindEvents() {
     hardRefreshBtn.addEventListener('click', async () => {
       const originalText = hardRefreshBtn.textContent;
       hardRefreshBtn.textContent = '...';
-      try {
-        await triggerForceResubscribe();
-      } catch (err) {}
+      await performHardRefresh();
       hardRefreshBtn.textContent = originalText;
     });
   }
@@ -1758,6 +1756,26 @@ async function subscribeToPushNotifications(debug = false) {
     showToast('Could not set up phone notifications. Check your connection and try again.');
     throw err; // Re-throw so forceResubBtn catches it
   }
+}
+
+async function performHardRefresh() {
+  showToast('🔄 Refreshing: Waking backend & Resubscribing...');
+  try {
+    await fetch(`${BACKEND_URL}/api/push/debug`);
+  } catch (err) {
+    console.warn('Backend wake ping failed, proceeding...', err);
+  }
+  try {
+    await triggerForceResubscribe();
+  } catch (err) {
+    console.error('Force resubscribe failed:', err);
+  }
+  initializeReminderSystem();
+  checkDailyReset();
+  renderDashboard();
+  renderRoutine();
+  renderProfile();
+  showToast('✅ Woke backend, resubscribed, & refreshed system status!');
 }
 
 async function triggerForceResubscribe() {
