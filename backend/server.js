@@ -115,11 +115,19 @@ async function broadcast(payloadObj) {
   if (removed) saveSubscriptions();
 }
 
-// Ping route for UptimeRobot / cron-job.org - hit this every 5-10 min to stop
-// Render's free tier from spinning the server down (which is the other big
-// reason pushes silently stop arriving when the phone/app is closed).
+const SERVER_START = Date.now();
+
 app.get('/api/ping', (req, res) => {
-  res.send('pong');
+  const uptimeSec = Math.round((Date.now() - SERVER_START) / 1000);
+  const mins = Math.floor(uptimeSec / 60);
+  const secs = uptimeSec % 60;
+  res.json({
+    status: 'awake',
+    uptime: `${mins}m ${secs}s`,
+    subscribers: subscriptions.size,
+    vibeLoopActive: testInterval !== null,
+    waterLoopActive: waterInterval !== null
+  });
 });
 
 app.get('/api/push/vapid-public-key', (req, res) => {
@@ -282,7 +290,7 @@ app.post('/api/push/test/start', (req, res) => {
   broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
   testInterval = setInterval(() => {
     broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
-  }, 5000); // 5 seconds for testing
+  }, 30000); // 30 seconds for testing
   res.json({ ok: true, status: 'started' });
 });
 
