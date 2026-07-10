@@ -91,7 +91,10 @@
  
               <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
                 <strong>Quick-Pick Log</strong>
-                <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset Daily</button>
+                <div style="display:flex; gap:6px;">
+                  <button id="undo-log-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
+                  <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset Daily</button>
+                </div>
               </div>
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                 <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍛</span>Dal Chawal</button>
@@ -116,7 +119,10 @@
 
               <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
                 <strong>Quick Hydration Log</strong>
-                <button id="reset-hydration" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset</button>
+                <div style="display:flex; gap:6px;">
+                  <button id="undo-hydration-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
+                  <button id="reset-hydration" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset</button>
+                </div>
               </div>
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                 <button class="ghost-btn log-hydration-btn" data-ml="250" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🥛</span>250 ml glass</button>
