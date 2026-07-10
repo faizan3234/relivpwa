@@ -75,6 +75,11 @@ const state = {
   mealCount: Number(localStorage.getItem('relix-meal-count') || 0),
   dailyMeals: Number(localStorage.getItem('relix-daily-meals') || 0),
   completedTasks: JSON.parse(localStorage.getItem('relix-completed') || '[]'),
+  dayStartTime: Number(localStorage.getItem('relix-day-start') || Date.now()),
+  restorableStreak: Number(localStorage.getItem('relix-restorable-streak') || -1),
+  loggedFoods: JSON.parse(localStorage.getItem('relix-logged-foods') || '[]'),
+  profilePic: localStorage.getItem('relix-profile-pic') || '',
+  pendingMealImageBase64: '',
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
@@ -188,6 +193,7 @@ function init() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       initializeReminderSystem();
+      checkDailyReset();
       if ('serviceWorker' in navigator && 'PushManager' in window) {
         subscribeToPushNotifications(false);
       }
@@ -197,6 +203,7 @@ function init() {
   window.addEventListener('online', () => {
     updateConnectionStatus();
     initializeReminderSystem();
+    checkDailyReset();
   });
   window.addEventListener('offline', () => {
     updateConnectionStatus();
@@ -210,6 +217,7 @@ function init() {
   registerNotifications();
   showWelcome();
   processMissedActions();
+  checkDailyReset();
 
   if ('serviceWorker' in navigator && 'PushManager' in window) {
     subscribeToPushNotifications(false);
@@ -696,6 +704,25 @@ function parseLocalFoodIntake(text) {
   if (modalOverlay) modalOverlay.addEventListener('click', (event) => {
     if (event.target === modalOverlay) closeModal();
   });
+
+  const restoreStreakBtn = document.getElementById('restore-streak-btn');
+  if (restoreStreakBtn) {
+    restoreStreakBtn.addEventListener('click', restoreStreak);
+  }
+
+  const logMealBtn = document.getElementById('log-meal-btn');
+  if (logMealBtn) {
+    logMealBtn.addEventListener('click', logVisionMeal);
+  }
+
+  const avatarContainer = document.getElementById('profile-avatar-container');
+  const profilePicInput = document.getElementById('profile-pic-input');
+  if (avatarContainer && profilePicInput) {
+    avatarContainer.addEventListener('click', () => {
+      profilePicInput.click();
+    });
+    profilePicInput.addEventListener('change', handleProfilePictureUpload);
+  }
 }
 
 function getUnreadReminderCount() {
@@ -931,11 +958,35 @@ function renderCloseTheGap() {
 }
 
 function renderRoutine() {
-  const habits = [
-    { title: 'Morning Reset', description: 'Gentle mobility and sunlight.', time: '7:00 AM', duration: '10 min', why: 'A short movement window improves energy and reduces stiffness.', scientific: 'Morning movement increases blood flow and supports alertness.', benefits: 'Sharper focus, better mood, easier start to the day.' },
-    { title: 'Hydration Boost', description: 'Sip water before your first task.', time: '8:30 AM', duration: '2 min', why: 'Hydration keeps your metabolism steady.', scientific: 'Water supports attention and helps maintain steady energy balance.', benefits: 'Less fatigue, better digestion, improved concentration.' },
-    { title: 'Evening Wind Down', description: 'Dim screens and breathe slowly.', time: '9:30 PM', duration: '12 min', why: 'Calm routines help your body recover.', scientific: 'Lower light exposure and slow breathing reduce stress signals.', benefits: 'Better sleep, lower tension, stronger recovery.' }
-  ];
+  let habits = [];
+  if (state.goalType === 'skin') {
+    habits = [
+      { title: 'Morning Double Cleanse', description: 'Double cleanse with a gentle wash.', time: '8:00 AM', duration: '5 min', why: 'Removes sebum, sunscreen, and overnight impurities.', scientific: 'Double cleansing keeps pores clean and ready for hydration.', benefits: 'Fewer breakouts, brighter skin tone, clean base.' },
+      { title: 'SPF Shield Application', description: 'Apply or reapply your SPF 50 sunscreen.', time: '9:00 AM', duration: '2 min', why: 'Protects the skin barrier from UV aging and damage.', scientific: 'Daily sunscreen reduces photoaging and hyperpigmentation.', benefits: 'Prevents dark spots, preserves collagen, healthy skin.' },
+      { title: 'Mid-day Skincare Hydration Log', description: 'Log a glass of water to hydrate skin cells.', time: '3:00 PM', duration: '2 min', why: 'Maintains skin elasticity and flushes toxins.', scientific: 'Hydration supports skin cell repair and prevents dry patches.', benefits: 'Plump skin, natural glow, less skin tightness.' },
+      { title: 'Evening Cleanse & Actives', description: 'Wash and apply Korean skincare serums.', time: '9:00 PM', duration: '10 min', why: 'Restores skin barrier and treats target concerns.', scientific: 'Actives like Hyaluronic acid absorb better on damp skin.', benefits: 'Smoother texture, active acne reduction, skin repair.' },
+      { title: 'Acne Treatment Spot Gel', description: 'Apply spot treatment or pimple patches.', time: '9:30 PM', duration: '3 min', why: 'Targets active acne breakouts directly overnight.', scientific: 'Spot gels reduce inflammation and speed healing.', benefits: 'Flattens pimples, limits scarring, calms redness.' },
+      { title: 'Sleep Window Prep', description: 'Dim screens and sleep for 8+ hours.', time: '10:30 PM', duration: '15 min', why: 'Essential for cellular skin repair and collagen synthesis.', scientific: 'Growth hormone released during sleep repairs tissue.', benefits: 'Refreshed skin, fewer dark circles, youthful texture.' }
+    ];
+  } else if (state.goalType === 'lose') {
+    habits = [
+      { title: 'Water Nudge & Sip', description: 'Drink a glass of water before first meal.', time: '8:00 AM', duration: '2 min', why: 'Fills stomach and helps boost calorie burning.', scientific: 'Pre-meal hydration naturally reduces portion sizes.', benefits: 'Reduced appetite, steady metabolism, active start.' },
+      { title: 'Green Tea Intake', description: 'Sip unsweetened green tea.', time: '11:00 AM', duration: '5 min', why: 'Boosts metabolic rate and fat oxidation.', scientific: 'Catechins in green tea aid in breakdown of fats.', benefits: 'Metabolic boost, clean energy, antioxidant rich.' },
+      { title: 'Lunch Portion Check', description: 'Eat slowly and stop at 80% full.', time: '1:30 PM', duration: '5 min', why: 'Prevents overeating and improves digestion.', scientific: 'Satiety signals take 20 minutes to reach the brain.', benefits: 'No post-lunch slump, steady deficit, better digestion.' },
+      { title: 'Evening Active Walk', description: 'Take a brisk 15-minute walk.', time: '6:00 PM', duration: '15 min', why: 'Increases active calorie burn and cardiovascular health.', scientific: 'Low-intensity exercise burns fat stores for fuel.', benefits: 'Calorie deficit support, lower stress, better sleep.' },
+      { title: 'Dinner Mindfulness check', description: 'Avoid screens while having dinner.', time: '8:30 PM', duration: '10 min', why: 'Helps track portions and prevents late-night cravings.', scientific: 'Distracted eating is linked to high calorie consumption.', benefits: 'Better portion control, satisfying meal, no overeating.' },
+      { title: 'Sleep Prep Dimming', description: 'Dim lights to prepare for recovery sleep.', time: '10:00 PM', duration: '10 min', why: 'Optimizes fat loss hormones like melatonin.', scientific: 'Sufficient sleep supports muscle retention during deficit.', benefits: 'Steady fat burn, low cortisol, high morning energy.' }
+    ];
+  } else {
+    habits = [
+      { title: 'High Protein Breakfast', description: 'Eat eggs, paneer, oats, or peanut butter.', time: '8:30 AM', duration: '15 min', why: 'Triggers muscle protein synthesis early in the day.', scientific: 'Breakfast protein helps prevent muscle breakdown.', benefits: 'Muscle building, sustained energy, no morning fatigue.' },
+      { title: 'Mid-Day Calorie Shake', description: 'Drink high-calorie banana peanut shake.', time: '11:00 AM', duration: '10 min', why: 'Provides clean calories and protein for surplus.', scientific: 'Liquid calories are easier to consume for weight gain.', benefits: 'Easy calorie surplus, high protein, quick refueling.' },
+      { title: 'Post-Workout Supplement', description: 'Have whey protein or high-protein meal.', time: '5:30 PM', duration: '2 min', why: 'Repairs muscle fibers torn during resistance training.', scientific: 'Protein intake post-workout triggers anabolic repair.', benefits: 'Fast recovery, muscle gain, reduced soreness.' },
+      { title: 'Dinner Protein Log', description: 'Eat paneer, eggs, chicken, or curd.', time: '8:30 PM', duration: '15 min', why: 'Provides steady protein flow during overnight fast.', scientific: 'Slow-digesting protein supports muscle repair while sleeping.', benefits: 'Sustained muscle building, deep recovery.' },
+      { title: 'Evening Stretching', description: 'Gentle mobility and muscle stretching.', time: '9:30 PM', duration: '10 min', why: 'Improves flexibility and reduces muscle soreness.', scientific: 'Stretching increases blood flow and joint range of motion.', benefits: 'Reduced soreness, lower injury risk, relaxed mind.' },
+      { title: 'Sleep Prep Blockout', description: 'Shut down screens for growth hormone release.', time: '10:30 PM', duration: '10 min', why: 'Ensures deep sleep for testosterone and growth hormone.', scientific: 'Melatonin and growth hormones spike during deep sleep.', benefits: 'Maximum muscle growth, high morning testosterone.' }
+    ];
+  }
 
   els.routineList.innerHTML = habits.map((habit, index) => `
     <article class="routine-card">
@@ -967,10 +1018,10 @@ function renderRoutine() {
     btn.addEventListener('click', () => openWhyModal(btn.dataset.title, btn.dataset.why));
   });
 
-  const doneCount = state.completedTasks.filter((value) => value !== undefined).length;
-  const percent = Math.round((doneCount / 3) * 100);
+  const doneCount = state.completedTasks.filter((value) => typeof value === 'number').length;
+  const percent = habits.length > 0 ? Math.round((doneCount / habits.length) * 100) : 0;
   els.routineProgress.style.width = `${percent}%`;
-  els.routineProgress.parentElement.querySelector('.tracker-copy').textContent = `${doneCount} of 3 complete · ${percent}%`;
+  els.routineProgress.parentElement.querySelector('.tracker-copy').textContent = `${doneCount} of ${habits.length} complete · ${percent}%`;
 }
 
 function renderProfile() {
@@ -978,6 +1029,42 @@ function renderProfile() {
   document.getElementById('profile-level').textContent = state.level;
   document.getElementById('profile-streak').textContent = state.streak;
   syncProfileMeta();
+  renderProfilePicture();
+}
+
+function renderProfilePicture() {
+  const container = document.getElementById('profile-avatar-container');
+  if (!container) return;
+  const initials = document.getElementById('avatar-initials');
+  const img = document.getElementById('avatar-img');
+  
+  if (state.profilePic) {
+    if (initials) initials.style.display = 'none';
+    if (img) {
+      img.src = state.profilePic;
+      img.style.display = 'block';
+    }
+  } else {
+    if (initials) initials.style.display = 'block';
+    if (img) img.style.display = 'none';
+  }
+}
+
+function handleProfilePictureUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Please upload an image file.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    state.profilePic = reader.result;
+    saveState();
+    renderProfilePicture();
+    showToast('Profile picture updated!');
+  };
+  reader.readAsDataURL(file);
 }
 
 function renderMealCounter() {
@@ -1183,36 +1270,50 @@ async function getCoachReply(message) {
   const timeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
   const deviceLocalTime = now.toLocaleString('en-US', timeOpts);
 
-  const prompt = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo, ${state.weight}kg user with target weight ${state.targetWeight}kg.
+  // Prepare a dynamic description of today's logged foods
+  const loggedFoodsStr = state.loggedFoods.length > 0 
+    ? state.loggedFoods.map(f => `• ${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join('\n')
+    : 'No foods logged yet today.';
+
+  const systemInstruction = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo, ${state.weight}kg user with target weight ${state.targetWeight}kg.
   Their height is ${state.height} and diet preference is: ${state.dietType}.
   Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Korean Skincare & Hydration'}.
   Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
   
   The user's current local device clock is: ${deviceLocalTime}.
-  Use this clock time as your absolute source of truth when user talks about timing (e.g., "in 30 mins", "tonight", "at 9 PM"). Calculate HH:MM 24-hour targets relative to this clock.
+  Use this clock time as your absolute source of truth when user talks about timing (e.g. "in 30 mins", "tonight", "at 9 PM").
   
-  User says: "${message}"
+  Today's logged foods so far:
+  ${loggedFoodsStr}
   
-  CRITICAL LOGGING RULE:
-  - ONLY return non-zero "calories" and "protein" if the user explicitly states they ate, drank, had, or are logging the food right now (e.g. "I had biryani", "logged 100g paneer", "just ate 2 eggs").
-  - If they are just asking a question about a food (e.g. "how many calories in biryani?", "does chicken have protein?"), you must explain the numbers in your "reply", but return 0 in the "calories" and "protein" fields. Do NOT log it.
-  
-  1. If they logged food, estimate the calories & protein (use Indian estimates like dal-chawal: 350 kcal/10g protein, 2 aloo puri: 550 kcal/10g protein, curd: 40 kcal/2g protein, etc).
-  2. If they ask for a reminder, or if you suggest a specific action at a time (e.g. face wash at 9:00 PM, meal at 4:30 PM, shake at 8:00 AM), include a "schedule" object in the JSON response to schedule a real lockscreen push notification!
-  
-  The "schedule" object must contain:
-    - "key": Unique key for the reminder (e.g. "skin", "diet", "water")
-    - "title": Short title (e.g. "Meal: Paneer bhurji" or "Skincare: Face Wash")
-    - "body": Short instructions (e.g. "Eat your paneer now to hit protein target!")
-    - "time": The exact time in "HH:MM" format (24-hour style, e.g., "16:30" or "21:00")
+  CRITICAL LOGGING & CLARIFICATION RULE:
+  - If the user states they ate a food (e.g. "I had a burger", "I ate kebabs", "logging pizza"), if the details are vague (missing brand like KFC/McDonald's/Homemade, or size/portion like leg piece vs palm size, or preparation style like oily vs grilled):
+    1. Do NOT log the macros yet. Return 0 for "calories" and "protein" in the JSON properties.
+    2. In your "reply", ask exactly 1 or 2 specific, friendly clarifying questions to get the details (e.g., "Was it KFC, McDonald's, or homemade?", "Was the kebab piece larger or smaller than your palm?", "Was it oily or grilled?").
+    3. Keep it brief and non-annoying, but make the user feel that a precise, high-quality calculation is happening.
+  - If the user provides details or answers your questions (e.g. "it was homemade", "smaller than my palm", "KFC"), calculate the exact calories, protein, carbs, and fats (break down good vs bad fats, brand factors, and oiliness in your "reply"). Include these exact numbers in your coaching response and set non-zero values in the JSON fields.
+  - If the user explicitly asks to cancel or remove a logged food (e.g., "Remove biryani", "Cancel my last meal", "Remove burger from my log"), or cancel a self-logged item:
+    1. Set the "calories" and "protein" to negative values corresponding to the food to subtract them (e.g. calories: -350, protein: -10).
+    2. Set "removeFood" in JSON to the name of the food to remove (e.g. "biryani").
+    3. State in your reply that the food has been removed.
+  - If the user asks "What all did I have today?" or "Give me a protein breakdown", output a list of their logged foods from today with their estimated protein, carbs, and fats, and return 0 calories and 0 protein.
+  - ONLY return non-zero "calories" and "protein" if the user explicitly states they ate, drank, had, or are logging the food right now. Return 0 if it is just a general question about a food (e.g., "how many calories in biryani?").
   
   Reply strictly in JSON format with NO markdown formatting:
   {
     "reply": "Your coaching response here",
-    "calories": 200, // ONLY if explicitly consumed (0 if informational question)
-    "protein": 10, // ONLY if explicitly consumed (0 if informational question)
-    "schedule": null // or the schedule object
+    "calories": Number,  // calories to add (positive) or subtract (negative), or 0
+    "protein": Number,   // protein to add (positive) or subtract (negative), or 0
+    "logFood": "Name of food being added (e.g. KFC Burger)" or null,
+    "removeFood": "Name of food being removed (e.g. biryani)" or null,
+    "schedule": null     // or schedule object if they ask for a reminder
   }`;
+
+  // Take the last 6 messages from the rolling history to feed as context
+  const lastFewMessages = chatMessages.slice(-6).map(m => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.text
+  }));
 
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1223,7 +1324,11 @@ async function getCoachReply(message) {
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: systemInstruction },
+          ...lastFewMessages,
+          { role: 'user', content: message }
+        ],
         response_format: { type: "json_object" }
       })
     });
@@ -1234,13 +1339,31 @@ async function getCoachReply(message) {
     const textRes = data.choices[0].message.content.trim();
     const result = JSON.parse(textRes);
 
+    // Apply macro updates based on LLM JSON output
     if (result.calories || result.protein) {
-      state.consumedCalories += (result.calories || 0);
-      state.consumedProtein += (result.protein || 0);
+      state.consumedCalories = Math.max(0, state.consumedCalories + (result.calories || 0));
+      state.consumedProtein = Math.max(0, state.consumedProtein + (result.protein || 0));
       state.lastLog = { calories: result.calories || 0, protein: result.protein || 0, hydration: 0 };
-      saveState();
-      renderDashboard();
     }
+
+    // Manage today's logged foods list
+    if (result.removeFood) {
+      const targetName = result.removeFood.toLowerCase();
+      const idx = state.loggedFoods.findIndex(f => f.name.toLowerCase().includes(targetName));
+      if (idx !== -1) {
+        state.loggedFoods.splice(idx, 1);
+      }
+    } else if (result.logFood && (result.calories > 0 || result.protein > 0)) {
+      state.loggedFoods.push({
+        name: result.logFood,
+        calories: result.calories || 0,
+        protein: result.protein || 0,
+        timestamp: Date.now()
+      });
+    }
+
+    saveState();
+    renderDashboard();
 
     return result;
   } catch (e) {
@@ -1270,61 +1393,179 @@ function retrieveKnowledge(message) {
   return knowledgeBase.find((item) => item.keywords.some((keyword) => lower.includes(keyword)));
 }
 
+let lastVisionResult = null;
+
 function previewMeal(event) {
   const file = event.target.files?.[0];
   if (!file) return;
   if (!file.type.startsWith('image/')) {
-    els.mealStatus.textContent = 'Please upload a food image.';
+    els.mealStatus.textContent = 'Please upload an image file.';
     return;
   }
 
   const reader = new FileReader();
   reader.onload = () => {
     els.mealPreview.innerHTML = `<img src="${reader.result}" alt="Selected meal preview">`;
-    els.mealStatus.textContent = 'Meal image ready. Tap analyze to estimate nutrition.';
+    els.mealStatus.textContent = 'Image loaded. Tap analyze to see real AI analysis.';
+    state.pendingMealImageBase64 = reader.result;
+    
+    const resultCard = document.getElementById('meal-result-card');
+    if (resultCard) resultCard.style.display = 'none';
   };
   reader.readAsDataURL(file);
 }
 
-function analyzeMeal() {
+async function analyzeMeal() {
   if (state.dailyMeals >= 5) {
-    els.mealStatus.textContent = 'Daily meal limit reached. Come back tomorrow for more insights.';
+    els.mealStatus.textContent = 'Daily limit reached. Come back tomorrow!';
     return;
   }
-  if (!els.mealInput.files?.length) {
-    els.mealStatus.textContent = 'Upload a photo first to analyze your meal.';
+  if (!state.pendingMealImageBase64) {
+    els.mealStatus.textContent = 'Upload a photo first to analyze.';
+    return;
+  }
+  if (!state.groqKey) {
+    els.mealStatus.textContent = 'Please enter your Groq API Key in the Profile tab first!';
     return;
   }
 
-  els.mealStatus.textContent = 'Analyzing meal with a local nutrition model…';
+  els.mealStatus.textContent = 'Analyzing image with Groq Vision Model (Llama 3.2)...';
   els.mealButton.disabled = true;
-  setTimeout(() => {
-    const score = 84 + Math.floor(Math.random() * 12);
-    const calories = 420 + Math.floor(Math.random() * 240);
-    const protein = 18 + Math.floor(Math.random() * 18);
-    const carbs = 39 + Math.floor(Math.random() * 22);
-    const fat = 12 + Math.floor(Math.random() * 12);
-    const healthy = score >= 88 ? 'Excellent' : score >= 80 ? 'Strong' : 'Balanced';
-    els.mealStatus.innerHTML = `
-      <div class="meal-result">
-        <strong>Estimated meal:</strong>
-        <p>${calories} kcal · ${protein}g protein</p>
-        <p>${carbs}g carbs · ${fat}g fat</p>
-        <p>Meal score: ${score}/100</p>
-        <p>Healthy rating: ${healthy}</p>
-        <p>Looks like a solid, nourishing choice. Keep it up.</p>
-      </div>
-    `;
+
+  const resultCard = document.getElementById('meal-result-card');
+  const resultTitle = document.getElementById('meal-result-title');
+  const resultDesc = document.getElementById('meal-result-desc');
+  const nutritionGrid = document.getElementById('meal-nutrition-grid');
+  const logBtn = document.getElementById('log-meal-btn');
+
+  if (resultCard) {
+    resultCard.style.display = 'flex';
+    resultTitle.textContent = 'Analyzing plate...';
+    resultDesc.textContent = 'Determining nutritional composition and classification.';
+    nutritionGrid.style.display = 'none';
+    logBtn.style.display = 'none';
+  }
+
+  const visionPrompt = `Analyze this image. You must identify if it is a food item, a human being, an animal (dog, cat, bird, etc.), or an inanimate object.
+  
+  Return strictly a JSON object with NO markdown formatting:
+  {
+    "type": "food" | "human" | "animal" | "object",
+    
+    // IF FOOD:
+    "foodName": "Name of the estimated food (e.g. Tomato Pasta, Cheese Burger)",
+    "calories": Number, // estimated calories
+    "protein": Number,  // estimated protein in grams
+    "carbs": Number,    // estimated carbs in grams
+    "fat": Number,      // estimated fat in grams
+    "healthRating": Number, // score from 0 to 100
+    "analysisText": "A detailed description of the food, estimated ingredients, why it got this rating, and a question: 'Did you eat this? Tap Log to add to your daily totals!'",
+    
+    // IF HUMAN:
+    "analysisText": "I don't know about others, but you definitely seem a treat to me! Hotness rating: 100/100, rating high on protein! You look absolutely fabulous and healthy today.",
+    
+    // IF ANIMAL:
+    "analysisText": "Aww, look at this cute animal! Cuteness rating: 100/100! Truly a pure soul that deserves all the treats.",
+    
+    // IF INANIMATE OBJECT:
+    "analysisText": "This is an interesting object! Witty, funny caption about what this object might do if it was alive."
+  }`;
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${state.groqKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.2-11b-vision-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: visionPrompt },
+              { type: 'image_url', image_url: { url: state.pendingMealImageBase64 } }
+            ]
+          }
+        ],
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const textRes = data.choices[0].message.content.trim();
+    const result = JSON.parse(textRes);
+    lastVisionResult = result;
+
+    els.mealStatus.textContent = 'Analysis complete.';
+    
+    if (result.type === 'food') {
+      resultTitle.textContent = `🍕 ${result.foodName || 'Estimated Food'}`;
+      resultDesc.textContent = result.analysisText;
+      
+      document.getElementById('meal-cal-val').textContent = result.calories || 0;
+      document.getElementById('meal-pro-val').textContent = `${result.protein || 0}g`;
+      document.getElementById('meal-carb-val').textContent = `${result.carbs || 0}g`;
+      document.getElementById('meal-fat-val').textContent = `${result.fat || 0}g`;
+      
+      nutritionGrid.style.display = 'grid';
+      logBtn.style.display = 'block';
+    } else if (result.type === 'human') {
+      resultTitle.textContent = '👤 Human Detected!';
+      resultDesc.textContent = result.analysisText;
+      nutritionGrid.style.display = 'none';
+      logBtn.style.display = 'none';
+    } else if (result.type === 'animal') {
+      resultTitle.textContent = '🐾 Animal Detected!';
+      resultDesc.textContent = result.analysisText;
+      nutritionGrid.style.display = 'none';
+      logBtn.style.display = 'none';
+    } else {
+      resultTitle.textContent = '📦 Object Detected!';
+      resultDesc.textContent = result.analysisText;
+      nutritionGrid.style.display = 'none';
+      logBtn.style.display = 'none';
+    }
+  } catch (err) {
+    console.error(err);
+    els.mealStatus.textContent = 'Failed to analyze. Please check your API key and connection.';
+    resultTitle.textContent = 'Analysis Failed';
+    resultDesc.textContent = 'Verify your Groq API key is correct and try again.';
+  } finally {
+    els.mealButton.disabled = false;
+  }
+}
+
+function logVisionMeal() {
+  if (lastVisionResult && lastVisionResult.type === 'food') {
+    const cals = lastVisionResult.calories || 0;
+    const pro = lastVisionResult.protein || 0;
+
+    state.consumedCalories += cals;
+    state.consumedProtein += pro;
     state.dailyMeals += 1;
-    state.consumedCalories += calories;
-    state.consumedProtein += protein;
-    state.lastLog = { calories: calories, protein: protein, hydration: 0 };
+    state.lastLog = { calories: cals, protein: pro, hydration: 0 };
+    
+    state.loggedFoods.push({
+      name: lastVisionResult.foodName,
+      calories: cals,
+      protein: pro,
+      timestamp: Date.now()
+    });
+
     saveState();
     renderDashboard();
-    recordActivity('Meal analyzed', 25);
+    recordActivity(`Meal logged: ${lastVisionResult.foodName}`, 25);
     renderMealCounter();
-    els.mealButton.disabled = false;
-  }, 1200);
+    
+    showToast(`✅ Logged ${lastVisionResult.foodName} (+${cals} kcal, +${pro}g Pro)!`);
+    
+    const logBtn = document.getElementById('log-meal-btn');
+    if (logBtn) logBtn.style.display = 'none';
+  }
 }
 
 function completeQuickCheck(id, buttonEl = null) {
@@ -1936,6 +2177,10 @@ function deleteData() {
   localStorage.removeItem('relix-daily-meals');
   localStorage.removeItem('relix-completed');
   localStorage.removeItem('relix-last-log');
+  localStorage.removeItem('relix-day-start');
+  localStorage.removeItem('relix-restorable-streak');
+  localStorage.removeItem('relix-logged-foods');
+  localStorage.removeItem('relix-profile-pic');
   window.location.reload();
 }
 
@@ -1952,6 +2197,97 @@ function updateConnectionStatus() {
     statusEl.style.background = 'rgba(239,68,68,0.1)';
     statusEl.style.color = '#ef4444';
     statusEl.innerHTML = `<span class="dot" style="width:8px; height:8px; border-radius:50%; background:#ef4444; display:inline-block;"></span>Offline`;
+  }
+}
+
+function checkDailyReset() {
+  const resetInterval = 24 * 60 * 60 * 1000; // 24 hours
+  const warningInterval = 23 * 60 * 60 * 1000; // 23 hours
+  const now = Date.now();
+  const elapsed = now - state.dayStartTime;
+
+  renderStreakBanner();
+
+  if (elapsed >= resetInterval) {
+    let progress = 0;
+    if (state.goalType === 'skin') {
+      progress = state.targetHydration > 0 ? (state.consumedHydration / state.targetHydration) : 1;
+    } else {
+      const calProg = state.targetCalories > 0 ? (state.consumedCalories / state.targetCalories) : 1;
+      const proProg = state.targetProtein > 0 ? (state.consumedProtein / state.targetProtein) : 1;
+      progress = (calProg + proProg) / 2;
+    }
+
+    if (progress < 0.8) {
+      state.restorableStreak = state.streak;
+      state.streak = 0;
+      showToast('⚠️ Benchmark missed. Streak reset to 0!');
+    } else {
+      state.streak += 1;
+      state.restorableStreak = -1;
+      showToast('🎉 Day target complete! Streak incremented!');
+    }
+
+    state.consumedCalories = 0;
+    state.consumedProtein = 0;
+    state.consumedHydration = 0;
+    state.dailyMeals = 0;
+    state.completedTasks = [];
+    state.loggedFoods = [];
+    state.dayStartTime = now;
+    saveState();
+
+    scheduleResetWarningNotification(now + warningInterval);
+
+    renderDashboard();
+    renderRoutine();
+    renderProfile();
+    renderStreakBanner();
+  } else {
+    const warningTime = state.dayStartTime + warningInterval;
+    if (now < warningTime) {
+      scheduleResetWarningNotification(warningTime);
+    }
+  }
+}
+
+function scheduleResetWarningNotification(dueTime) {
+  if (state.notifications && !state.remindersPaused) {
+    fetch(`${BACKEND_URL}/api/push/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key: 'daily-reset-warning',
+        title: 'Relix Companion',
+        body: 'Please complete your count before it resets!',
+        dueAt: dueTime
+      })
+    }).catch(() => { });
+  }
+}
+
+function renderStreakBanner() {
+  const banner = document.getElementById('streak-restore-banner');
+  if (!banner) return;
+  if (state.restorableStreak > 0) {
+    banner.style.display = 'flex';
+    const textSpan = banner.querySelector('span');
+    if (textSpan) textSpan.textContent = `⚠️ Streak lost! benchmark not met. (Previous: ${state.restorableStreak})`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function restoreStreak() {
+  if (state.restorableStreak > 0) {
+    state.streak = state.restorableStreak;
+    state.restorableStreak = -1;
+    saveState();
+    renderDashboard();
+    renderProfile();
+    renderStreakBanner();
+    showToast('🔄 Streak restored!');
+    createConfetti();
   }
 }
 
@@ -1981,6 +2317,10 @@ function saveState() {
   localStorage.setItem('relix-routine-progress', String(state.routineProgress));
   localStorage.setItem('relix-daily-meals', String(state.dailyMeals));
   localStorage.setItem('relix-completed', JSON.stringify(state.completedTasks));
+  localStorage.setItem('relix-day-start', String(state.dayStartTime));
+  localStorage.setItem('relix-restorable-streak', String(state.restorableStreak));
+  localStorage.setItem('relix-logged-foods', JSON.stringify(state.loggedFoods));
+  localStorage.setItem('relix-profile-pic', state.profilePic);
 }
 
 function saveProfileName() {
