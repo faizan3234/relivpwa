@@ -11,24 +11,34 @@ const brand = {
   reminder: 'Hydration check-in · 3:30 PM'
 };
 
+function getNextDueTime(timeStr) {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const target = new Date();
+  target.setHours(hours, minutes, 0, 0);
+  if (target.getTime() <= Date.now()) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target.getTime();
+}
+
 function getRemindersForGoal(goal) {
   if (goal === 'skin') {
     return {
-      cleanse: { title: 'Morning Cleanse', description: 'Double cleanse with a gentle wash!', nextDue: Date.now() + 60000, pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
-      sunscreen: { title: 'SPF Shield', description: 'Apply/reapply your SPF 50 sunscreen.', nextDue: Date.now() + 120000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-      acne: { title: 'Acne Treatment', description: 'Apply your Korean skincare serums & acne patches.', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+      cleanse: { title: 'Morning Cleanse', description: 'Double cleanse with a gentle wash!', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+      sunscreen: { title: 'SPF Shield', description: 'Apply/reapply your SPF 50 sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      acne: { title: 'Acne Treatment', description: 'Apply your Korean skincare serums & acne patches.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
     };
   } else if (goal === 'lose') {
     return {
-      water: { title: 'Hydration Nudge', description: 'Sip water to stay full and boost metabolism.', nextDue: Date.now() + 60000, pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
-      portion: { title: 'Portion Control', description: 'Eat slowly. Stop eating when you are 80% full.', nextDue: Date.now() + 120000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-      walk: { title: 'Active Walk', description: 'Take a short 10-minute active walking break.', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 }
+      water: { title: 'Hydration Nudge', description: 'Sip water to stay full and boost metabolism.', nextDue: getNextDueTime('09:00'), pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
+      portion: { title: 'Portion Control', description: 'Eat slowly. Stop eating when you are 80% full.', nextDue: getNextDueTime('13:30'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      walk: { title: 'Active Walk', description: 'Take a short 10-minute active walking break.', nextDue: getNextDueTime('18:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 }
     };
   } else {
     return {
-      water: { title: 'Hydration Boost', description: 'Drink water to support protein synthesis.', nextDue: Date.now() + 60000, pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
-      shake: { title: 'Calorie Shake', description: 'Time for your high-calorie banana peanut butter shake!', nextDue: Date.now() + 120000, pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-      diet: { title: 'Protein & calories', description: 'Eat paneer, eggs, chicken, or curd now!', nextDue: Date.now() + 180000, pending: false, lastAction: '', missedCount: 0, followUp: 10800000 }
+      water: { title: 'Hydration Boost', description: 'Drink water to support protein synthesis.', nextDue: getNextDueTime('09:00'), pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
+      shake: { title: 'Calorie Shake', description: 'Time for your high-calorie banana peanut butter shake!', nextDue: getNextDueTime('11:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      diet: { title: 'Protein & calories', description: 'Eat paneer, eggs, chicken, or curd now!', nextDue: getNextDueTime('20:30'), pending: false, lastAction: '', missedCount: 0, followUp: 10800000 }
     };
   }
 }
@@ -182,6 +192,7 @@ function init() {
         subscribeToPushNotifications(false);
       }
     }
+  });
   updateConnectionStatus();
   window.addEventListener('online', () => {
     updateConnectionStatus();
@@ -1675,7 +1686,22 @@ function finalizeReminderResponse(key, action) {
   reminder.missedCount = 0;
   if (action === 'done') {
     reminder.lastAction = 'done';
-    reminder.nextDue = Date.now() + reminder.followUp;
+    const baseHourMap = {
+      cleanse: '08:00',
+      sunscreen: '13:00',
+      acne: '21:00',
+      water: '09:00',
+      portion: '13:30',
+      walk: '18:00',
+      shake: '11:00',
+      diet: '20:30'
+    };
+    const timeStr = baseHourMap[key];
+    if (timeStr) {
+      reminder.nextDue = getNextDueTime(timeStr);
+    } else {
+      reminder.nextDue = Date.now() + reminder.followUp;
+    }
     recordActivity(`${reminder.title} completed`, 12);
     showToast(`${reminder.title} complete — great job.`);
     createConfetti();

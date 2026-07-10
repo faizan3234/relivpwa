@@ -5,6 +5,8 @@ import webpush from 'web-push';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
+import https from 'https';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -220,6 +222,47 @@ function saveSchedules() {
 
 const schedules = loadSchedules();
 
+let selfPingInterval = null;
+let serverPublicUrl = null;
+
+function pingUrl(urlStr) {
+  try {
+    const url = new URL(urlStr);
+    const client = url.protocol === 'https:' ? https : http;
+    client.get(urlStr, (res) => {
+      console.log(`[ping] Self-ping response: ${res.statusCode}`);
+    }).on('error', (err) => {
+      console.error('[ping] Self-ping request error:', err.message);
+    });
+  } catch (err) {
+    console.error('[ping] Invalid self-ping URL:', err.message);
+  }
+}
+
+function startSelfPing(url) {
+  serverPublicUrl = url;
+  schedules['_serverPublicUrl'] = url;
+  saveSchedules();
+  
+  if (selfPingInterval) return;
+
+  console.log(`[ping] Starting self-ping loop to keep Render awake: ${url}`);
+  pingUrl(url);
+
+  selfPingInterval = setInterval(() => {
+    const activeJobs = Object.keys(schedules).filter(k => k !== '_serverPublicUrl');
+    if (activeJobs.length === 0) {
+      console.log('[ping] No scheduled reminders. Stopping self-ping loop.');
+      clearInterval(selfPingInterval);
+      selfPingInterval = null;
+      return;
+    }
+    if (serverPublicUrl) {
+      pingUrl(serverPublicUrl);
+    }
+  }, 10 * 60 * 1000); // every 10 minutes
+}
+
 function armSchedule(key, title, body, dueAt) {
   if (scheduledTimers[key]) clearTimeout(scheduledTimers[key]);
   const delay = Math.max(0, dueAt - Date.now());
@@ -234,10 +277,16 @@ function armSchedule(key, title, body, dueAt) {
 // Recover anything that was still pending when the server last stopped.
 const recoveredKeys = Object.keys(schedules);
 recoveredKeys.forEach((key) => {
+  if (key === '_serverPublicUrl') return;
   const job = schedules[key];
   if (job && job.dueAt) armSchedule(key, job.title, job.body, job.dueAt);
 });
-if (recoveredKeys.length) console.log(`[schedule] Recovered ${recoveredKeys.length} pending reminder(s) after restart.`);
+if (recoveredKeys.length) console.log(`[schedule] Recovered pending reminder(s) after restart.`);
+
+const savedUrl = schedules['_serverPublicUrl'];
+if (savedUrl && Object.keys(schedules).filter(k => k !== '_serverPublicUrl').length > 0) {
+  startSelfPing(savedUrl);
+}
 
 app.post('/api/push/schedule', (req, res) => {
   const { key, title = 'Reliv Reminder', body, dueAt } = req.body || {};
@@ -245,6 +294,11 @@ app.post('/api/push/schedule', (req, res) => {
   schedules[key] = { title, body, dueAt };
   saveSchedules();
   armSchedule(key, title, body, dueAt);
+
+  // Self-ping to keep Render container awake during pending reminders
+  const selfUrl = `${req.protocol}://${req.get('host')}`;
+  startSelfPing(selfUrl);
+
   res.json({ ok: true });
 });
 
