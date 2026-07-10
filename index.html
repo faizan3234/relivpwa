@@ -75,7 +75,7 @@
                 <span>Consistency is your superpower.</span>
               </div>
             </div>
-            <div class="ring-card" style="display:flex; flex-direction:column; gap:8px;">
+            <div id="nutrition-overview-card" class="ring-card" style="display:flex; flex-direction:column; gap:8px;">
               <strong>Daily Overview</strong>
               <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
                 <span style="font-size:0.9rem;">Calories</span>
@@ -88,7 +88,7 @@
                 <span id="pro-text" style="font-size:0.8rem; color:var(--muted);">0 / 140g</span>
               </div>
               <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
-
+ 
               <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
                 <strong>Quick-Pick Log</strong>
                 <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset Daily</button>
@@ -99,11 +99,31 @@
                 <button class="ghost-btn quick-pick-btn" data-food="coffee" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">☕</span>Coffee</button>
                 <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍪</span>Chai & Biscuit</button>
               </div>
-
+ 
               <form id="custom-food-form" style="display:flex; gap:8px; margin-top:8px;">
                 <input type="text" id="custom-food-input" placeholder="Or type e.g. 1 slice of pizza..." aria-label="Custom food" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" required />
                 <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
               </form>
+            </div>
+
+            <div id="skincare-overview-card" class="ring-card" style="display:none; flex-direction:column; gap:8px;">
+              <strong>Daily Hydration</strong>
+              <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
+                <span style="font-size:0.9rem;">Water Intake</span>
+                <span id="hydration-text" style="font-size:0.8rem; color:var(--muted);">0 / 3500 ml</span>
+              </div>
+              <div class="progress-track"><span id="hydration-bar" style="width:0%; background:#2196F3;"></span></div>
+
+              <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
+                <strong>Quick Hydration Log</strong>
+                <button id="reset-hydration" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset</button>
+              </div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <button class="ghost-btn log-hydration-btn" data-ml="250" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🥛</span>250 ml glass</button>
+                <button class="ghost-btn log-hydration-btn" data-ml="500" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🥤</span>500 ml bottle</button>
+                <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">💧</span>1000 ml bottle</button>
+                <button class="ghost-btn log-hydration-btn" data-ml="150" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍵</span>150 ml green tea</button>
+              </div>
             </div>
           </div>
         </div>

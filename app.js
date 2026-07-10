@@ -51,6 +51,8 @@ const state = {
   targetProtein: Number(localStorage.getItem('relix-target-pro') || 140),
   consumedCalories: Number(localStorage.getItem('relix-consumed-cal') || 0),
   consumedProtein: Number(localStorage.getItem('relix-consumed-pro') || 0),
+  consumedHydration: Number(localStorage.getItem('relix-consumed-hyd') || 0),
+  targetHydration: 3500,
   xp: Number(localStorage.getItem('relix-xp') || 0),
   level: Number(localStorage.getItem('relix-level') || 1),
   streak: Number(localStorage.getItem('relix-streak') || 0),
@@ -409,6 +411,26 @@ function bindEvents() {
     });
   }
 
+  document.querySelectorAll('.log-hydration-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const ml = Number(e.currentTarget.dataset.ml);
+      state.consumedHydration += ml;
+      saveState();
+      renderDashboard();
+      showToast(`✅ Logged ${ml}ml water!`);
+    });
+  });
+
+  const resetHydrationBtn = document.getElementById('reset-hydration');
+  if (resetHydrationBtn) {
+    resetHydrationBtn.addEventListener('click', () => {
+      state.consumedHydration = 0;
+      saveState();
+      renderDashboard();
+      showToast('Hydration reset.');
+    });
+  }
+
   const customFoodForm = document.getElementById('custom-food-form');
   const customFoodInput = document.getElementById('custom-food-input');
   if (customFoodForm && customFoodInput) {
@@ -630,7 +652,24 @@ function renderDashboard() {
     els.proText.textContent = `${state.consumedProtein} / ${state.targetProtein} g`;
   }
 
-  // Render close the gap analytics
+  const nutritionCard = document.getElementById('nutrition-overview-card');
+  const skincareCard = document.getElementById('skincare-overview-card');
+  if (nutritionCard && skincareCard) {
+    if (state.goalType === 'skin') {
+      nutritionCard.style.display = 'none';
+      skincareCard.style.display = 'flex';
+      
+      const hydPercent = Math.min(100, Math.round((state.consumedHydration / state.targetHydration) * 100)) || 0;
+      const hydBar = document.getElementById('hydration-bar');
+      const hydText = document.getElementById('hydration-text');
+      if (hydBar) hydBar.style.width = `${hydPercent}%`;
+      if (hydText) hydText.textContent = `${state.consumedHydration} / ${state.targetHydration} ml`;
+    } else {
+      nutritionCard.style.display = 'flex';
+      skincareCard.style.display = 'none';
+    }
+  }
+
   renderCloseTheGap();
 
   const activity = state.recentActivity.length ? state.recentActivity.slice(0, 3) : [{ label: 'Start your first habit', time: 'No activity yet' }];
@@ -717,8 +756,14 @@ function renderCloseTheGap() {
         <div style="font-size:0.85rem; color:var(--muted); line-height:1.4;">
           <strong style="color:var(--text); display:block; margin-bottom:4px;">Quick high-calorie/protein food suggestions:</strong>
           <div style="display:grid; grid-template-columns:1fr; gap:6px;">
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
-              🥤 <strong>Hardgainer Banana Peanut Shake</strong>: 1 glass milk, 2 bananas, 2 tbsp peanut butter (~700 kcal | 22g protein)
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); line-height: 1.45;">
+              🥤 <strong>Hardgainer Banana Peanut Shake</strong>: (~730 kcal | 23g protein)
+              <div style="font-size:0.75rem; margin-top:4px; padding-left:8px; border-left:2px solid var(--primary); color:var(--muted);">
+                • Full cream milk (250ml): 150 kcal / 8g pro<br>
+                • 2 Bananas: 200 kcal / 2g pro<br>
+                • Oats (50g): 190 kcal / 6g pro<br>
+                • Peanut Butter (2 tbsp): 190 kcal / 7g pro
+              </div>
             </div>
             <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border);">
               🍳 <strong>4 Whole Eggs + Toast</strong>: 4 eggs cooked with butter + 2 slices of bread (~550 kcal | 24g protein)
@@ -895,45 +940,57 @@ function sendCoachMessage(message) {
 }
 
 function scheduleCoachReminder(schedule) {
-  const [hours, minutes] = schedule.time.split(':').map(Number);
-  const targetDate = new Date();
-  targetDate.setHours(hours, minutes, 0, 0);
-  if (targetDate.getTime() <= Date.now()) {
-    targetDate.setDate(targetDate.getDate() + 1);
-  }
-
-  showToast(`⏰ Setting reminder for ${schedule.time}...`);
-
-  fetch(`${BACKEND_URL}/api/push/schedule`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      key: schedule.key || 'coach-nag',
-      title: schedule.title || 'Relix Coach',
-      body: schedule.body || 'Time to complete your goal!',
-      dueAt: targetDate.getTime()
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.ok) {
-      showToast(`✅ Scheduled lockscreen reminder!`);
-      state.reminders[schedule.key || 'coach-nag'] = {
-        title: schedule.title || 'Relix Coach',
-        description: schedule.body || 'Scheduled reminder',
-        nextDue: targetDate.getTime(),
-        pending: false,
-        lastAction: '',
-        missedCount: 0,
-        followUp: 3600000
-      };
-      persistReminderState();
-      renderDashboard();
-    } else {
-      showToast('❌ Could not sync reminder to server.');
+  try {
+    if (!schedule || !schedule.time || typeof schedule.time !== 'string') {
+      console.warn('[coach] Missing or invalid time format in schedule command:', schedule);
+      return;
     }
-  })
-  .catch(() => showToast('❌ Backend offline. Could not schedule push.'));
+    const parts = schedule.time.split(':');
+    if (parts.length !== 2) return;
+    const [hours, minutes] = parts.map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return;
+
+    const targetDate = new Date();
+    targetDate.setHours(hours, minutes, 0, 0);
+    if (targetDate.getTime() <= Date.now()) {
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+
+    showToast(`⏰ Setting reminder for ${schedule.time}...`);
+
+    fetch(`${BACKEND_URL}/api/push/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key: schedule.key || 'coach-nag',
+        title: schedule.title || 'Relix Coach',
+        body: schedule.body || 'Time to complete your goal!',
+        dueAt: targetDate.getTime()
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok) {
+        showToast(`✅ Scheduled lockscreen reminder!`);
+        state.reminders[schedule.key || 'coach-nag'] = {
+          title: schedule.title || 'Relix Coach',
+          description: schedule.body || 'Scheduled reminder',
+          nextDue: targetDate.getTime(),
+          pending: false,
+          lastAction: '',
+          missedCount: 0,
+          followUp: 3600000
+        };
+        persistReminderState();
+        renderDashboard();
+      } else {
+        showToast('❌ Could not sync reminder to server.');
+      }
+    })
+    .catch(() => showToast('❌ Backend offline. Could not schedule push.'));
+  } catch (err) {
+    console.error('[coach] Failed to schedule reminder:', err);
+  }
 }
 
 async function getCoachReply(message) {
@@ -948,6 +1005,10 @@ async function getCoachReply(message) {
   
   User says: "${message}"
   
+  CRITICAL LOGGING RULE:
+  - ONLY return non-zero "calories" and "protein" if the user explicitly states they ate, drank, had, or are logging the food right now (e.g. "I had biryani", "logged 100g paneer", "just ate 2 eggs").
+  - If they are just asking a question about a food (e.g. "how many calories in biryani?", "does chicken have protein?"), you must explain the numbers in your "reply", but return 0 in the "calories" and "protein" fields. Do NOT log it.
+  
   1. If they logged food, estimate the calories & protein (use Indian estimates like dal-chawal: 350 kcal/10g protein, 2 aloo puri: 550 kcal/10g protein, curd: 40 kcal/2g protein, etc).
   2. If they ask for a reminder, or if you suggest a specific action at a time (e.g. face wash at 9:00 PM, meal at 4:30 PM, shake at 8:00 AM), include a "schedule" object in the JSON response to schedule a real lockscreen push notification!
   
@@ -960,8 +1021,8 @@ async function getCoachReply(message) {
   Reply strictly in JSON format with NO markdown formatting:
   {
     "reply": "Your coaching response here",
-    "calories": 200, // exact number of calories to add to tracker (0 if no food logged)
-    "protein": 10, // exact grams of protein to add to tracker (0 if no food logged)
+    "calories": 200, // ONLY if explicitly consumed (0 if informational question)
+    "protein": 10, // ONLY if explicitly consumed (0 if informational question)
     "schedule": null // or the schedule object
   }`;
 
@@ -1674,6 +1735,7 @@ function saveState() {
   localStorage.setItem('relix-target-pro', String(state.targetProtein));
   localStorage.setItem('relix-consumed-cal', String(state.consumedCalories));
   localStorage.setItem('relix-consumed-pro', String(state.consumedProtein));
+  localStorage.setItem('relix-consumed-hyd', String(state.consumedHydration));
   localStorage.setItem('relix-profile-name', state.profileName);
   localStorage.setItem('relix-xp', String(state.xp));
   localStorage.setItem('relix-level', String(state.level));
