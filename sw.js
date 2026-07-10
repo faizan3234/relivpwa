@@ -1,4 +1,4 @@
-const CACHE_NAME = 'relix-v2';
+const CACHE_NAME = 'relix-v3';
 const CORE_ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './file.jpg', './icons/favicon.svg', './icons/icon-192.svg', './icons/icon-512.svg'];
 
 self.addEventListener('install', (event) => {
