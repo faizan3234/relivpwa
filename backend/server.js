@@ -151,6 +151,27 @@ app.get('/api/push/debug', (req, res) => {
   });
 });
 
+app.get('/api/push/test-now', async (req, res) => {
+  const results = [];
+  for (const subStr of [...subscriptions]) {
+    try {
+      await webpush.sendNotification(
+        JSON.parse(subStr),
+        JSON.stringify({ title: '🔔 Test Push', body: 'This push was sent RIGHT NOW. If you see this, it works!', reminderKey: 'test' }),
+        { TTL: 86400, urgency: 'high' }
+      );
+      results.push({ status: 'SUCCESS' });
+    } catch (err) {
+      results.push({ status: 'FAILED', code: err.statusCode, message: err.body || err.message });
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        subscriptions.delete(subStr);
+      }
+    }
+  }
+  saveSubscriptions();
+  res.json({ sent: results.length, results });
+});
+
 app.post('/api/push/remind', (req, res) => {
   const { message = "💧 Reminding you: Time to check in!", delayMs = 300000 } = req.body || {};
   setTimeout(() => {
@@ -250,10 +271,18 @@ app.post('/api/push/water/stop', (req, res) => {
 
 app.post('/api/push/test/start', (req, res) => {
   if (testInterval) clearInterval(testInterval);
-  broadcast({ title: 'Coach Relix', body: 'Ate something good today? 🍛👍 Tap a quick-pick when you can.', reminderKey: 'macro-nag' });
+  const msgs = [
+    '🍛 Ate something good today?',
+    '💧 Quick water check!',
+    '🔔 Just checking in!',
+    '💪 How are you feeling?',
+    '🥗 Log a quick meal?',
+    '☀️ Take a stretch break!'
+  ];
+  broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
   testInterval = setInterval(() => {
-    broadcast({ title: 'Coach Relix', body: 'Ate something good today? 🍛👍 Tap a quick-pick when you can.', reminderKey: 'macro-nag' });
-  }, 60000); // 60 seconds
+    broadcast({ title: 'Coach Relix', body: msgs[Math.floor(Math.random() * msgs.length)], reminderKey: 'test-loop' });
+  }, 5000); // 5 seconds for testing
   res.json({ ok: true, status: 'started' });
 });
 
