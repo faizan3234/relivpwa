@@ -4,15 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#ff7a00" />
-    <meta name="description" content="Relix Companion is a premium wellness companion that helps you build routines, track progress, and stay on top of your health goals." />
-    <meta property="og:title" content="Relix Companion" />
-    <meta property="og:description" content="A premium wellness PWA with routines, coaching, nutrition insights, and progress tracking." />
-    <meta property="og:type" content="website" />
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Relix" />
-    <title>Relix Companion</title>
+    <meta name="description" content="Reliv Companion - AI Skin OS & AI Fat Loss OS for personalized skincare and nutrition" />
+    <title>Reliv Companion</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="file.jpg" />
@@ -20,42 +13,31 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
       <header class="top-bar">
         <div class="brand">
-          <img src="file.jpg" alt="Relix brand mark" />
+          <img src="file.jpg" alt="Reliv brand mark" />
           <div>
-            <strong>Relix Companion</strong>
-            <span>Premium wellness companion</span>
+            <strong>Reliv Companion</strong>
+            <span>AI Skin OS & Fat Loss OS</span>
           </div>
         </div>
         <div class="top-bar-actions">
-          <span id="connection-status" class="status-badge online" style="font-size:0.75rem; padding:4px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px; border:1px solid var(--border); background:rgba(34,197,94,0.1); color:#22c55e;"><span class="dot" style="width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block;"></span>Online</span>
-          <div class="top-bar-badge" id="unread-badge">0</div>
+          <span id="connection-status" class="status-badge online" style="font-size:0.75rem; padding:4px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px;">🟢 Online</span>
           <button id="install-button" class="icon-btn install-button" type="button" aria-label="Install app">⬇</button>
           <button class="icon-btn" id="theme-toggle-icon" type="button" aria-label="Toggle theme">🌙</button>
         </div>
       </header>
-
-      <div class="inline-banner" id="install-banner">
-        <div>
-          <strong>Install Relix</strong>
-          <p>Keep reminders, routines, and progress on your home screen.</p>
-        </div>
-        <button id="install-cta" class="primary-btn" type="button">Add to Home Screen</button>
-      </div>
 
       <section class="view-section active" data-view="dashboard">
         <div class="hero-card">
           <div class="hero-head">
             <div class="hero-title">
               <p>Good morning</p>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <h1 id="hero-name" style="margin: 0;">Your Name</h1>
-                <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="font-size: 1.2rem;">↻</button>
-              </div>
+              <h1 id="hero-name" style="margin: 0;">Your Name</h1>
             </div>
             <div class="hero-meta">
               <span class="pill" id="level-pill">Level 1</span>
@@ -66,377 +48,229 @@
             <div class="stat-chip"><strong id="streak-value">0</strong><span>Daily streak</span></div>
             <div class="stat-chip"><strong id="level-value">1</strong><span>Current level</span></div>
           </div>
-          <div id="streak-restore-banner" style="display:none; align-items:center; justify-content:space-between; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); padding:12px 16px; border-radius:18px; margin-top:14px;">
-            <span style="font-size:0.85rem; color:#ef4444; font-weight:600;">⚠️ Streak lost! benchmark not met.</span>
-            <button id="restore-streak-btn" class="primary-btn" type="button" style="padding:6px 12px; font-size:0.8rem; background:#ef4444; border:none; box-shadow:none; margin:0;">Restore</button>
+
+          <!-- Nutrition Overview Card (Weight Loss/Gain) -->
+          <div id="nutrition-overview-card" class="ring-card" style="display:flex; flex-direction:column; gap:8px;">
+            <strong>Daily Nutrition</strong>
+            <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
+              <span style="font-size:0.9rem;">Calories</span>
+              <span id="cal-text" style="font-size:0.8rem; color:var(--muted);">0 / 2800 kcal</span>
+            </div>
+            <div class="progress-track"><span id="cal-bar" style="width:0%"></span></div>
+            
+            <div style="display:flex; justify-content:space-between; margin-top:8px; margin-bottom:-4px;">
+              <span style="font-size:0.9rem;">Protein</span>
+              <span id="pro-text" style="font-size:0.8rem; color:var(--muted);">0 / 140g</span>
+            </div>
+            <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
+
+            <div style="display:flex; justify-content:space-between; margin-top:8px; gap:4px;">
+              <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="100" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+100 kca</button>
+              <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="500" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+500 kca</button>
+              <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="10" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+10g Pro</button>
+              <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="25" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+25g Pro</button>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
+              <strong>Quick-Pick Log</strong>
+              <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset</button>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+              <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.9rem; padding:8px;">🍲 Dal</button>
+              <button class="ghost-btn quick-pick-btn" data-food="burger" type="button" style="font-size:0.9rem; padding:8px;">🍔 Burger</button>
+              <button class="ghost-btn quick-pick-btn" data-food="coffee" type="button" style="font-size:0.9rem; padding:8px;">☕ Coffee</button>
+              <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.9rem; padding:8px;">🫖 Chai</button>
+            </div>
           </div>
-          <div class="rings-row">
-            <div class="ring-card">
-              <strong>Today’s score</strong>
-              <div class="ring-visual"></div>
-              <div class="ring-copy">
-                <strong id="score-value">0</strong>
-                <span>Consistency is your superpower.</span>
-              </div>
+
+          <!-- Skincare Hydration Card (Skin Goals) -->
+          <div id="skincare-overview-card" class="ring-card" style="display:none; flex-direction:column; gap:8px;">
+            <strong>Daily Hydration</strong>
+            <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
+              <span style="font-size:0.9rem;">Water Intake</span>
+              <span id="hydration-text" style="font-size:0.8rem; color:var(--muted);">0 / 3500 ml</span>
             </div>
-            <div id="nutrition-overview-card" class="ring-card" style="display:flex; flex-direction:column; gap:8px;">
-              <strong>Daily Overview</strong>
-              <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
-                <span style="font-size:0.9rem;">Calories</span>
-                <span id="cal-text" style="font-size:0.8rem; color:var(--muted);">0 / 2800 kcal</span>
-              </div>
-              <div class="progress-track"><span id="cal-bar" style="width:0%"></span></div>
-              
-              <div style="display:flex; justify-content:space-between; margin-top:8px; margin-bottom:-4px;">
-                <span style="font-size:0.9rem;">Protein</span>
-                <span id="pro-text" style="font-size:0.8rem; color:var(--muted);">0 / 140g</span>
-              </div>
-              <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
- 
-              <div style="display:flex; justify-content:space-between; margin-top:8px; gap:4px;">
-                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="100" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+100 kcal</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="500" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+500 kcal</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="10" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+10g Pro</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="25" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+25g Pro</button>
-              </div>
+            <div class="progress-track"><span id="hydration-bar" style="width:0%; background:#2196F3;"></span></div>
 
-              <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
-                <strong>Quick-Pick Log</strong>
-                <div style="display:flex; gap:6px;">
-                  <button id="undo-log-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
-                  <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset Daily</button>
-                </div>
-              </div>
-              <div id="last-logged-food-status" style="font-size:0.82rem; color:var(--muted); margin-top:-6px; margin-bottom:8px; font-style:italic; display:none;">Last Logged: None</div>
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍛</span>Dal Chawal</button>
-                <button class="ghost-btn quick-pick-btn" data-food="burger" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍔</span>Burger</button>
-                <button class="ghost-btn quick-pick-btn" data-food="coffee" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">☕</span>Coffee</button>
-                <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍪</span>Chai & Biscuit</button>
-              </div>
- 
-              <form id="custom-food-form" style="display:flex; gap:8px; margin-top:8px;">
-                <input type="text" id="custom-food-input" placeholder="Or type e.g. 1 slice of pizza..." aria-label="Custom food" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" required />
-                <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
-              </form>
+            <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
+              <strong>Quick Hydration</strong>
+              <button id="reset-hydration" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset</button>
             </div>
-
-            <div id="skincare-overview-card" class="ring-card" style="display:none; flex-direction:column; gap:8px;">
-              <strong>Daily Hydration</strong>
-              <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
-                <span style="font-size:0.9rem;">Water Intake</span>
-                <span id="hydration-text" style="font-size:0.8rem; color:var(--muted);">0 / 3500 ml</span>
-              </div>
-              <div class="progress-track"><span id="hydration-bar" style="width:0%; background:#2196F3;"></span></div>
-
-              <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
-                <strong>Quick Hydration Log</strong>
-                <div style="display:flex; gap:6px;">
-                  <button id="undo-hydration-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
-                  <button id="reset-hydration" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset</button>
-                </div>
-              </div>
-              <div id="last-logged-hydration-status" style="font-size:0.82rem; color:var(--muted); margin-top:-6px; margin-bottom:8px; font-style:italic; display:none;">Last Logged: None</div>
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="ghost-btn log-hydration-btn" data-ml="250" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🥛</span>250 ml glass</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="500" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🥤</span>500 ml bottle</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">💧</span>1000 ml bottle</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="150" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍵</span>150 ml green tea</button>
-              </div>
-
-              <form id="custom-hydration-form" style="display:flex; gap:8px; margin-top:8px;">
-                <input type="number" id="custom-hydration-input" placeholder="Or enter specific ml..." aria-label="Custom hydration" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" min="1" max="5000" required />
-                <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
-              </form>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+              <button class="ghost-btn log-hydration-btn" data-ml="250" type="button" style="font-size:0.9rem; padding:8px;">🥛 250ml</button>
+              <button class="ghost-btn log-hydration-btn" data-ml="500" type="button" style="font-size:0.9rem; padding:8px;">💧 500ml</button>
+              <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="font-size:0.9rem; padding:8px;">🚰 1L</button>
+              <button class="ghost-btn log-hydration-btn" data-ml="150" type="button" style="font-size:0.9rem; padding:8px;">☔ 150ml</button>
             </div>
           </div>
         </div>
 
-        <!-- Hitting Your Targets (Close the Gap) -->
+        <!-- Close the Gap / Target Suggestions -->
         <div id="close-the-gap-card" class="card" style="margin-top: 18px;">
           <div class="hero-head" style="margin-bottom: 10px;">
             <div class="hero-title">
               <p>Close the gap</p>
-              <h3>Target Suggestions</h3>
+              <h3>Smart Suggestions</h3>
             </div>
           </div>
           <div id="gap-analytics" style="display:flex; flex-direction:column; gap:10px;">
-            <!-- Dynamically populated by app.js -->
-          </div>
-        </div>
-
-        <div class="card reminder-panel" style="margin-top: 18px;">
-          <div class="hero-head">
-            <div class="hero-title">
-              <p>Gentle nudges</p>
-              <h3>Daily check-ins</h3>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom: 8px;">
-              <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3; font-size:0.8rem; padding:8px;">▶ 45m Water</button>
-              <button id="server-water-stop" class="ghost-btn" type="button" style="font-size:0.8rem; padding:8px;">⏹ Stop Water</button>
-            </div>
-            
-            <div style="background: var(--card); padding: 8px; border-radius: 8px; border: 1px dashed var(--border); margin-bottom: 8px; width: 100%;">
-              <strong style="font-size: 0.8rem; color: var(--muted); display:block; margin-bottom: 4px;">Push Notification Sync</strong>
-              <div style="display:flex; gap: 8px;">
-                <button id="debug-push-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:4px 8px; flex:1;">System Status</button>
-                <button id="force-resub-btn" class="primary-btn" type="button" style="font-size:0.75rem; padding:4px 8px; flex:1; background: #9c27b0;">Force Resubscribe</button>
-              </div>
-            </div>
-          </div>
-          <div id="reminder-list" class="reminder-list"></div>
-        </div>
-
-        <div class="quote-card" style="margin-bottom: 24px;">
-          <strong>Motivational quote</strong>
-          <p>“Small, repeatable actions build a life that feels calm and strong.”</p>
-          <div class="ring-copy">
-            <strong>Next reminder</strong>
-            <span id="reminder-value">Hydration check-in · 3:30 PM</span>
-          </div>
-        </div>
-
-        <div class="activity-card">
-          <strong>Recent activity</strong>
-          <ul id="recent-list"></ul>
-        </div>
-      </section>
-
-      <section class="view-section" data-view="routine">
-        <div class="card" style="padding: 24px;">
-          <div class="hero-head">
-            <div class="hero-title">
-              <p>Your ritual engine</p>
-              <h1>Daily routine</h1>
-            </div>
-            <span class="pill">30-day transformation</span>
-          </div>
-          <div class="tracker-card">
-            <strong>Progress tracker</strong>
-            <div class="progress-track"><span id="routine-progress"></span></div>
-            <p class="tracker-copy">0 of 3 complete · 0%</p>
-            <p>Unlock your certificate at day 30 by staying consistent.</p>
-          </div>
-          <div id="routine-list" class="routine-list"></div>
-        </div>
-
-        <div class="card" style="padding: 24px; margin-top: 18px;">
-          <div class="hero-head" style="margin-bottom: 12px; align-items: center;">
-            <div class="hero-title">
-              <p>Daily logs feed</p>
-              <h3 style="margin: 0;">Today's Intake History</h3>
-            </div>
-            <button id="routine-reset-logs-btn" class="ghost-btn" type="button" style="font-size:0.8rem; padding:4px 8px; border:1px solid var(--border);">Reset All</button>
-          </div>
-          <div id="routine-logs-container" style="display:flex; flex-direction:column; gap:8px;">
-            <p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:12px 0;">No items logged today yet.</p>
+            <p style="color:var(--muted); text-align:center; padding:12px; font-size:0.85rem;">✨ You're on track!</p>
           </div>
         </div>
       </section>
 
-      <section class="view-section" data-view="coach">
-        <div class="coach-shell">
-          <div class="card" style="padding: 20px;">
-            <div class="hero-head">
-              <div class="hero-title">
-                <p>Health coach</p>
-                <h1>Relix AI</h1>
-              </div>
-              <span class="pill">Offline ready</span>
-            </div>
-            <div id="chat-messages" class="message-list"></div>
-            <div class="suggestion-row" style="margin-top: 12px;">
-              <button class="suggestion-pill" data-prompt="How can I improve my sleep tonight?" type="button">How can I improve my sleep?</button>
-              <button class="suggestion-pill" data-prompt="What foods help with energy?" type="button">What helps with energy?</button>
-              <button class="suggestion-pill" data-prompt="How do I recover after a workout?" type="button">Recovery tips</button>
-            </div>
-            <form id="coach-form" class="coach-form" style="margin-top: 12px;">
-              <input id="coach-input" placeholder="Ask Relix about health and wellness" aria-label="Ask Relix" />
-              <button class="primary-btn" type="submit">Send</button>
-            </form>
-          </div>
-        </div>
-      </section>
-
+      <!-- Meal/Face Camera Tab -->
       <section class="view-section" data-view="meal">
         <div class="camera-card">
           <div class="hero-head">
             <div class="hero-title">
-              <p>Meal camera</p>
-              <h1>Snap your plate</h1>
+              <p>Food & Skin Analysis</p>
+              <h1 id="cam-title">Snap your plate</h1>
             </div>
             <span class="pill" id="meal-counter">5 uploads left today</span>
           </div>
-          <div id="meal-preview" class="meal-preview">
-            <div style="text-align: center; padding: 16px; color: var(--muted);">
-              <strong style="display: block; margin-bottom: 8px;">Upload a meal photo</strong>
-              <span>We protect your privacy and delete images immediately after analysis.</span>
-            </div>
+
+          <!-- Dynamic Camera Preview -->
+          <div id="meal-preview" class="meal-preview" style="text-align: center; padding: 40px 16px; background: rgba(0,0,0,0.03); border: 2px dashed var(--border); border-radius: 16px; margin-bottom: 16px;">
+            <span style="font-size: 3rem; display: block; margin-bottom: 12px;" id="cam-icon">📸</span>
+            <strong id="cam-preview-text" style="display: block; margin-bottom: 6px;">Upload a meal photo</strong>
+            <span id="cam-preview-desc" style="font-size: 0.85rem; color: var(--muted);">We delete images immediately after analysis</span>
           </div>
+
+          <!-- Interactive Face Map (Skin Goals) -->
+          <div id="face-map-container" style="display:none; margin-bottom: 16px;">
+            <svg id="face-map-svg" viewBox="0 0 200 300" style="width: 100%; max-width: 200px; margin: 0 auto; display: block; background: rgba(0,0,0,0.03); border-radius: 12px; cursor: pointer;">
+              <!-- Face outline -->
+              <ellipse cx="100" cy="150" rx="80" ry="120" fill="none" stroke="var(--primary)" stroke-width="2"/>
+              <!-- Zones for clicking -->
+              <circle cx="100" cy="80" r="25" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="forehead" style="cursor: pointer;"/>
+              <circle cx="70" cy="140" r="20" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="cheek-left" style="cursor: pointer;"/>
+              <circle cx="130" cy="140" r="20" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="cheek-right" style="cursor: pointer;"/>
+              <circle cx="100" cy="110" r="15" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="nose" style="cursor: pointer;"/>
+              <circle cx="85" cy="160" r="12" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="mouth" style="cursor: pointer;"/>
+              <circle cx="115" cy="160" r="12" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="mouth" style="cursor: pointer;"/>
+              <circle cx="60" cy="130" r="8" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="eye-left" style="cursor: pointer;"/>
+              <circle cx="140" cy="130" r="8" fill="none" stroke="rgba(255,122,0,0.3)" data-zone="eye-right" style="cursor: pointer;"/>
+            </svg>
+            <div id="face-map-concerns" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;"></div>
+          </div>
+
           <div class="camera-actions">
-            <label class="primary-btn" for="meal-input" style="display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin:0;">Upload image</label>
+            <label class="primary-btn" for="meal-input" style="display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin:0;">📤 Upload Image</label>
             <input id="meal-input" type="file" accept="image/*" hidden />
-            <button id="analyze-meal" class="ghost-btn" type="button" style="margin:0;">Analyze meal</button>
+            <button id="analyze-meal" class="ghost-btn" type="button" style="margin:0;">🔍 Analyze</button>
           </div>
-          <div id="meal-status" style="color: var(--muted); font-size: 0.9rem; margin-top: 4px;">Upload a photo to see real AI classification & analysis.</div>
-          <div id="meal-result-card" style="display:none; flex-direction:column; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:16px; border-radius:18px; margin-top:10px;">
-            <h4 id="meal-result-title" style="margin:0; font-size:1.1rem; color:var(--text);">Analyzing...</h4>
-            <p id="meal-result-desc" style="margin:0; font-size:0.88rem; color:var(--muted); line-height:1.4;"></p>
-            <div id="meal-nutrition-grid" style="display:none; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:4px;">
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-cal-val" style="font-size:0.9rem; display:block; color:var(--text);">0</strong><span style="font-size:0.7rem; color:var(--muted);">kcal</span></div>
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-pro-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">protein</span></div>
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-carb-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">carbs</span></div>
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-fat-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">fat</span></div>
+
+          <!-- Analysis Results -->
+          <div id="meal-result-card" style="display:none; flex-direction:column; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:16px; border-radius:18px; margin-top: 16px;">
+            <h4 id="meal-result-title" style="margin:0; font-size:1.1rem;">Analyzing...</h4>
+            <p id="meal-result-desc" style="margin:0; font-size:0.88rem; color:var(--muted);"></p>
+            <div id="meal-nutrition-grid" style="display:none; grid-template-columns:repeat(4, 1fr); gap:8px;">
+              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;">
+                <strong id="meal-cal-val" style="font-size:0.9rem; display:block;">0</strong><small>Calories</small>
+              </div>
+              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;">
+                <strong id="meal-pro-val" style="font-size:0.9rem; display:block;">0g</strong><small>Protein</small>
+              </div>
+              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;">
+                <strong id="meal-carb-val" style="font-size:0.9rem; display:block;">0g</strong><small>Carbs</small>
+              </div>
+              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;">
+                <strong id="meal-fat-val" style="font-size:0.9rem; display:block;">0g</strong><small>Fat</small>
+              </div>
             </div>
-            <button id="log-meal-btn" class="primary-btn" type="button" style="margin-top:8px; width:100%; display:none;">Log this Meal</button>
+            <button id="log-meal-btn" class="primary-btn" type="button" style="margin-top:8px; width:100%; display:none;">✅ Log This</button>
           </div>
         </div>
       </section>
 
-      <section class="view-section" data-view="profile">
-        <div class="profile-card">
-          <div class="membership-card">
-            <div class="profile-top">
-              <div class="avatar-container" id="profile-avatar-container" style="position:relative; width:58px; height:58px; border-radius:18px; background:white; color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; cursor:pointer; overflow:hidden;">
-                <span id="avatar-initials">AC</span>
-                <img id="avatar-img" style="display:none; width:100%; height:100%; object-fit:cover;" alt="Profile Picture" />
-                <input type="file" id="profile-pic-input" accept="image/*" style="display:none;" />
-              </div>
-              <div>
-                <strong id="member-name">Ava Chen</strong>
-                <p>Member since 2024</p>
-              </div>
-            </div>
-            <div class="profile-grid">
-              <div class="chip"><strong id="member-id">REL-2048</strong><span>Member ID</span></div>
-              <div class="chip"><strong id="access-code">A7Q-84X</strong><span>Access code</span></div>
-              <div class="chip"><strong id="referral-code">RELIX-Ava</strong><span>Referral code</span></div>
-            </div>
-          </div>
-
-          <div class="profile-grid">
-            <div class="chip"><strong id="profile-xp">0</strong><span>XP</span></div>
-            <div class="chip"><strong id="profile-level">1</strong><span>Level</span></div>
-            <div class="chip"><strong id="profile-streak">0</strong><span>Streak</span></div>
-          </div>
-
-          <div class="card" style="padding: 20px; margin-bottom: 18px; background: linear-gradient(135deg, rgba(255,122,0,0.08), rgba(255,122,0,0.02)); border: 1px solid rgba(255,122,0,0.15); display: flex; flex-direction: column; gap: 8px;">
-            <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block;">AI Progress Planner</strong>
-            <h3 id="forecast-title" style="margin:0; font-size:1.15rem;">Calculating Weight Forecast...</h3>
-            <p id="forecast-desc" style="margin:0; font-size:0.85rem; color:var(--muted); line-height:1.45;"></p>
-          </div>
-
-          <div class="settings-card">
-            <div class="setting-row"><span>Name</span><div style="display:flex; gap:8px; align-items:center;"><input id="name-input" placeholder="Your name" aria-label="Your name" style="padding:8px 10px; border-radius:12px; border:1px solid var(--border); background: var(--card); color: var(--text);" /><button id="save-name" class="ghost-btn" type="button">Save</button></div></div>
-            <div class="setting-row"><span>Body Stats</span><button id="edit-stats-btn" class="ghost-btn" type="button">Edit</button></div>
-            <div class="setting-row">
-              <span style="line-height:1.2;">Groq API Key<br><small style="font-size:0.7rem; color:var(--muted);"><a href="https://console.groq.com/keys" target="_blank" style="color:var(--primary);">Get Free Key</a></small></span>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <input id="groq-input" type="password" placeholder="API Key" aria-label="Groq API Key" style="padding:8px 10px; border-radius:12px; border:1px solid var(--border); background: var(--card); color: var(--text); width: 120px;" />
-                <button id="save-groq" class="ghost-btn" type="button">Save</button>
-              </div>
-            </div>
-            <div class="setting-row"><span>Team</span><button id="invite-team" class="primary-btn" type="button" style="background: var(--text); color: var(--bg);">Invite your Team</button></div>
-            <div class="setting-row"><span>Dark mode</span><label class="switch"><input id="dark-toggle" type="checkbox" /><span></span></label></div>
-            <div class="setting-row"><span>Notifications</span><div style="display:flex; gap:8px; align-items:center;"><label class="switch"><input id="notify-toggle" type="checkbox" checked /><span></span></label><button id="settings-enable-alerts" class="ghost-btn" type="button">Allow alerts</button></div></div>
-            <div class="setting-row"><span>Install app</span><button id="settings-install-button" class="ghost-btn install-action-btn" type="button">Install</button></div>
-            <div class="setting-row"><span>Language</span><select id="language-select"><option>English</option><option>Español</option><option>Français</option></select></div>
-            <div class="setting-row"><span>Export data</span><button id="export-data" class="ghost-btn" type="button">Export</button></div>
-            <div class="setting-row"><span>Delete data</span><button id="delete-data" class="ghost-btn" type="button">Forget me</button></div>
-          </div>
-        </div>
-      </section>
-
+      <!-- Natural/Academy Tab (Enhanced) -->
       <section class="view-section" data-view="natural">
         <div class="card" style="padding: 20px; margin-bottom: 18px;">
-          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">Natural Care Hub</strong>
-          <h3 style="margin:0; font-size:1.4rem;">AI Recommended Home Remedies</h3>
-          <p style="margin:6px 0 0 0; font-size:0.85rem; color:var(--muted); line-height:1.45;">Personalized remedies matching your skin type and available kitchen ingredients.</p>
-          
-          <div id="natural-skin-type-banner" style="margin-top: 14px; background: rgba(33, 150, 243, 0.08); border: 1px solid rgba(33, 150, 243, 0.15); border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
-            <div>👤 Skin Type: <strong id="natural-skin-type-locked" style="text-transform: capitalize;">Oily</strong></div>
-            <button id="change-skin-type-btn" class="link-btn" type="button" style="color: var(--primary); font-size: 0.8rem; cursor: pointer; background:none; border:none; font-weight:600;">Change</button>
+          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">🌿 Natural Care Hub</strong>
+          <h3 style="margin:0; font-size:1.4rem;">Personalized AI Recommendations</h3>
+          <p style="margin:6px 0 0 0; font-size:0.85rem; color:var(--muted);">Based on your goals and preferences</p>
+        </div>
+
+        <!-- PDF Academy Section (Inserted by app.js) -->
+        <div id="pdf-academy-section"></div>
+
+        <!-- Weight Loss Science Guide (Dynamic) -->
+        <div id="weight-loss-guide" style="display:none;">
+          <div class="card" style="padding: 20px; margin-bottom: 18px;">
+            <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase;">📚 Fat Loss Science</strong>
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; line-height: 1.6;">
+              <div style="background: rgba(76,175,80,0.1); border-left: 4px solid #4caf50; padding: 10px; border-radius: 4px;">
+                <strong>Calorie Deficit</strong><br>Consume 300-500 calories less than maintenance. Why: Creates fat loss without extreme hunger.
+              </div>
+              <div style="background: rgba(76,175,80,0.1); border-left: 4px solid #4caf50; padding: 10px; border-radius: 4px;">
+                <strong>High-Protein Nutrition</strong><br>Aim for 1.8-2.2g per kg body weight. Why: Preserves muscle mass, increases satiety, boosts metabolism.
+              </div>
+              <div style="background: rgba(76,175,80,0.1); border-left: 4px solid #4caf50; padding: 10px; border-radius: 4px;">
+                <strong>Fiber Intake</strong><br>Target 25-35g daily. Why: Improves digestion, reduces bloating, keeps you full longer.
+              </div>
+              <div style="background: rgba(76,175,80,0.1); border-left: 4px solid #4caf50; padding: 10px; border-radius: 4px;">
+                <strong>Sleep Optimization</strong><br>7-9 hours nightly. Why: Regulates hunger hormones, improves recovery.
+              </div>
+              <div style="background: rgba(76,175,80,0.1); border-left: 4px solid #4caf50; padding: 10px; border-radius: 4px;">
+                <strong>Safe Rate of Loss</strong><br>0.5-1 kg per week. Why: Sustainable, preserves muscle, prevents rebound.
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Kitchen Mode Card -->
-        <div class="card" style="padding: 20px; margin-bottom: 18px;">
-          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">🍃 Kitchen Mode</strong>
-          <p style="margin:0 0 12px 0; font-size:0.82rem; color:var(--muted);">Check ingredients in your kitchen to view matching home remedies:</p>
-          
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;" id="kitchen-ingredients-grid">
-            <!-- Dynamically populated in app.js based on selected goal -->
+        <!-- Skincare Hub (Dynamic) -->
+        <div id="skincare-hub" style="display:none;">
+          <div class="card" style="padding: 20px; margin-bottom: 18px;">
+            <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase;">🧴 Skincare Routines</strong>
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem;">
+              <div style="background: rgba(33,150,243,0.1); border: 1px solid rgba(33,150,243,0.2); padding: 10px; border-radius: 8px;">
+                <strong>🇰🇷 Korean Glass Skin</strong><br><small>Double cleanse → Toner → Essence → Serum → Sheet mask → Moisturizer → SPF</small>
+              </div>
+              <div style="background: rgba(233,30,99,0.1); border: 1px solid rgba(233,30,99,0.2); padding: 10px; border-radius: 8px;">
+                <strong>🛡️ Acne Control Focus</strong><br><small>Cleanser → Toner → Salicylic acid → Niacinamide → Moisturizer → SPF</small>
+              </div>
+              <div style="background: rgba(76,175,80,0.1); border: 1px solid rgba(76,175,80,0.2); padding: 10px; border-radius: 8px;">
+                <strong>💧 Deep Hydration</strong><br><small>Hydrating cleanser → Hyaluronic toner → Essence → Rich moisturizer → Overnight mask</small>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <!-- Curated Remedies List -->
-        <div id="anabolic-shake-builder-container" style="display: none; margin-bottom: 18px;"></div>
-        <div id="concern-library-container" style="margin-bottom: 18px;"></div>
-        <div id="curated-remedies-list" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 80px;">
-          <!-- Recipes will be rendered here dynamically -->
         </div>
       </section>
-    </div>
 
-    <nav class="bottom-nav" aria-label="Bottom navigation">
-      <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Dashboard</span></button>
-      <button class="nav-pill" data-tab="routine" type="button">🧘<span>Routine</span></button>
-      <button class="nav-pill" data-tab="natural" type="button">🍃<span>Natural</span></button>
-      <button class="nav-pill" data-tab="coach" type="button">🤖<span>Coach</span></button>
-      <button class="nav-pill" data-tab="meal" type="button">📸<span>Meal Cam</span></button>
-      <button class="nav-pill" data-tab="profile" type="button">👤<span>Profile</span></button>
-    </nav>
-
-    <div id="why-modal" class="modal-overlay" aria-hidden="true">
-      <div class="modal-card">
-        <div class="hero-head">
-          <div class="hero-title">
-            <p>Why this habit matters</p>
-            <h3 id="modal-title">Habit</h3>
+      <!-- Profile Tab (Enhanced) -->
+      <section class="view-section" data-view="profile">
+        <div class="profile-card">
+          <div class="card" style="padding: 20px; margin-bottom: 18px;">
+            <div class="hero-head" style="margin-bottom: 12px;">
+              <div class="hero-title">
+                <p>Your Profile</p>
+                <h3 id="member-name" style="margin:0;">User Profile</h3>
+              </div>
+            </div>
+            
+            <div class="settings-card">
+              <div class="setting-row"><span>Name</span><input id="name-input" type="text" placeholder="Your name" style="flex:1; padding:8px 10px; border: 1px solid var(--border); border-radius:8px;" /></div>
+              <div class="setting-row"><span>Body Stats</span><button id="edit-stats-btn" class="ghost-btn" type="button">Edit</button></div>
+              <div class="setting-row"><span>Goal</span><span id="profile-goal-display" style="font-size:0.9rem; color:var(--muted);">Not set</span></div>
+              <div class="setting-row"><span>Skin Type</span><span id="profile-skin-display" style="font-size:0.9rem; color:var(--muted);">Not set</span></div>
+              <div class="setting-row"><span>Dark mode</span><label class="switch"><input id="dark-toggle" type="checkbox" /><span></span></label></div>
+              <div class="setting-row"><span>Export data</span><button id="export-data" class="ghost-btn" type="button">Export</button></div>
+            </div>
           </div>
-          <button id="close-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
         </div>
-        <div id="modal-body"></div>
-      </div>
+      </section>
+
+      <!-- Bottom Navigation -->
+      <nav class="bottom-nav" aria-label="Bottom navigation">
+        <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Dashboard</span></button>
+        <button class="nav-pill" data-tab="meal" type="button">📸<span id="cam-tab-label">Meal Cam</span></button>
+        <button class="nav-pill" data-tab="natural" type="button">🍃<span>Academy</span></button>
+        <button class="nav-pill" data-tab="profile" type="button">👤<span>Profile</span></button>
+      </nav>
     </div>
 
-    <div id="notification-modal" class="modal-overlay" aria-hidden="true">
-      <div class="modal-card">
-        <div class="hero-head">
-          <div class="hero-title">
-            <p>Stay on track</p>
-            <h3>Allow notifications</h3>
-          </div>
-          <button id="close-notification-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
-        </div>
-        <p>Relix can nudge you for water, skin care, and nutrition check-ins. Allow notifications to keep these reminders active.</p>
-        <p style="font-size: 0.8rem; color: var(--muted); margin-top: 8px;"><strong>iPhone users:</strong> Apple requires you to add this app to your Home Screen first. Tap the Share icon &gt; 'Add to Home Screen', then open it from there to enable notifications!</p>
-        <div class="modal-actions">
-          <button id="enable-notifications" class="primary-btn" type="button">Allow notifications</button>
-          <button id="dismiss-notifications" class="ghost-btn" type="button">Not now</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="install-modal" class="modal-overlay" aria-hidden="true">
-      <div class="modal-card">
-        <div class="hero-head">
-          <div class="hero-title">
-            <p>Install Relix</p>
-            <h3 id="install-modal-title">Add to your home screen</h3>
-          </div>
-          <button id="close-install-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
-        </div>
-        <p id="install-modal-copy">Add Relix to your home screen for a faster, app-like experience.</p>
-        <div class="modal-actions">
-          <button id="install-modal-action" class="primary-btn" type="button">Install now</button>
-          <button id="dismiss-install-modal" class="ghost-btn" type="button">Later</button>
-        </div>
-      </div>
-    </div>
-    </div>
-
-    <!-- Onboarding Setup Modal -->
+    <!-- Setup Modal -->
     <div id="setup-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:9999;">
       <div class="modal-card" style="max-height: 90vh; overflow-y: auto;">
         <div class="hero-head">
@@ -447,15 +281,13 @@
           <button id="close-setup-modal" class="icon-btn" type="button" aria-label="Close" style="width: 32px; height: 32px; font-size: 0.8rem;">✕</button>
         </div>
         <div id="setup-body" style="display:flex; flex-direction:column; gap:12px; padding:10px 0;">
-          <p style="color: var(--muted); margin-top:-8px; margin-bottom: 8px;">Let's customize your targets, suggestions, and reminders.</p>
-          
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-weight:600; font-size:0.9rem;">Your Name</label>
-            <input id="setup-name" type="text" placeholder="Ava Chen" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            <input id="setup-name" type="text" placeholder="Your Name" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
           </div>
 
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-weight:600; font-size:0.9rem;">Gender / Assigned Sex</label>
+            <label style="font-weight:600; font-size:0.9rem;">Gender</label>
             <select id="setup-gender" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
               <option value="female">Female</option>
               <option value="male">Male</option>
@@ -464,7 +296,7 @@
           </div>
 
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-weight:600; font-size:0.9rem;">Primary Focus Goal</label>
+            <label style="font-weight:600; font-size:0.9rem;">Primary Goal</label>
             <select id="setup-goal" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
               <option value="muscle">💪 Muscle & Weight Gain</option>
               <option value="lose">📉 Weight Loss & Tone</option>
@@ -479,59 +311,20 @@
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
             <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
               <label style="font-weight:600; font-size:0.9rem;">Age</label>
-              <input id="setup-age" type="number" placeholder="22" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+              <input id="setup-age" type="number" placeholder="25" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
             </div>
             <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
               <label style="font-weight:600; font-size:0.9rem;">Height</label>
               <select id="setup-height" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
-                <option value="4'5\"">4'5" (134 cm)</option>
-                <option value="4'6\"">4'6" (137 cm)</option>
-                <option value="4'7\"">4'7" (139 cm)</option>
-                <option value="4'8\"">4'8" (142 cm)</option>
-                <option value="4'9\"">4'9" (144 cm)</option>
-                <option value="4'10\"">4'10" (147 cm)</option>
-                <option value="4'11\"">4'11" (149 cm)</option>
                 <option value="5'0\"">5'0" (152 cm)</option>
-                <option value="5'1\"">5'1" (154 cm)</option>
                 <option value="5'2\"">5'2" (157 cm)</option>
-                <option value="5'3\"">5'3" (160 cm)</option>
                 <option value="5'4\"">5'4" (162 cm)</option>
-                <option value="5'5\"">5'5" (165 cm)</option>
                 <option value="5'6\"">5'6" (167 cm)</option>
-                <option value="5'7\"">5'7" (170 cm)</option>
                 <option value="5'8\"">5'8" (172 cm)</option>
-                <option value="5'9\"">5'9" (175 cm)</option>
                 <option value="5'10\"">5'10" (177 cm)</option>
-                <option value="5'11\"">5'11" (180 cm)</option>
                 <option value="6'0\"">6'0" (182 cm)</option>
-                <option value="6'1\"">6'1" (185 cm)</option>
-                <option value="6'2\"">6'2" (187 cm)</option>
-                <option value="6'3\"">6'3" (190 cm)</option>
-                <option value="6'4\"">6'4" (193 cm)</option>
-                <option value="6'5\"">6'5" (195 cm)</option>
-                <option value="6'6\"">6'6" (198 cm)</option>
-                <option value="6'7\"">6'7" (200 cm)</option>
-                <option value="6'8\"">6'8" (203 cm)</option>
-                <option value="6'9\"">6'9" (205 cm)</option>
-                <option value="6'10\"">6'10" (208 cm)</option>
-                <option value="6'11\"">6'11" (210 cm)</option>
-                <option value="7'0\"">7'0" (213 cm)</option>
               </select>
             </div>
-          </div>
-
-          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-weight:600; font-size:0.9rem;">🕢 When do you wake up?</label>
-            <select id="setup-wakeup-time" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
-              <option value="05:00">5:00 AM (Early Riser)</option>
-              <option value="06:00">6:00 AM</option>
-              <option value="07:00" selected>7:00 AM (Standard)</option>
-              <option value="08:00">8:00 AM</option>
-              <option value="09:00">9:00 AM</option>
-              <option value="10:00">10:00 AM</option>
-              <option value="11:00">11:00 AM (Late Riser)</option>
-              <option value="12:00">12:00 PM (Noon)</option>
-            </select>
           </div>
 
           <div id="setup-weight-fields-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
@@ -550,73 +343,25 @@
             <select id="setup-skin-type" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
               <option value="oily">✨ Oily Skin</option>
               <option value="dry">🍂 Dry Skin</option>
-              <option value="mixed">🧬 Mixed / Combination Skin</option>
+              <option value="mixed">🧬 Mixed / Combination</option>
               <option value="sensitive">🌸 Sensitive Skin</option>
             </select>
-            <button id="toggle-skin-check-guide" type="button" class="link-btn" style="background:none; border:none; color:var(--primary); font-size:0.8rem; text-align:left; padding:4px 0; cursor:pointer; font-weight:600; width:fit-content;">Don't know your skin type? How to check</button>
-            <div id="skin-check-guide-box" style="display:none; background:rgba(255,255,255,0.03); border:1px dashed var(--border); border-radius:12px; padding:10px; font-size:0.8rem; line-height:1.4; color:var(--muted); margin-top:2px;">
-              <strong>Morning Wash Test:</strong><br>
-              Wash face with a gentle cleanser and wait 1 hour without applying any products:<br>
-              • <strong>Oily</strong>: Shiny & greasy all over.<br>
-              • <strong>Dry</strong>: Tight, flaky, rough or dry patches.<br>
-              • <strong>Mixed (Combination)</strong>: Shiny T-Zone but dry/tight cheeks.<br>
-              • <strong>Sensitive</strong>: Redness, itching, or burning sensation.
-            </div>
           </div>
 
-          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-weight:600; font-size:0.9rem;">Diet Preference</label>
-            <select id="setup-diet" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
-              <option value="omni">🍱 Omnivore</option>
-              <option value="veg">🥦 Vegetarian</option>
-              <option value="nonveg">🍗 Non-Vegetarian (High Protein)</option>
-            </select>
-          </div>
-
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
-              <label style="font-weight:600; font-size:0.85rem;">Calorie Override (Optional)</label>
-              <input id="setup-custom-cal" type="number" placeholder="e.g. 2800" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
-            </div>
-            <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
-              <label style="font-weight:600; font-size:0.85rem;">Protein Override (Optional)</label>
-              <input id="setup-custom-pro" type="number" placeholder="e.g. 150" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
-            </div>
-          </div>
-
-          <button id="finish-setup" class="primary-btn" type="button" style="margin-top:10px; padding:12px; font-weight:700;">Save Stats & Adjust Target</button>
+          <button id="finish-setup" class="primary-btn" type="button" style="margin-top:10px; padding:12px; font-weight:700;">Save Settings</button>
         </div>
       </div>
     </div>
 
-    <!-- Save Confirmation Alert Modal -->
+    <!-- Save Confirmation Modal -->
     <div id="save-confirm-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:10000; background:rgba(0,0,0,0.6);">
       <div class="modal-card" style="text-align: center; max-width: 380px; padding: 24px; display:flex; flex-direction:column; gap:16px; align-items:center;">
-        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #4caf50, #81c784); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white; box-shadow: 0 4px 15px rgba(76,175,80,0.3);">
-          ✓
-        </div>
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #4caf50, #81c784); display: flex; align-items: center; justify-content: center; font-size: 2rem;">✓</div>
         <div>
           <h3 style="margin: 0; font-size: 1.3rem;">Vibe Saved!</h3>
-          <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.45; margin-top: 8px;">Your profile targets and custom reminders have been successfully adjusted and initialized.</p>
+          <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.45; margin-top: 8px;">Your profile and targets have been saved successfully.</p>
         </div>
-        <button id="dismiss-save-confirm" class="primary-btn" type="button" style="width: 100%; padding: 12px; font-weight: 700; background:#4caf50; border:none; border-radius:12px; color:white; cursor:pointer;">Let's Go!</button>
-      </div>
-    </div>
-
-    <!-- Shake Consumption Confirm Modal -->
-    <div id="shake-confirm-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:10000; background:rgba(0,0,0,0.6);">
-      <div class="modal-card" style="text-align: center; max-width: 380px; padding: 24px; display:flex; flex-direction:column; gap:16px; align-items:center;">
-        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white; box-shadow: 0 4px 15px rgba(255,106,0,0.3);">
-          🥛
-        </div>
-        <div>
-          <h3 style="margin: 0; font-size: 1.3rem;">Log Homemade Shake?</h3>
-          <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.45; margin-top: 8px;">Did you consume the homemade anabolic shake we discussed?</p>
-        </div>
-        <div style="display:flex; gap:10px; width: 100%;">
-          <button id="confirm-shake-yes" class="primary-btn" type="button" style="flex:1; padding: 12px; font-weight: 700; border:none; border-radius:12px; color:white; cursor:pointer;">Yes, consumed!</button>
-          <button id="confirm-shake-no" class="ghost-btn" type="button" style="flex:1; padding: 12px; font-weight: 700; border:1px solid var(--border); border-radius:12px; cursor:pointer;">No, not yet</button>
-        </div>
+        <button id="dismiss-save-confirm" class="primary-btn" type="button" style="width: 100%; padding: 12px; font-weight: 700; background:#4caf50;">Continue</button>
       </div>
     </div>
 
