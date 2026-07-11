@@ -236,7 +236,14 @@
 
       <section class="view-section" data-view="coach">
         <div class="coach-shell">
-          <div class="card" style="padding: 20px;">
+          <!-- Toggle Segment Control -->
+          <div style="display:flex; background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:4px; border-radius:16px; margin-bottom:14px; gap:4px;">
+            <button id="toggle-coach-chat" class="ghost-btn" type="button" style="flex:1; padding:8px; font-size:0.85rem; border-radius:12px; font-weight:700; border:none; background:var(--primary); color:white;">💬 AI Coach</button>
+            <button id="toggle-pdf-academy" class="ghost-btn" type="button" style="flex:1; padding:8px; font-size:0.85rem; border-radius:12px; font-weight:700; border:none; color:var(--muted);">📚 PDF Academy</button>
+          </div>
+
+          <!-- Chat interface -->
+          <div id="coach-chat-interface" class="card" style="padding: 20px;">
             <div class="hero-head">
               <div class="hero-title">
                 <p>Health coach</p>
@@ -254,6 +261,122 @@
               <input id="coach-input" placeholder="Ask Relix about health and wellness" aria-label="Ask Relix" />
               <button class="primary-btn" type="submit">Send</button>
             </form>
+          </div>
+
+          <!-- PDF Academy Interface -->
+          <div id="pdf-academy-interface" class="card" style="padding: 20px; display:none; flex-direction:column; gap:16px;">
+            <div class="hero-head">
+              <div class="hero-title">
+                <p>Interactive School</p>
+                <h1>PDF Academy</h1>
+              </div>
+              <span class="pill" style="background:#2196F3; color:white;">Knowledge Base</span>
+            </div>
+
+            <!-- Upload Zone -->
+            <div id="pdf-upload-zone" style="border: 2px dashed var(--border); padding: 24px; border-radius: 18px; text-align:center; cursor:pointer; background:rgba(255,255,255,0.01); transition: 0.2s;" onclick="document.getElementById('pdf-file-input').click()">
+              <span style="font-size:2.2rem; display:block; margin-bottom:8px;">📁</span>
+              <strong style="font-size:0.9rem; display:block; color:var(--text);">Upload Wellness or Study PDF</strong>
+              <span style="font-size:0.75rem; color:var(--muted); display:block; margin-top:4px;">Drag and drop or tap to choose a file (.pdf, .txt)</span>
+              <input type="file" id="pdf-file-input" accept=".pdf,.txt" style="display:none;" />
+            </div>
+
+            <!-- Loaded Document Info Banner -->
+            <div id="pdf-doc-info" style="display:none; align-items:center; justify-content:space-between; background:rgba(33, 150, 243, 0.08); border:1px solid rgba(33, 150, 243, 0.2); padding:10px 14px; border-radius:12px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1.2rem;">📄</span>
+                <div>
+                  <strong id="pdf-file-name" style="font-size:0.85rem; color:var(--text); display:block;">wellness_guide.pdf</strong>
+                  <span id="pdf-file-size" style="font-size:0.72rem; color:var(--muted);">42 KB · Text extracted successfully</span>
+                </div>
+              </div>
+              <button id="clear-pdf-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem; border:1px solid var(--border);">Remove</button>
+            </div>
+
+            <!-- Academy Subtabs -->
+            <div id="academy-subtabs" style="display:none; flex-direction:column; gap:14px; border-top:1px solid var(--border); padding-top:14px;">
+              
+              <!-- Tab Bar selector -->
+              <div style="display:flex; overflow-x:auto; gap:6px; padding-bottom:6px;">
+                <button class="academy-tab-btn active-subtab" data-subtab="search" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:var(--primary); color:white; white-space:nowrap;">🔍 Search</button>
+                <button class="academy-tab-btn" data-subtab="summary" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">📝 Summary</button>
+                <button class="academy-tab-btn" data-subtab="flashcards" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">📇 Flashcards</button>
+                <button class="academy-tab-btn" data-subtab="quiz" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">✏️ Quiz</button>
+                <button class="academy-tab-btn" data-subtab="lessons" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">📖 Lessons</button>
+              </div>
+
+              <!-- Academy panels -->
+              <div id="academy-panel-search" class="academy-panel">
+                <div style="display:flex; gap:8px;">
+                  <input type="text" id="pdf-search-input" placeholder="Search extracted PDF content..." aria-label="PDF search" style="flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text);" />
+                  <button id="pdf-search-btn" class="primary-btn" type="button" style="padding:0 14px; border-radius:10px;">Find</button>
+                </div>
+                <div id="pdf-search-results" style="margin-top:12px; display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; font-size:0.82rem; color:var(--muted);">
+                  Type keywords to search inside the document context.
+                </div>
+              </div>
+
+              <div id="academy-panel-summary" class="academy-panel" style="display:none;">
+                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px;">
+                  <strong style="color:var(--primary); font-size:0.85rem; display:block; margin-bottom:6px;">⚡ PDF Document Summary</strong>
+                  <ul id="pdf-summary-list" style="margin:0; padding-left:18px; line-height:1.45; font-size:0.82rem; color:var(--muted);">
+                    <li>Uploading PDF...</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div id="academy-panel-flashcards" class="academy-panel" style="display:none;">
+                <div style="perspective: 1000px; width: 100%; height: 160px; margin-bottom: 12px; cursor: pointer;" id="flashcard-widget">
+                  <div id="flashcard-inner" style="position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; border-radius:18px; border:1px solid var(--border); background:linear-gradient(135deg, rgba(255,122,0,0.08), rgba(255,122,0,0.02)); display:flex; align-items:center; justify-content:center; padding:20px;">
+                    <div id="flashcard-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+                      <strong style="color:var(--primary); font-size:0.8rem; text-transform:uppercase;">Flashcard Q</strong>
+                      <span id="flashcard-question-text" style="font-size:0.9rem; font-weight:600; color:var(--text);">What is a calorie deficit?</span>
+                      <small style="color:var(--muted); font-size:0.7rem;">(Tap to Reveal Answer)</small>
+                    </div>
+                    <div id="flashcard-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; transform: rotateY(180deg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:var(--border);">
+                      <strong style="color:#22c55e; font-size:0.8rem; text-transform:uppercase;">Answer</strong>
+                      <span id="flashcard-answer-text" style="font-size:0.85rem; color:var(--text); line-height:1.4;">Consuming fewer calories than your body burns, forcing it to utilize stored fat for energy.</span>
+                      <small style="color:var(--muted); font-size:0.7rem;">(Tap to Flip Back)</small>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <button id="prev-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">← Previous</button>
+                  <span id="flashcard-index" style="font-size:0.8rem; color:var(--muted);">1 of 5</span>
+                  <button id="next-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">Next →</button>
+                </div>
+              </div>
+
+              <div id="academy-panel-quiz" class="academy-panel" style="display:none;">
+                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:var(--muted);">
+                    <span id="quiz-question-number">Question 1 of 3</span>
+                    <span id="quiz-score-tracker">Score: 0/0</span>
+                  </div>
+                  <strong id="quiz-question-title" style="font-size:0.92rem; color:var(--text); line-height:1.35;">Which of the following macronutrients has the highest thermic effect (TEF)?</strong>
+                  <div id="quiz-options-container" style="display:flex; flex-direction:column; gap:8px;">
+                    <!-- Filled dynamically -->
+                  </div>
+                  <div id="quiz-feedback-box" style="display:none; font-size:0.82rem; font-weight:700; padding:8px 10px; border-radius:8px;"></div>
+                  <button id="next-quiz-btn" class="primary-btn" type="button" style="display:none; align-self:flex-end; padding:8px 16px; font-size:0.8rem; border-radius:10px;">Next Question</button>
+                </div>
+              </div>
+
+              <div id="academy-panel-lessons" class="academy-panel" style="display:none;">
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;">
+                    <button class="lesson-chap-btn active-chap" data-chap="0" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:var(--border); color:var(--text); white-space:nowrap;">Chapter 1</button>
+                    <button class="lesson-chap-btn" data-chap="1" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 2</button>
+                    <button class="lesson-chap-btn" data-chap="2" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 3</button>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px; font-size:0.82rem; line-height:1.45;">
+                    <strong id="lesson-chapter-title" style="display:block; margin-bottom:6px; color:var(--text);">Metabolic Mastery Intro</strong>
+                    <p id="lesson-chapter-body" style="margin:0; color:var(--muted);"></p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       </section>
@@ -282,12 +405,50 @@
           <div id="meal-result-card" style="display:none; flex-direction:column; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:16px; border-radius:18px; margin-top:10px;">
             <h4 id="meal-result-title" style="margin:0; font-size:1.1rem; color:var(--text);">Analyzing...</h4>
             <p id="meal-result-desc" style="margin:0; font-size:0.88rem; color:var(--muted); line-height:1.4;"></p>
+            
             <div id="meal-nutrition-grid" style="display:none; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:4px;">
               <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-cal-val" style="font-size:0.9rem; display:block; color:var(--text);">0</strong><span style="font-size:0.7rem; color:var(--muted);">kcal</span></div>
               <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-pro-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">protein</span></div>
               <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-carb-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">carbs</span></div>
               <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-fat-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">fat</span></div>
             </div>
+            
+            <!-- Skin Analysis Container (only shown for Skincare goals) -->
+            <div id="skin-analysis-result" style="display:none; flex-direction:column; gap:12px;">
+              
+              <!-- 11 Overall Skin Scores -->
+              <h4 style="margin:8px 0 0 0; font-size:1.05rem; color:var(--text);">Overall Skin Health Scores</h4>
+              <div id="skin-scores-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+                <!-- Dynamically filled -->
+              </div>
+              
+              <!-- Glass Skin Analysis -->
+              <div style="background:rgba(255,122,0,0.05); border:1px solid rgba(255,122,0,0.2); padding:10px; border-radius:12px; font-size:0.85rem; line-height:1.4;">
+                <strong>🇰🇷 Glass Skin & Smoothness Index:</strong>
+                <p id="skin-glass-analysis" style="margin:4px 0 0 0; color:var(--muted); font-size:0.8rem;"></p>
+              </div>
+
+              <!-- Issue Cards -->
+              <h4 style="margin:8px 0 0 0; font-size:1.05rem; color:var(--text);">Detected Issues & Concerns</h4>
+              <div id="skin-concerns-container" style="display:flex; flex-direction:column; gap:8px;">
+                <!-- Dynamic cards with Severity, causes, timeline, home care ingredients -->
+              </div>
+
+              <!-- What I DON'T See -->
+              <div style="background:rgba(34,197,94,0.05); border:1px dashed #22c55e; padding:10px; border-radius:12px; font-size:0.85rem;">
+                <strong style="color:#22c55e;">✓ What I DON'T See (Not Detected)</strong>
+                <ul id="skin-not-detected-list" style="margin:6px 0 0 0; padding-left:16px; color:var(--muted); font-size:0.8rem; line-height:1.4;">
+                </ul>
+              </div>
+
+              <!-- Progress Comparison Section -->
+              <div id="skin-progress-comparison" style="display:none; padding:10px; background:var(--border); border-radius:12px; font-size:0.85rem;">
+                <strong>📊 Progress vs Last Scan:</strong>
+                <p id="skin-progress-text" style="margin:4px 0 0 0; color:var(--muted); font-size:0.8rem;"></p>
+              </div>
+
+            </div>
+
             <button id="log-meal-btn" class="primary-btn" type="button" style="margin-top:8px; width:100%; display:none;">Log this Meal</button>
           </div>
         </div>
@@ -324,6 +485,41 @@
             <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block;">AI Progress Planner</strong>
             <h3 id="forecast-title" style="margin:0; font-size:1.15rem;">Calculating Weight Forecast...</h3>
             <p id="forecast-desc" style="margin:0; font-size:0.85rem; color:var(--muted); line-height:1.45;"></p>
+          </div>
+
+          <!-- Hormonal Health Guidance Card (Female Skincare / PCOS Screening) -->
+          <div id="hormonal-screening-card" class="card" style="display:none; padding:20px; margin-bottom:18px;">
+            <strong style="color:var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:6px;">🧬 Hormonal Health Screening</strong>
+            <h3 style="margin:0; font-size:1.15rem;">PCOS & Hormonal Guidance</h3>
+            <p style="margin:6px 0 10px 0; font-size:0.82rem; color:var(--muted); line-height:1.4;">Select any symptoms you are experiencing to analyze potential hormonal patterns:</p>
+            
+            <div style="display:flex; flex-direction:column; gap:8px; font-size:0.85rem;" id="hormonal-checklist">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" class="hormone-check" data-sym="periods" /> Irregular or missed periods</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" class="hormone-check" data-sym="jawline" /> Stubborn jawline or chin acne</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" class="hormone-check" data-sym="hair" /> Excess facial/body hair growth</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" class="hormone-check" data-sym="thinning" /> Hair thinning on scalp (female pattern baldness)</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" class="hormone-check" data-sym="weight" /> Sudden weight gain or difficulty losing weight</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" class="hormone-check" data-sym="dark" /> Darkening of skin on neck or underarms</label>
+            </div>
+            
+            <!-- Assessment Output Box -->
+            <div id="hormonal-guidance-output" style="display:none; margin-top:14px; padding:12px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; font-size:0.82rem; line-height:1.45;">
+              <strong style="color:#eab308; display:block; margin-bottom:4px;">⚠️ Clinical Screening Notice:</strong>
+              <p style="margin:0 0 8px 0; color:var(--text);">Some of your symptoms can occur with hormonal conditions such as PCOS. This app cannot diagnose PCOS. Consider discussing your symptoms with a qualified healthcare professional, especially if you have irregular periods or other persistent concerns.</p>
+              
+              <strong style="display:block; margin-top:10px; color:var(--primary);">🌿 Lifestyle & Cycle Guidance:</strong>
+              <ul style="margin:4px 0 0 0; padding-left:16px; color:var(--muted);">
+                <li><strong>Skincare:</strong> Use Salicylic Acid (BHA) to unclog pores and Benzoyl Peroxide to treat inflamed hormonal acne cysts. Avoid squeezing deep jawline cysts.</li>
+                <li><strong>Diet:</strong> Prioritize low-GI, whole foods, spearmint tea (anti-androgenetic effects), and healthy omega-3 fats.</li>
+                <li><strong>Sleep & Stress:</strong> Aim for 8 hours of sleep. High cortisol triggers androgen release, worsening breakouts.</li>
+              </ul>
+
+              <strong style="display:block; margin-top:10px; color:var(--text);">🩺 Questions for your Doctor:</strong>
+              <p style="margin:4px 0 0 0; color:var(--muted);">"Could my chin breakouts and period patterns be linked to insulin resistance or excess androgens?"</p>
+              
+              <strong style="display:block; margin-top:10px; color:var(--text);">🔬 Tests a Clinician May Consider:</strong>
+              <p style="margin:4px 0 0 0; color:var(--muted);">Pelvic ultrasound (to check ovaries), blood panel for Free Testosterone, fasting insulin, DHEAS, and thyroid levels (TSH).</p>
+            </div>
           </div>
 
           <div class="settings-card">

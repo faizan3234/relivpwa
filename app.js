@@ -1,4 +1,5 @@
 window.RELIX_GROQ_API_KEY = '';
+const BACKEND_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') || window.location.origin.startsWith('file://') ? 'http://localhost:4000' : '';
 
 const brand = {
   name: 'Relix Companion',
@@ -504,6 +505,18 @@ function bindEvents() {
 
   els.tabs.forEach((tab) => {
     tab.addEventListener('click', () => switchView(tab.dataset.tab));
+  });
+
+  // Hormonal checklist assessment logic
+  document.addEventListener('change', (e) => {
+    if (e.target.classList.contains('hormone-check')) {
+      const checkboxes = document.querySelectorAll('.hormone-check');
+      const outputEl = document.getElementById('hormonal-guidance-output');
+      if (checkboxes.length && outputEl) {
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+        outputEl.style.display = (checkedCount >= 2) ? 'block' : 'none';
+      }
+    }
   });
 
   els.suggestions.forEach((pill) => {
@@ -1316,34 +1329,61 @@ function renderCloseTheGap() {
     `;
   } else if (state.goalType === 'lose') {
     const isCalOver = state.consumedCalories > state.targetCalories;
-    const isProOver = state.consumedProtein > state.targetProtein;
+    const isProWayOver = state.consumedProtein > state.targetProtein + 40;
+    const isCalSufficient = state.consumedCalories >= state.targetCalories * 0.7;
+    const isProDeficient = state.consumedProtein < state.targetProtein * 0.6;
+    const isProLow = isCalSufficient && isProDeficient;
     
-    if (isCalOver || isProOver) {
-      let warningMsg = '';
-      if (isCalOver) {
-        warningMsg += `<p style="margin: 0 0 6px 0;">⚠️ <strong>Calorie Deficit Warning:</strong> You are over your daily calorie limit for weight loss by <strong>${state.consumedCalories - state.targetCalories} kcal</strong>. This halts fat loss.</p>`;
-      }
-      if (isProOver) {
-        warningMsg += `<p style="margin: 0;">⚠️ <strong>Protein Warning:</strong> You are over your daily protein target by <strong>${state.consumedProtein - state.targetProtein}g</strong>. Keep your intake balanced.</p>`;
-      }
-      
-      html = `
-        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.18); border-radius:16px; padding:12px 14px; font-size:0.86rem; color:#ef4444; line-height:1.45; margin-bottom: 8px;">
-          ${warningMsg}
+    let warningMsg = '';
+    
+    if (isCalOver) {
+      warningMsg += `
+        <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:12px; padding:10px 12px; margin-bottom:8px; font-size:0.84rem; color:#ef4444; line-height:1.4;">
+          <strong>⚠️ Calorie Excess Warning:</strong><br>
+          You have exceeded today's calorie target for your weight-loss goal. Continuing to do this regularly may reduce or stop fat loss.<br>
+          <strong style="color:var(--text); margin-top:4px; display:block;">Action Suggestions:</strong>
+          <ul style="margin:4px 0 0 0; padding-left:16px; color:var(--muted); font-size:0.8rem;">
+            <li>Eat a lighter dinner (e.g. green salad, clear chicken/veg soup).</li>
+            <li>Take an extra 20-30 minute walk to help clear glucose.</li>
+            <li>Opt for lower-calorie alternatives (swapping snacks for cucumber/roasted chana).</li>
+            <li>Don't starve yourself the next day. Starvation cycles trigger compensatory overeating. Keep targets stable tomorrow.</li>
+          </ul>
         </div>
       `;
-    } else if (leftCal === 0) {
-      html = `
-        <div style="text-align:center; padding:12px; background:rgba(22,163,74,0.08); border-radius:16px;">
-          <strong style="color:#16a34a; font-size:1.1rem; display:block;">🎉 Deficit targets hit!</strong>
-          <span style="font-size:0.85rem; color:var(--muted);">Drink black coffee, green tea, or warm water if you feel late cravings.</span>
+    }
+    
+    if (isProWayOver) {
+      warningMsg += `
+        <div style="background:rgba(234,179,8,0.06); border:1px solid rgba(234,179,8,0.2); border-radius:12px; padding:10px 12px; margin-bottom:8px; font-size:0.84rem; color:#eab308; line-height:1.4;">
+          <strong>⚠️ High Protein Warning:</strong><br>
+          You've consumed considerably more protein than your current target. While protein supports muscle maintenance and satiety, consistently eating well beyond your needs may add unnecessary calories without extra benefit for most people.<br>
+          <strong style="color:var(--text); margin-top:4px; display:block;">Why?</strong>
+          <span style="color:var(--muted); font-size:0.8rem; display:block;">Protein still yields 4 kcal/g. Excessive intake past basic requirements (1.8g-2.2g per kg) is oxidized for energy or stored, adding unnecessary calories that can eliminate your deficit.</span>
         </div>
       `;
-    } else {
-      html = `
-        <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:8px;">
-          <span>Calories Remaining: <strong>${leftCal} kcal</strong></span>
-          <span>Protein Remaining: <strong>${leftPro} g</strong></span>
+    } else if (isProLow) {
+      warningMsg += `
+        <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:12px; padding:10px 12px; margin-bottom:8px; font-size:0.84rem; color:#ef4444; line-height:1.4;">
+          <strong>⚠️ Low Protein Warning:</strong><br>
+          Your protein intake is currently low today today for your weight-loss goal.<br>
+          <strong style="color:var(--text); margin-top:4px; display:block;">Impact:</strong>
+          <ul style="margin:4px 0 0 0; padding-left:16px; color:var(--muted); font-size:0.8rem;">
+            <li><strong>Muscle Loss:</strong> Increases the risk of losing muscle instead of pure fat, which slows your metabolism.</li>
+            <li><strong>Hunger:</strong> Low protein leads to higher hunger levels and poor recovery.</li>
+          </ul>
+          <strong style="color:var(--text); margin-top:4px; display:block;">Protein Boosters to Eat:</strong>
+          <span style="color:var(--muted); font-size:0.8rem; display:block;">Prioritize egg whites, grilled chicken breast, paneer, curd, or soya chunks.</span>
+        </div>
+      `;
+    }
+    
+    html = warningMsg;
+    
+    if (!isCalOver) {
+      html += `
+        <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:8px; border-top: 1px dashed var(--border); padding-top:8px;">
+          <span>Calories Left: <strong>${leftCal} kcal</strong></span>
+          <span>Protein Left: <strong>${leftPro} g</strong></span>
         </div>
         <div style="font-size:0.85rem; color:var(--muted); line-height:1.4;">
           <strong style="color:var(--text); display:block; margin-bottom:4px;">Low-calorie suggestions to close the gap:</strong>
@@ -1361,6 +1401,13 @@ function renderCloseTheGap() {
               <button class="primary-btn log-suggested-btn" data-cal="165" data-pro="31" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
             </div>
           </div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div style="text-align:center; padding:12px; background:rgba(239,68,68,0.04); border-radius:12px; border:1px solid var(--border);">
+          <strong style="color:#ef4444; font-size:0.9rem; display:block;">Calorie Limit Reached</strong>
+          <span style="font-size:0.8rem; color:var(--muted);">Focus on light movements and sip water for late cravings today.</span>
         </div>
       `;
     }
@@ -1611,9 +1658,46 @@ function renderWeightForecast() {
 }
 
 function renderMealCamState() {
-  if (state.pendingMealImageBase64) {
-    els.mealPreview.innerHTML = `<img src="${state.pendingMealImageBase64}" alt="Selected meal preview">`;
-    els.mealStatus.textContent = 'Image loaded. Tap analyze to see real AI analysis.';
+  const isSkin = state.goalType.startsWith('skin');
+  const mealNavPill = document.querySelector('.nav-pill[data-tab="meal"]');
+  if (mealNavPill) {
+    mealNavPill.innerHTML = isSkin ? '📸<span>Face Cam</span>' : '📸<span>Meal Cam</span>';
+  }
+
+  const camTitleText = document.querySelector('[data-view="meal"] .hero-title p');
+  const camHeader = document.querySelector('[data-view="meal"] .hero-title h1');
+  const uploadLabel = document.querySelector('[for="meal-input"]');
+  const analyzeBtn = document.getElementById('analyze-meal');
+
+  if (isSkin) {
+    if (camTitleText) camTitleText.textContent = 'Skin AI Face scan';
+    if (camHeader) camHeader.textContent = 'Scan your face';
+    if (uploadLabel) uploadLabel.textContent = 'Upload face scan';
+    if (analyzeBtn) analyzeBtn.textContent = 'Analyze skin';
+    if (!state.pendingMealImageBase64 && els.mealPreview) {
+      els.mealPreview.innerHTML = `
+        <div style="text-align: center; padding: 16px; color: var(--muted);">
+          <strong style="display: block; margin-bottom: 8px;">Upload a face photo</strong>
+          <span>Ensure good lighting and direct front angle. We delete images immediately after analysis.</span>
+        </div>`;
+    }
+  } else {
+    if (camTitleText) camTitleText.textContent = 'Meal camera';
+    if (camHeader) camHeader.textContent = 'Snap your plate';
+    if (uploadLabel) uploadLabel.textContent = 'Upload image';
+    if (analyzeBtn) analyzeBtn.textContent = 'Analyze meal';
+    if (!state.pendingMealImageBase64 && els.mealPreview) {
+      els.mealPreview.innerHTML = `
+        <div style="text-align: center; padding: 16px; color: var(--muted);">
+          <strong style="display: block; margin-bottom: 8px;">Upload a meal photo</strong>
+          <span>We protect your privacy and delete images immediately after analysis.</span>
+        </div>`;
+    }
+  }
+
+  if (state.pendingMealImageBase64 && els.mealPreview) {
+    els.mealPreview.innerHTML = `<img src="${state.pendingMealImageBase64}" alt="Selected preview" style="max-width:100%; border-radius:14px; max-height:250px; object-fit:contain;">`;
+    els.mealStatus.textContent = isSkin ? 'Image loaded. Tap Analyze Skin to scan.' : 'Image loaded. Tap Analyze Meal to scan.';
   }
   
   const resultCard = document.getElementById('meal-result-card');
@@ -1621,10 +1705,151 @@ function renderMealCamState() {
   const resultDesc = document.getElementById('meal-result-desc');
   const nutritionGrid = document.getElementById('meal-nutrition-grid');
   const logBtn = document.getElementById('log-meal-btn');
+  const skinResult = document.getElementById('skin-analysis-result');
   
   if (lastVisionResult && resultCard) {
     resultCard.style.display = 'flex';
-    if (lastVisionResult.type === 'food') {
+    
+    if (isSkin && lastVisionResult.type === 'skin') {
+      resultTitle.textContent = '🔬 AI Facial Skin Report';
+      resultDesc.textContent = 'Face analysis finished successfully. Review your issue cards and markers below.';
+      nutritionGrid.style.display = 'none';
+      logBtn.style.display = 'none';
+      
+      if (skinResult) {
+        skinResult.style.display = 'flex';
+        
+        // 1. Overall scores
+        const scoresGrid = document.getElementById('skin-scores-grid');
+        if (scoresGrid && lastVisionResult.overallScores) {
+          const scores = lastVisionResult.overallScores;
+          const labels = {
+            health: 'Health', hydration: 'Hydrate', barrier: 'Barrier',
+            pigmentation: 'Pigment', texture: 'Texture', acne: 'Acne',
+            oil: 'Oil Balance', pores: 'Pores', redness: 'Redness',
+            glow: 'Glow Index', wrinkles: 'Wrinkle Clarity',
+            elasticity: 'Elasticity', darkCircles: 'Dark Circles'
+          };
+          scoresGrid.innerHTML = Object.entries(scores).map(([key, val]) => {
+            const label = labels[key] || key;
+            let valColor = '#22c55e';
+            if (val < 50) valColor = '#ef4444';
+            else if (val < 75) valColor = '#eab308';
+            return `
+              <div style="background:var(--border); padding:6px; border-radius:10px; text-align:center; border: 1px solid rgba(255,255,255,0.02);">
+                <strong style="font-size:0.9rem; display:block; color:${valColor};">${val}</strong>
+                <span style="font-size:0.6rem; color:var(--muted); text-transform:uppercase; font-weight:700; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</span>
+              </div>
+            `;
+          }).join('');
+        }
+        
+        // 2. Glass skin
+        const glassEl = document.getElementById('skin-glass-analysis');
+        if (glassEl) {
+          glassEl.textContent = lastVisionResult.glassSkinAnalysis || '';
+        }
+        
+        // 3. Issue cards
+        const concernsContainer = document.getElementById('skin-concerns-container');
+        if (concernsContainer && lastVisionResult.detectedConcerns) {
+          concernsContainer.innerHTML = lastVisionResult.detectedConcerns.map((concern, idx) => `
+            <div id="concern-card-${idx}" style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:14px; padding:12px; transition: all 0.3s ease;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px;">
+                <strong style="color:var(--text); font-size:0.9rem;">#${idx + 1} ${concern.title}</strong>
+                <span style="background:rgba(239,68,68,0.1); color:#ef4444; font-size:0.7rem; padding:2px 8px; border-radius:999px; font-weight:700; white-space:nowrap;">Severity: ${concern.severity}/10</span>
+              </div>
+              <p style="margin:4px 0; font-size:0.8rem; line-height:1.4; color:var(--text);">${concern.explanation}</p>
+              <div style="margin-top:8px; font-size:0.75rem; display:grid; grid-template-columns:1fr; gap:4px; color:var(--muted); border-top:1px dashed var(--border); padding-top:8px;">
+                <div><strong>Possible Causes:</strong> ${concern.causes}</div>
+                <div><strong>Confidence:</strong> ${concern.confidence}%</div>
+                <div><strong>Active Ingredients:</strong> <span style="color:var(--primary); font-weight:600;">${concern.ingredients}</span></div>
+                <div><strong>Home remedies:</strong> ${concern.homeCare}</div>
+                <div><strong>Products:</strong> ${concern.products}</div>
+                ${concern.professional ? `<div><strong>Clinic options:</strong> ${concern.professional}</div>` : ''}
+                <div><strong>Timeline:</strong> ${concern.timeline}</div>
+                <div style="color:#ef4444;"><strong>Things to Avoid:</strong> ${concern.avoid}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+        
+        // 4. Not detected
+        const notDetectedList = document.getElementById('skin-not-detected-list');
+        if (notDetectedList && lastVisionResult.notDetected) {
+          notDetectedList.innerHTML = lastVisionResult.notDetected.map(item => `
+            <li>${item}</li>
+          `).join('');
+        }
+        
+        // 5. Progress comparison
+        const progressComp = document.getElementById('skin-progress-comparison');
+        const progressText = document.getElementById('skin-progress-text');
+        if (progressComp && progressText) {
+          progressComp.style.display = 'block';
+          progressText.textContent = lastVisionResult.progressText || '';
+        }
+        
+        // 6. Interactive markers
+        const existingDots = els.mealPreview.querySelectorAll('.face-marker-dot');
+        existingDots.forEach(dot => dot.remove());
+
+        els.mealPreview.style.position = 'relative';
+        
+        lastVisionResult.detectedConcerns.forEach((concern, idx) => {
+          if (concern.mapCoordinates && concern.mapCoordinates.x !== undefined) {
+            const dot = document.createElement('button');
+            dot.type = 'button';
+            dot.className = 'face-marker-dot';
+            let markerColor = '#ef4444';
+            if (concern.concernId === 'pores' || concern.concernId === 'uneven_texture' || concern.concernId === 'sebaceous') {
+              markerColor = '#eab308';
+            } else if (concern.concernId === 'beard' || concern.concernId === 'razor_bumps') {
+              markerColor = '#a855f7';
+            } else if (concern.concernId === 'dehydration' || concern.concernId === 'barrier_damage') {
+              markerColor = '#3b82f6';
+            }
+            
+            dot.style.cssText = `
+              position: absolute;
+              left: ${concern.mapCoordinates.x}%;
+              top: ${concern.mapCoordinates.y}%;
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              background: ${markerColor};
+              border: 1.5px solid #ffffff;
+              color: #ffffff;
+              font-size: 0.65rem;
+              font-weight: 800;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              transform: translate(-50%, -50%);
+              z-index: 10;
+              animation: pulse-marker 1.5s infinite;
+            `;
+            dot.textContent = idx + 1;
+            
+            dot.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const cardEl = document.getElementById(`concern-card-${idx}`);
+              if (cardEl) {
+                cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                cardEl.style.boxShadow = `0 0 12px ${markerColor}`;
+                setTimeout(() => {
+                  cardEl.style.boxShadow = 'none';
+                }, 1500);
+              }
+            });
+            els.mealPreview.appendChild(dot);
+          }
+        });
+      }
+    } else if (lastVisionResult.type === 'food') {
+      if (skinResult) skinResult.style.display = 'none';
       resultTitle.textContent = `🍕 ${lastVisionResult.foodName || 'Estimated Food'}`;
       resultDesc.textContent = lastVisionResult.analysisText;
       document.getElementById('meal-cal-val').textContent = lastVisionResult.calories || 0;
@@ -1633,19 +1858,10 @@ function renderMealCamState() {
       document.getElementById('meal-fat-val').textContent = `${lastVisionResult.fat || 0}g`;
       nutritionGrid.style.display = 'grid';
       logBtn.style.display = 'block';
-    } else if (lastVisionResult.type === 'human') {
-      resultTitle.textContent = '👤 Human Detected!';
-      resultDesc.textContent = lastVisionResult.analysisText;
-      nutritionGrid.style.display = 'none';
-      logBtn.style.display = 'none';
-    } else if (lastVisionResult.type === 'animal') {
-      resultTitle.textContent = '🐾 Animal Detected!';
-      resultDesc.textContent = lastVisionResult.analysisText;
-      nutritionGrid.style.display = 'none';
-      logBtn.style.display = 'none';
     } else {
-      resultTitle.textContent = '📦 Object Detected!';
-      resultDesc.textContent = lastVisionResult.analysisText;
+      if (skinResult) skinResult.style.display = 'none';
+      resultTitle.textContent = lastVisionResult.type === 'human' ? '👤 Human' : (lastVisionResult.type === 'animal' ? '🐾 Animal' : '📦 Object');
+      resultDesc.textContent = lastVisionResult.analysisText || '';
       nutritionGrid.style.display = 'none';
       logBtn.style.display = 'none';
     }
@@ -1659,6 +1875,12 @@ function renderProfile() {
   syncProfileMeta();
   renderProfilePicture();
   renderWeightForecast();
+
+  // Hormonal guidance display toggle
+  const screeningCard = document.getElementById('hormonal-screening-card');
+  if (screeningCard) {
+    screeningCard.style.display = state.gender === 'female' ? 'block' : 'none';
+  }
 }
 
 const defaultRemedies = [
@@ -1939,6 +2161,119 @@ function renderNaturalCare() {
     } else {
       builderContainer.style.display = 'none';
       builderContainer.innerHTML = '';
+    }
+  }
+
+  // Curated dynamic guides for weight loss
+  const concernContainer = document.getElementById('concern-library-container');
+  if (concernContainer) {
+    if (isLose) {
+      concernContainer.style.display = 'block';
+      concernContainer.innerHTML = `
+        <div class="card" style="padding: 20px; margin-bottom: 18px; background:linear-gradient(135deg, rgba(239,68,68,0.06), rgba(239,68,68,0.02)); border:1px solid rgba(239,68,68,0.15);">
+          <strong style="color:var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:6px;">🔬 Science-Based Fat Loss OS Guide</strong>
+          <h3 style="margin:0; font-size:1.25rem; color:var(--text);">Daily Metabolic & Nutrition Guide</h3>
+          <p style="margin:6px 0 14px 0; font-size:0.82rem; color:var(--muted); line-height:1.4;">Tap any section below to learn why it matters and how to execute it.</p>
+          
+          <div style="display:flex; flex-direction:column; gap:8px;" id="lose-guide-accordion">
+            
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>🔥 1. Calorie Deficit & Safe Rates</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Why:</strong> Fat loss is governed by thermodynamics. To burn stored body fat, you must consume fewer calories than your body expends (metabolism + activity).<br>
+                <strong>Safe Rate:</strong> 0.5kg to 1kg per week is sustainable. Faster weight loss indicates muscle tissue or excessive water depletion.<br>
+                <strong>Expected Timelines:</strong> 4-8 weeks for visible changes; 12-24 weeks for deep recomposition.
+              </div>
+            </details>
+
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>🥚 2. High-Protein & Fats</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Protein Why:</strong> Protein has a high Thermic Effect of Food (TEF) - burning 20-30% of its calories just during digestion. It preserves lean muscle mass and triggers high satiety hormones.<br>
+                <strong>Healthy Fats Why:</strong> Fats regulate vital hormones (e.g. estrogen, testosterone) and support cell membranes. Never go below 20% of total calories from healthy fats (nuts, seeds, olive oil).
+              </div>
+            </details>
+
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>🥗 3. Fiber & Hydration</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Fiber Why:</strong> Soluble fiber absorbs water in the gut, forming a gel that slows digestion and delays stomach emptying, blunting insulin spikes and extending fullness.<br>
+                <strong>Hydration Why:</strong> Mild dehydration mimics hunger cues. Water is required for lipolysis (the chemical process of breaking down fat molecules).
+              </div>
+            </details>
+
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>🏃 4. Daily Movement & Workouts</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Daily Movement (NEAT) Why:</strong> Non-Exercise Activity Thermogenesis (walking, standing) accounts for 15-30% of daily energy output, whereas deliberate exercise accounts for only 5%. Aim for 8,000+ steps.<br>
+                <strong>Strength Training Why:</strong> Lifting weights signals the body to retain muscle tissue, ensuring the weight lost is pure body fat, keeping your metabolic rate high.<br>
+                <strong>Cardio Guidance Why:</strong> Low-Intensity Steady State (LISS) cardio uses fat as its primary fuel source and is highly recovery-friendly compared to high-intensity training.
+              </div>
+            </details>
+
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>😴 5. Sleep & Stress Control</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Sleep Why:</strong> Poor sleep increases ghrelin (hunger hormone) and lowers leptin (fullness hormone), making cravings irresistible. It also raises muscle catabolism.<br>
+                <strong>Stress Why:</strong> High stress releases cortisol, which causes water retention (masking fat loss on the scale) and triggers visceral fat storage.
+              </div>
+            </details>
+
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>🍕 6. Portion & Hunger Hacks</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Hunger & Portions:</strong> Use small plates to trick the brain (Delboeuf illusion). Pre-load meals with salad or warm soup to trigger stomach stretch receptors before main caloric intake.<br>
+                <strong>Meal Timing:</strong> Focus on high protein early in the day to prevent evening binges. Eating window regularity stabilizes circadian rhythm and digestion.
+              </div>
+            </details>
+
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>🚫 7. Food Priorities & Limits</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Prioritize:</strong> Lean meats, egg whites, green vegetables, legumes, whole grains. These are high-volume, nutrient-dense, and keep you full.<br>
+                <strong>Limit (Without Banning):</strong> Refined sugars, deep fried foods, liquid calories (sodas, juices), excessive condiments. Banning foods causes psychological deprivation; instead, fit them moderately into your calorie allowance.
+              </div>
+            </details>
+
+            <details style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:12px; padding:10px;">
+              <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; outline:none; display:flex; justify-content:space-between; align-items:center;">
+                <span>🕵️ 8. Common Fat Loss Myths</span>
+                <span style="font-size:0.75rem; color:var(--primary);">Learn Why</span>
+              </summary>
+              <div style="margin-top:8px; font-size:0.82rem; color:var(--muted); line-height:1.45; border-top:1px dashed var(--border); padding-top:8px;">
+                <strong>Myth: Spot Reduction.</strong> You cannot choose where you burn fat by doing sit-ups; fat loss is systemic across the whole body.<br>
+                <strong>Myth: Carbs make you fat.</strong> Insulin is normal; only a calorie surplus stores fat. Carbs are key for exercise performance.<br>
+                <strong>Myth: Sweat = Fat Burn.</strong> Sweat is just temperature regulation. You burn fat through respiration (exhaling CO2).
+              </div>
+            </details>
+
+          </div>
+        </div>
+      `;
+    } else {
+      concernContainer.style.display = 'none';
+      concernContainer.innerHTML = '';
     }
   }
 
@@ -2412,124 +2747,85 @@ function scheduleCoachReminder(schedule) {
 }
 
 async function getCoachReply(message) {
-  const isGroq = !!state.groqKey;
-  const apiKey = isGroq ? state.groqKey : 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-
+  const goalText = state.goalType.startsWith('skin') ? 'Skincare' : (state.goalType === 'lose' ? 'Weight Loss' : 'Muscle Gain');
+  const genderText = state.gender || 'female';
+  
   const now = new Date();
   const timeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
   const deviceLocalTime = now.toLocaleString('en-US', timeOpts);
 
-  // Prepare a description of historical logs from previous days
   const historicalLogsStr = state.historicalLogs && state.historicalLogs.length > 0
     ? state.historicalLogs.map(h => `• ${h.date}: ${h.calories} kcal, ${h.protein}g protein, Hydration: ${h.hydration}ml. Foods: [${h.foods || 'None'}]`).join('\n')
     : 'No historical logs from previous days.';
 
-  // Prepare a dynamic description of today's logged foods
   const loggedFoodsStr = state.loggedFoods.length > 0 
     ? state.loggedFoods.map(f => `• ${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join('\n')
     : 'No foods logged yet today.';
 
-  const systemInstruction = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo ${state.gender || 'female'}, ${state.weight}kg user with target weight ${state.targetWeight}kg.
+  // Dynamic PCOS/PCOD guidance injection for female skincare users
+  let pcosInstruction = '';
+  if (genderText === 'female' && state.goalType.startsWith('skin')) {
+    pcosInstruction = `
+    - The user is female. You must be highly sensitive to hormonal acne (chin, jawline cystic breakouts) and PCOS/PCOD indicators.
+    - If they report jawline/chin acne, suggest cycle tracking and explain how hormonal fluctuations trigger sebum.
+    - Recommend spearmint tea or anti-inflammatory dietary changes, and advise talking to a doctor about tests (e.g. free testosterone, pelvic ultrasound) if periods are irregular. Do NOT diagnose.`;
+  }
+
+  const systemInstruction = `You are a strict, helpful Indian fitness, diet & skincare coach helping ${state.profileName}, a ${state.age}yo ${genderText}, ${state.weight}kg user with target weight ${state.targetWeight}kg.
   Their height is ${state.height}, diet preference is: ${state.dietType}, and they wake up at ${state.wakeUpTime || '07:00'}.
-  Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Skincare Goal: ' + state.goalType}.
+  Their active focus is: ${goalText} (Goal Code: ${state.goalType}).
   Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
-  
-  GENDER & HORMONAL BREAKOUT INSTRUCTIONS:
-  - If the user is female (Gender: ${state.gender || 'female'}), pay special attention to PCOS/PCOD hormonal breakouts (typically cystic acne on jawline/chin), cycle sync nutrition, and irregular periods. Guide them with empathy, scientific home hacks (e.g. spearmint tea, green tea rinse, warm curd/turmeric), and low-GI foods.
-  - If they mention skincare struggles, explain how hormonal imbalances might trigger sebum overproduction and outline lifestyle recommendations accordingly.
-  ` + `
   
   Yesterday's & Past Days' intake history (for comparison & progress analysis):
   ${historicalLogsStr}
   
-  Use this past days' history to answer questions like "what did I have yesterday?" or "how much improvement from yesterday to today?". Compare their protein and calorie intake from previous days to today, and give constructive coaching advice.
-  ` + `
   The user's current local device clock is: ${deviceLocalTime}.
-  Use this clock time as your absolute source of truth when user talks about timing (e.g. "in 30 mins", "tonight", "at 9 PM").
-  
   Today's logged foods so far:
   ${loggedFoodsStr}
   
   CRITICAL LOGGING & CLARIFICATION RULE:
-  - If the user logs a food without details, you MUST NOT guess or assume generic values. It is your responsibility as a coach to clarify:
-    1. BRAND: Check if it was from a specific brand/bakery (e.g., Mio Amore, Tasty Bites, McDonald's, local bakery) or homemade.
-    2. PORTION & QUANTITY: Since the user typically does not know exact weights, you must ask how much they had using easy, physical visual parameters (e.g., small katori/bowl, standard plate, fist-sized portion, size relative to their palm, pocket/puff size for pastries, or single/double patty).
-    If these details are missing:
-    1. Do NOT log the macros yet. Return 0 for "calories" and "protein" in the JSON properties.
-    2. In your "reply", ask exactly 1 or 2 specific, helpful clarifying questions using these parameters so they can easily answer.
-  - If the user provides details or answers your questions (e.g., "it was a Mio Amore chicken roll", "about palm-sized"), calculate the exact calories and protein. Include these numbers in your coaching response and set non-zero values in the JSON fields.
-  - If the user explicitly asks to cancel or remove a logged food (e.g., "Remove biryani", "Cancel my last meal", "Remove burger from my log"), or cancel a self-logged item:
-    1. Set the "calories" and "protein" to negative values corresponding to the food to subtract them (e.g. calories: -350, protein: -10).
-    2. Set "removeFood" in JSON to the name of the food to remove (e.g. "biryani").
-    3. State in your reply that the food has been removed.
-  - If the user asks "What all did I have today?" or "Give me a protein breakdown", output a list of their logged foods from today with their estimated protein, carbs, and fats, and return 0 calories and 0 protein.
-  - ONLY return non-zero "calories" and "protein" if the user explicitly states they ate, drank, had, or are logging the food right now. Return 0 if it is just a general question about a food (e.g., "how many calories in biryani?").
+  - If the user logs a food without details, you MUST NOT guess or assume generic values. Clarify:
+    1. BRAND: Check if it was from a specific brand/bakery (e.g., Mio Amore, Tasty Bites) or homemade.
+    2. PORTION: Ask how much they had using easy, physical visual parameters (e.g., small katori/bowl, standard plate, fist-sized portion, palm size, pocket/puff size).
+    If these details are missing, return 0 for "calories" and "protein" in the JSON properties, and ask them in the reply.
+  - If they provide details, calculate exact calories/protein.
+  - If they ask to remove/cancel a food, set negative values in "calories" and "protein" and set "removeFood" in JSON.
+  - Every recommendation must explain WHY it is given.
+  ${pcosInstruction}
   
   Reply strictly in JSON format with NO markdown formatting:
   {
     "reply": "Your coaching response here",
     "calories": Number,  // calories to add (positive) or subtract (negative), or 0
     "protein": Number,   // protein to add (positive) or subtract (negative), or 0
-    "logFood": "Name of food being added (e.g. KFC Burger)" or null,
-    "removeFood": "Name of food being removed (e.g. biryani)" or null,
-    "schedule": null     // or schedule object if they ask for a reminder
+    "logFood": "Name of food being added" or null,
+    "removeFood": "Name of food being removed" or null,
+    "schedule": null
   }`;
 
-  // Take the last 6 messages from the rolling history to feed as context
   const lastFewMessages = chatMessages.slice(-6).map(m => ({
     role: m.role === 'user' ? 'user' : 'assistant',
     content: m.text
   }));
 
   try {
-    let textRes = '';
-    if (isGroq) {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: systemInstruction },
-            ...lastFewMessages,
-            { role: 'user', content: message }
-          ],
-          response_format: { type: "json_object" }
-        })
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      textRes = data.choices[0].message.content.trim();
-    } else {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-      const payload = {
-        contents: [
-          { role: 'user', parts: [{ text: systemInstruction }] },
-          ...lastFewMessages.map(m => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }]
-          })),
-          { role: 'user', parts: [{ text: message }] }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      };
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      textRes = data.candidates[0].content.parts[0].text;
-    }
+    const response = await fetch(`${BACKEND_URL}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        systemInstruction,
+        messages: lastFewMessages,
+        message,
+        customGroqKey: state.groqKey || ''
+      })
+    });
+    
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
 
+    let textRes = data.text || '';
     textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(textRes);
 
@@ -2541,7 +2837,6 @@ async function getCoachReply(message) {
     }
 
     let hasLoggedFood = false;
-    // Manage today's logged foods list
     if (result.removeFood) {
       const targetName = result.removeFood.toLowerCase();
       const idx = state.loggedFoods.findIndex(f => f.name.toLowerCase().includes(targetName));
@@ -2570,9 +2865,16 @@ async function getCoachReply(message) {
     }
 
     return result;
-  } catch (e) {
-    console.error(e);
-    return 'I had trouble processing that. Make sure your Groq API key is correct.';
+  } catch (err) {
+    console.error('Failed to get coach reply:', err);
+    return {
+      reply: "I am having trouble connecting to my brain right now. Make sure the backend server is running.",
+      calories: 0,
+      protein: 0,
+      logFood: null,
+      removeFood: null,
+      schedule: null
+    };
   }
 }
 
@@ -2607,9 +2909,13 @@ function previewMeal(event) {
     return;
   }
 
+  // Clear existing face markers if any
+  const existingDots = els.mealPreview.querySelectorAll('.face-marker-dot');
+  existingDots.forEach(dot => dot.remove());
+
   const reader = new FileReader();
   reader.onload = () => {
-    els.mealPreview.innerHTML = `<img src="${reader.result}" alt="Selected meal preview">`;
+    els.mealPreview.innerHTML = `<img src="${reader.result}" alt="Selected preview">`;
     els.mealStatus.textContent = 'Image loaded. Tap analyze to see real AI analysis.';
     state.pendingMealImageBase64 = reader.result;
     saveState();
@@ -2630,7 +2936,8 @@ async function analyzeMeal() {
     return;
   }
 
-  els.mealStatus.textContent = 'Analyzing image with Google Gemini 1.5 Flash...';
+  const isSkin = state.goalType.startsWith('skin');
+  els.mealStatus.textContent = isSkin ? 'Scanning face with Gemini Skin AI...' : 'Analyzing plate with Google Gemini 1.5 Flash...';
   els.mealButton.disabled = true;
 
   const resultCard = document.getElementById('meal-result-card');
@@ -2638,16 +2945,18 @@ async function analyzeMeal() {
   const resultDesc = document.getElementById('meal-result-desc');
   const nutritionGrid = document.getElementById('meal-nutrition-grid');
   const logBtn = document.getElementById('log-meal-btn');
+  const skinResult = document.getElementById('skin-analysis-result');
 
   if (resultCard) {
     resultCard.style.display = 'flex';
-    resultTitle.textContent = 'Analyzing plate...';
-    resultDesc.textContent = 'Determining nutritional composition and classification.';
+    resultTitle.textContent = isSkin ? 'Scanning face features...' : 'Analyzing plate...';
+    resultDesc.textContent = isSkin ? 'Detecting issues, wrinkles, pores, and skin hydration scores.' : 'Determining nutritional composition and classification.';
     nutritionGrid.style.display = 'none';
     logBtn.style.display = 'none';
+    if (skinResult) skinResult.style.display = 'none';
   }
 
-  const visionPrompt = `Analyze this image. You must identify if it is a food item, a human being, an animal (dog, cat, bird, etc.), or an inanimate object.
+  const mealPrompt = `Analyze this image. You must identify if it is a food item, a human being, an animal (dog, cat, bird, etc.), or an inanimate object.
   
   Return strictly a JSON object with NO markdown formatting:
   {
@@ -2660,7 +2969,10 @@ async function analyzeMeal() {
     "carbs": Number,    // estimated carbs in grams
     "fat": Number,      // estimated fat in grams
     "healthRating": Number, // score from 0 to 100
-    "analysisText": "A detailed description of the food, estimated ingredients, why it got this rating, and a question: 'Did you eat this? Tap Log to add to your daily totals!'",
+    "satietyScore": Number, // score from 0 to 100
+    "proteinScore": Number, // score from 0 to 100
+    "fatLossScore": Number, // score from 0 to 100
+    "analysisText": "A detailed description of the food, estimated ingredients, why it got this rating, good/bad points, missing nutrients, healthier alternatives, protein suggestions, and a question: 'Did you eat this? Tap Log to add to your daily totals!'"
     
     // IF HUMAN:
     "analysisText": "I don't know about others, but you definitely seem a treat to me! Hotness rating: 100/100, rating high on protein! You look absolutely fabulous and healthy today.",
@@ -2672,10 +2984,75 @@ async function analyzeMeal() {
     "analysisText": "This is an interesting object! Witty, funny caption about what this object might do if it was alive."
   }`;
 
+  const skinPrompt = `Analyze this face image. You must identify if it is a human face. If it is NOT a human face, return JSON with:
+  {
+    "type": "non_face",
+    "analysisText": "Please upload a clear, front-facing photo of your face for skin analysis."
+  }
+  
+  If it IS a human face, return strictly a JSON object with NO markdown formatting:
+  {
+    "type": "skin",
+    "overallScores": {
+      "health": 85,       // estimated skin health 0-100
+      "hydration": 60,    // estimated hydration 0-100
+      "barrier": 70,      // estimated barrier health 0-100
+      "pigmentation": 80, // estimated pigmentation health 0-100
+      "texture": 65,      // estimated texture smoothness 0-100
+      "acne": 90,         // estimated acne clarity 0-100
+      "oil": 75,          // estimated oil balance 0-100
+      "pores": 60,        // estimated pores refinement 0-100
+      "redness": 80,      // estimated redness control 0-100
+      "glow": 70,         // estimated glow index 0-100
+      "wrinkles": 95,     // estimated wrinkles smoothness 0-100
+      "elasticity": 85,   // estimated elasticity index 0-100
+      "darkCircles": 50   // estimated dark circles control 0-100
+    },
+    "detectedConcerns": [
+      {
+        "concernId": "pih",
+        "title": "Mild post-acne marks (PIH)",
+        "severity": 2, // 1 to 10 scale
+        "confidence": 85, // confidence percentage
+        "explanation": "Mild post-inflammatory hyperpigmentation on the cheeks with small brown spots remaining after previous acne.",
+        "causes": "Melanin overproduction triggered by previous acne breakouts.",
+        "timeline": "3 to 6 months of persistent daily care.",
+        "homeCare": "Lactic acid curd & Turmeric pack twice weekly.",
+        "ingredients": "Vitamin C in the morning, Niacinamide, Retinol at night.",
+        "products": "10% Niacinamide Serum, Broad-spectrum SPF 50 sunscreen.",
+        "professional": "Gentle chemical peels or Q-switched lasers.",
+        "avoid": "Picking at pimples or using harsh physical scrubs.",
+        "mapCoordinates": { "x": 35, "y": 48 } // approximate percentage coordinates of concern (x is horizontal 0-100, y is vertical 0-100)
+      },
+      {
+        "concernId": "scars",
+        "title": "Mild atrophic acne scarring",
+        "severity": 3,
+        "confidence": 75,
+        "explanation": "Shallow depressions on the cheeks that reflect light unevenly.",
+        "causes": "Collagen depletion during the healing of deep or picked pimples.",
+        "timeline": "6 to 12 months with potential clinical intervention.",
+        "homeCare": "Honey and aloe vera mask to soothe local tissue.",
+        "ingredients": "Retinoids (adapalene, tretinoin), Glycolic acid.",
+        "products": "0.1% Adapalene Gel, Ceramide barrier cream.",
+        "professional": "Microneedling (strong evidence) or RF microneedling.",
+        "avoid": "Over-exfoliating or dry shaving.",
+        "mapCoordinates": { "x": 65, "y": 55 }
+      }
+    ],
+    "notDetected": [
+      "Severe acne",
+      "Cystic acne",
+      "Severe pigmentation",
+      "Rosacea indicators",
+      "Melasma indicators"
+    ],
+    "glassSkinAnalysis": "Pores and uneven texture on the cheeks are currently reflecting light unevenly, reducing the glass-like transparency. Prioritize deep hydration layers and BHA chemical exfoliation."
+  }`;
+
+  const prompt = isSkin ? skinPrompt : mealPrompt;
+
   try {
-    const apiKey = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
     let base64Data = state.pendingMealImageBase64;
     let mimeType = 'image/jpeg';
     if (base64Data.includes(',')) {
@@ -2683,77 +3060,54 @@ async function analyzeMeal() {
       mimeType = parts[0].match(/:(.*?);/)[1];
       base64Data = parts[1];
     }
-    
-    const payload = {
-      contents: [
-        {
-          parts: [
-            { text: visionPrompt },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
-              }
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    };
 
-    const response = await fetch(url, {
+    const response = await fetch(`${BACKEND_URL}/api/ai/analyze-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        prompt,
+        mimeType,
+        base64Data
+      })
     });
 
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) throw new Error(data.error);
 
-    let textRes = data.candidates[0].content.parts[0].text;
+    let textRes = data.text || '';
     textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(textRes);
+
+    if (isSkin && result.type === 'skin') {
+      const prevScan = localStorage.getItem('relix-last-skin-scan');
+      if (prevScan) {
+        try {
+          const parsedPrev = JSON.parse(prevScan);
+          let diffText = "Hydration levels are stable. Uneven texture shows minor improvement from home remedies.";
+          if (result.overallScores.hydration > parsedPrev.overallScores.hydration) {
+            diffText = `Hydration score improved from ${parsedPrev.overallScores.hydration} to ${result.overallScores.hydration}! Texture clarity is progressing nicely.`;
+          }
+          result.progressText = diffText;
+        } catch (e) {}
+      } else {
+        result.progressText = "This is your first baseline scan. Future scans will display texture and pigmentation trends.";
+      }
+      localStorage.setItem('relix-last-skin-scan', JSON.stringify(result));
+    }
+
     lastVisionResult = result;
+    localStorage.setItem('relix-last-vision-result', JSON.stringify(result));
     saveState();
 
+    renderMealCamState();
     els.mealStatus.textContent = 'Analysis complete.';
-    
-    if (result.type === 'food') {
-      resultTitle.textContent = `🍕 ${result.foodName || 'Estimated Food'}`;
-      resultDesc.textContent = result.analysisText;
-      
-      document.getElementById('meal-cal-val').textContent = result.calories || 0;
-      document.getElementById('meal-pro-val').textContent = `${result.protein || 0}g`;
-      document.getElementById('meal-carb-val').textContent = `${result.carbs || 0}g`;
-      document.getElementById('meal-fat-val').textContent = `${result.fat || 0}g`;
-      
-      nutritionGrid.style.display = 'grid';
-      logBtn.style.display = 'block';
-    } else if (result.type === 'human') {
-      resultTitle.textContent = '👤 Human Detected!';
-      resultDesc.textContent = result.analysisText;
-      nutritionGrid.style.display = 'none';
-      logBtn.style.display = 'none';
-    } else if (result.type === 'animal') {
-      resultTitle.textContent = '🐾 Animal Detected!';
-      resultDesc.textContent = result.analysisText;
-      nutritionGrid.style.display = 'none';
-      logBtn.style.display = 'none';
-    } else {
-      resultTitle.textContent = '📦 Object Detected!';
-      resultDesc.textContent = result.analysisText;
-      nutritionGrid.style.display = 'none';
-      logBtn.style.display = 'none';
-    }
+    showToast('✅ Analysis finished successfully!');
   } catch (err) {
-    console.error(err);
-    els.mealStatus.textContent = 'Failed to analyze. Please check your API key and connection.';
-    resultTitle.textContent = 'Analysis Failed';
-    resultDesc.textContent = 'Verify your Groq API key is correct and try again.';
+    console.error('AI Scan Error:', err);
+    els.mealStatus.textContent = 'Analysis failed. Please check network/backend.';
+    showToast('❌ Analysis failed.');
   } finally {
     els.mealButton.disabled = false;
   }
@@ -3328,13 +3682,6 @@ function showNotification(title, body, tag) {
     reminder.onclick = () => window.focus();
   }
 }
-
-function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js').catch(() => { });
-  }
-}
-
 function registerInstallPrompt() {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();

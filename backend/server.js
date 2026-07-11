@@ -337,6 +337,110 @@ app.get('/api/push/status', (req, res) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// AI PROXY ENDPOINTS (Secure from Client Inspection)
+// ---------------------------------------------------------------------------
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+
+app.post('/api/ai/chat', async (req, res) => {
+  const { systemInstruction, messages = [], message, customGroqKey } = req.body || {};
+  if (!message) return res.status(400).json({ error: 'Message is required' });
+
+  try {
+    if (customGroqKey) {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${customGroqKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-70b-versatile',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            ...messages,
+            { role: 'user', content: message }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      return res.json({ text: data.choices[0].message.content });
+    } else {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const payload = {
+        contents: [
+          { role: 'user', parts: [{ text: systemInstruction }] },
+          ...messages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content || m.parts?.[0]?.text || '' }]
+          })),
+          { role: 'user', parts: [{ text: message }] }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return res.json({ text });
+    }
+  } catch (err) {
+    console.error('[AI Chat Error]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/ai/analyze-image', async (req, res) => {
+  const { prompt, mimeType, base64Data } = req.body || {};
+  if (!prompt || !base64Data) {
+    return res.status(400).json({ error: 'Missing prompt or base64Data' });
+  }
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const payload = {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: mimeType || 'image/jpeg',
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return res.json({ text });
+  } catch (err) {
+    console.error('[AI Analyze Image Error]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Reliv backend running on port ${PORT}`);
