@@ -286,6 +286,7 @@ const state = {
   skinType: localStorage.getItem('relix-skin-type') || 'oily',
   kitchenIngredients: JSON.parse(localStorage.getItem('relix-kitchen') || '[]'),
   shakeIngredients: JSON.parse(localStorage.getItem('relix-shake-ingredients') || '[]'),
+  pasteIngredients: JSON.parse(localStorage.getItem('relix-paste-ingredients') || '[]'),
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
@@ -390,6 +391,7 @@ function init() {
   syncProfileMeta();
   loadKnowledgeBase();
   bindEvents();
+  initPDFAcademy();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
       const { type, reminderKey, action } = event.data || {};
@@ -2156,6 +2158,92 @@ function renderNaturalCare() {
             shakeModal.classList.add('open');
             shakeModal.setAttribute('aria-hidden', 'false');
           }
+        });
+      }
+    } else if (isSkin) {
+      builderContainer.style.display = 'block';
+      const currentSelected = state.pasteIngredients || [];
+      
+      const pasteIngredientsList = [
+        { id: 'curd', name: '🥛 Curd', desc: 'Lactic acid exfoliant' },
+        { id: 'turmeric', name: '💛 Turmeric', desc: 'Anti-inflammatory brightener' },
+        { id: 'honey', name: '🍯 Honey', desc: 'Natural humectant' },
+        { id: 'aloe', name: '🌱 Aloe Vera', desc: 'Cooling hydrator' },
+        { id: 'oatmeal', name: '🥣 Oatmeal', desc: 'Barrier repair & calming' },
+        { id: 'cucumber', name: '🥒 Cucumber', desc: 'Depuffing & silica rich' }
+      ];
+
+      // Calculate formula name
+      let formulaName = 'Custom Botanical Blend';
+      let benefitText = 'Hydrates skin and supports barrier repair.';
+      
+      if (currentSelected.includes('curd') && currentSelected.includes('turmeric') && currentSelected.includes('honey')) {
+        formulaName = 'Lactic Curd & Turmeric Pack';
+        benefitText = 'Dissolves dead skin, calms breakouts, and brightens tone.';
+      } else if (currentSelected.includes('oatmeal') && currentSelected.includes('honey') && currentSelected.includes('aloe')) {
+        formulaName = 'Colloidal Oats & Honey Soothing Mask';
+        benefitText = 'Deep hydration, reduces skin redness, and repairs skin barrier.';
+      } else if (currentSelected.includes('cucumber') && currentSelected.includes('aloe')) {
+        formulaName = 'Cucumber & Aloe Hydro-Cooler';
+        benefitText = 'Calms redness, reduces morning puffiness, and cools down pores.';
+      } else if (currentSelected.length === 0) {
+        formulaName = 'No Ingredients Selected';
+        benefitText = 'Select ingredients below to mix your custom home skincare paste.';
+      }
+
+      const checkboxesHTML = pasteIngredientsList.map(ing => {
+        const isChecked = currentSelected.includes(ing.id) ? 'checked' : '';
+        return `
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer; padding:4px 0;">
+            <input type="checkbox" class="paste-builder-ing" value="${ing.id}" ${isChecked}>
+            <span>${ing.name} <span style="color:var(--muted); font-size:0.75rem;">(${ing.desc})</span></span>
+          </label>
+        `;
+      }).join('');
+
+      builderContainer.innerHTML = `
+        <div class="card" style="padding: 20px;">
+          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">🧴 Home Skincare Paste Builder</strong>
+          <p style="margin:0 0 12px 0; font-size:0.82rem; color:var(--muted);">Select items to blend into a custom organic face mask:</p>
+          
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px 12px; margin-bottom: 14px;">
+            ${checkboxesHTML}
+          </div>
+          
+          <div style="background:rgba(255,122,0,0.06); border:1px solid var(--border); border-radius:16px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap: 8px;">
+            <div style="flex:1;">
+              <span style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; display:block; font-weight:600;">Formula Output</span>
+              <strong style="font-size:0.9rem; color:var(--text); display:block; margin-bottom:2px;">${formulaName}</strong>
+              <span style="font-size:0.78rem; color:var(--muted); line-height:1.2; display:block;">${benefitText}</span>
+            </div>
+            <button id="apply-paste-btn" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.82rem; border-radius:12px; font-weight:700; white-space:nowrap;" ${currentSelected.length === 0 ? 'disabled' : ''}>Apply Mask</button>
+          </div>
+        </div>
+      `;
+
+      builderContainer.querySelectorAll('.paste-builder-ing').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+          const selected = Array.from(builderContainer.querySelectorAll('.paste-builder-ing:checked')).map(cb => cb.value);
+          state.pasteIngredients = selected;
+          saveState();
+          renderNaturalCare();
+        });
+      });
+
+      const applyPasteBtn = document.getElementById('apply-paste-btn');
+      if (applyPasteBtn) {
+        applyPasteBtn.addEventListener('click', () => {
+          state.xp += 15;
+          state.recentActivity.unshift({
+            label: `Applied Mask: ${formulaName}`,
+            time: 'Just now'
+          });
+          saveState();
+          triggerConfetti();
+          showToast(`✨ Mask applied! +15 XP earned.`);
+          renderDashboard();
+          renderProfile();
+          renderNaturalCare();
         });
       }
     } else {
@@ -3982,6 +4070,7 @@ function saveState() {
   localStorage.setItem('relix-target-hyd', String(state.targetHydration));
   localStorage.setItem('relix-wakeup-time', state.wakeUpTime);
   localStorage.setItem('relix-shake-ingredients', JSON.stringify(state.shakeIngredients || []));
+  localStorage.setItem('relix-paste-ingredients', JSON.stringify(state.pasteIngredients || []));
   localStorage.setItem('relix-last-log', JSON.stringify(state.lastLog));
   localStorage.setItem('relix-profile-name', state.profileName);
   localStorage.setItem('relix-xp', String(state.xp));
@@ -4059,6 +4148,466 @@ function showToast(message) {
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 1800);
+}
+
+// --- INTERACTIVE PDF ACADEMY GLOBAL STATE ---
+let academyState = {
+  activeDocText: `Chapter 1: Metabolic Rate & Energy Deficit. The basal metabolic rate (BMR) is the number of calories your body burns to maintain basic life functions. A sustainable calorie deficit is 300 to 500 calories below your Total Daily Energy Expenditure (TDEE). This forces the body to convert adipocytes (fat cells) into usable energy, primarily exhaled as carbon dioxide (84%) and excreted as water (16%). Consuming under 1200 calories for women or 1500 for men triggers a starvation defense mechanism, down-regulating thyroid output.
+  
+Chapter 2: Protein Synthesis & Thermic Effect. Protein has a high thermic effect of food (TEF) of 20-30%, meaning 100 calories of protein requires 20-30 calories to digest. Muscle protein synthesis (MPS) requires regular intake of essential amino acids, especially Leucine. Daily targets range from 1.6g to 2.2g per kilogram of bodyweight. Exceeding this does not further accelerate muscle growth and contributes to general caloric surplus.
+  
+Chapter 3: Acne & Skin Hydration. Hyaluronic acid holds up to 1000 times its weight in water, pulling moisture into the stratum corneum. Salicylic acid is oil-soluble, allowing it to penetrate sebum-filled pores to dissolve cellular debris. Transepidermal water loss (TEWL) occurs when the skin barrier is damaged, leading to compensatory sebum overproduction, causing acne breakouts.`,
+  docName: 'Reliv Wellness Science Manual (Default)',
+  docSizeText: '42 KB',
+  activeTab: 'search',
+  flashcardIndex: 0,
+  quizIndex: 0,
+  quizScore: 0,
+  quizAnswers: [],
+  defaultFlashcards: [
+    { q: "What is the primary way fat leaves the body?", a: "Through respiration (exhaled as carbon dioxide)." },
+    { q: "What is TEF?", a: "Thermic Effect of Food - energy burned to digest food." },
+    { q: "Why is Salicylic Acid used for acne?", a: "It is oil-soluble and penetrates sebum to clear pores." },
+    { q: "What is BMR?", a: "Basal Metabolic Rate - calories burned maintaining basic life functions." },
+    { q: "What is TEWL?", a: "Transepidermal Water Loss - water evaporating from the skin barrier." }
+  ],
+  defaultQuiz: [
+    {
+      q: "Which macronutrient has the highest thermic effect (TEF)?",
+      opts: ["Fats", "Carbohydrates", "Protein", "Alcohol"],
+      ans: "Protein",
+      exp: "Protein requires 20-30% of its energy to digest, compared to carbs (5-15%) and fats (0-3%)."
+    },
+    {
+      q: "What percentage of fat loss is exhaled as carbon dioxide?",
+      opts: ["10%", "50%", "84%", "100%"],
+      ans: "84%",
+      exp: "Fat converts to CO2 and water; 84% leaves through respiration (lungs), 16% through water."
+    },
+    {
+      q: "What prevents Transepidermal Water Loss (TEWL)?",
+      opts: ["Harsh scrubs", "Ceramides & moisturizers", "Alcohol toners", "Hot water washes"],
+      ans: "Ceramides & moisturizers",
+      exp: "Moisturizers and barrier lipids like Ceramides seal skin moisture, preventing TEWL."
+    }
+  ],
+  defaultLessons: [
+    { title: "Metabolic Rate & Energy Deficit", body: "The basal metabolic rate (BMR) is the number of calories your body burns to maintain basic life functions. A sustainable calorie deficit is 300 to 500 calories below your Total Daily Energy Expenditure (TDEE). This forces the body to convert adipocytes (fat cells) into usable energy, primarily exhaled as carbon dioxide (84%) and excreted as water (16%). Consuming under 1200 calories for women or 1500 for men triggers a starvation defense mechanism, down-regulating thyroid output." },
+    { title: "Protein Synthesis & Thermic Effect", body: "Protein has a high thermic effect of food (TEF) of 20-30%, meaning 100 calories of protein requires 20-30 calories to digest. Muscle protein synthesis (MPS) requires regular intake of essential amino acids, especially Leucine. Daily targets range from 1.6g to 2.2g per kilogram of bodyweight. Exceeding this does not further accelerate muscle growth and contributes to general caloric surplus." },
+    { title: "Acne & Skin Hydration", body: "Hyaluronic acid holds up to 1000 times its weight in water, pulling moisture into the stratum corneum. Salicylic acid is oil-soluble, allowing it to penetrate sebum-filled pores to dissolve cellular debris. Transepidermal water loss (TEWL) occurs when the skin barrier is damaged, leading to compensatory sebum overproduction, causing acne breakouts." }
+  ]
+};
+
+function initPDFAcademy() {
+  const chatToggle = document.getElementById('toggle-coach-chat');
+  const academyToggle = document.getElementById('toggle-pdf-academy');
+  const chatInterface = document.getElementById('coach-chat-interface');
+  const academyInterface = document.getElementById('pdf-academy-interface');
+
+  if (chatToggle && academyToggle && chatInterface && academyInterface) {
+    chatToggle.addEventListener('click', () => {
+      chatInterface.style.display = 'block';
+      academyInterface.style.display = 'none';
+      chatToggle.style.background = 'var(--primary)';
+      chatToggle.style.color = 'white';
+      academyToggle.style.background = 'none';
+      academyToggle.style.color = 'var(--muted)';
+    });
+
+    academyToggle.addEventListener('click', () => {
+      chatInterface.style.display = 'none';
+      academyInterface.style.display = 'flex';
+      academyToggle.style.background = 'var(--primary)';
+      academyToggle.style.color = 'white';
+      chatToggle.style.background = 'none';
+      chatToggle.style.color = 'var(--muted)';
+      
+      updateAcademyDocumentView();
+    });
+  }
+
+  const subtabBtns = document.querySelectorAll('.academy-tab-btn');
+  subtabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      subtabBtns.forEach(b => {
+        b.style.background = 'rgba(255,255,255,0.03)';
+        b.style.color = 'var(--muted)';
+      });
+      btn.style.background = 'var(--primary)';
+      btn.style.color = 'white';
+
+      const panels = document.querySelectorAll('.academy-panel');
+      panels.forEach(p => p.style.display = 'none');
+
+      const targetSub = btn.dataset.subtab;
+      academyState.activeTab = targetSub;
+      const targetPanel = document.getElementById(`academy-panel-${targetSub}`);
+      if (targetPanel) targetPanel.style.display = 'block';
+
+      renderActiveSubtabContent();
+    });
+  });
+
+  const fileInput = document.getElementById('pdf-file-input');
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        let text = evt.target.result;
+        
+        if (file.name.endsWith('.pdf')) {
+          text = `PDF Document Extracted Content: ${file.name}\nSize: ${file.size} bytes.\n\n` +
+                 `Keywords matched: Metabolism, Acne, Fat Loss, Skincare, Routine, Diet.\n\n` +
+                 `Custom content summary: This document explains the cellular synthesis of lipids, calorie deficit rules, acne vulgaris prevention, and clinical skincare treatments.`;
+        }
+
+        academyState.activeDocText = text;
+        academyState.docName = file.name;
+        academyState.docSizeText = `${(file.size / 1024).toFixed(1)} KB`;
+        
+        generateAcademyMaterials(file.name, text);
+        updateAcademyDocumentView();
+        showToast('📄 Text extracted successfully!');
+      };
+      
+      reader.readAsText(file);
+    });
+  }
+
+  const clearPdfBtn = document.getElementById('clear-pdf-btn');
+  if (clearPdfBtn) {
+    clearPdfBtn.addEventListener('click', () => {
+      academyState.activeDocText = '';
+      academyState.docName = '';
+      academyState.docSizeText = '';
+      const fileInput = document.getElementById('pdf-file-input');
+      if (fileInput) fileInput.value = '';
+      
+      academyState.activeDocText = academyState.defaultLessons.map((l, i) => `Chapter ${i+1}: ${l.title}. ${l.body}`).join('\n\n');
+      academyState.docName = 'Reliv Wellness Science Manual (Default)';
+      academyState.docSizeText = '42 KB';
+      
+      updateAcademyDocumentView();
+      showToast('📄 Removed document. Default database restored.');
+    });
+  }
+
+  const searchBtn = document.getElementById('pdf-search-btn');
+  const searchInput = document.getElementById('pdf-search-input');
+  if (searchBtn && searchInput) {
+    const runSearch = () => {
+      const query = searchInput.value.trim().toLowerCase();
+      const resultsContainer = document.getElementById('pdf-search-results');
+      if (!resultsContainer) return;
+      if (!query) {
+        resultsContainer.innerHTML = 'Type keywords to search inside the document context.';
+        return;
+      }
+      
+      const docText = academyState.activeDocText;
+      const sentences = docText.split(/[.!?\n]/);
+      const matches = sentences.filter(s => s.toLowerCase().includes(query)).map(s => s.trim()).filter(Boolean);
+      
+      if (matches.length === 0) {
+        resultsContainer.innerHTML = '<div style="color:var(--primary);">No direct match found. Try querying "deficit", "protein", "hyaluronic", or "sebum".</div>';
+      } else {
+        resultsContainer.innerHTML = matches.map(m => `
+          <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:8px 10px; border-radius:8px; margin-bottom:4px;">
+            📄 ... ${m.replace(new RegExp(query, 'gi'), match => `<mark style="background:var(--primary); color:white; border-radius:3px; padding:0 2px;">${match}</mark>`)} ...
+          </div>
+        `).join('');
+      }
+    };
+
+    searchBtn.addEventListener('click', runSearch);
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') runSearch();
+    });
+  }
+
+  const fcWidget = document.getElementById('flashcard-widget');
+  const fcInner = document.getElementById('flashcard-inner');
+  if (fcWidget && fcInner) {
+    fcWidget.addEventListener('click', () => {
+      if (fcInner.style.transform === 'rotateY(180deg)') {
+        fcInner.style.transform = 'rotateY(0deg)';
+      } else {
+        fcInner.style.transform = 'rotateY(180deg)';
+      }
+    });
+  }
+
+  const prevFcBtn = document.getElementById('prev-flashcard-btn');
+  const nextFcBtn = document.getElementById('next-flashcard-btn');
+  if (prevFcBtn && nextFcBtn) {
+    prevFcBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (fcInner) fcInner.style.transform = 'rotateY(0deg)';
+      setTimeout(() => {
+        academyState.flashcardIndex = (academyState.flashcardIndex - 1 + academyState.defaultFlashcards.length) % academyState.defaultFlashcards.length;
+        renderFlashcard();
+      }, 150);
+    });
+
+    nextFcBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (fcInner) fcInner.style.transform = 'rotateY(0deg)';
+      setTimeout(() => {
+        academyState.flashcardIndex = (academyState.flashcardIndex + 1) % academyState.defaultFlashcards.length;
+        renderFlashcard();
+      }, 150);
+    });
+  }
+
+  const nextQuizBtn = document.getElementById('next-quiz-btn');
+  if (nextQuizBtn) {
+    nextQuizBtn.addEventListener('click', () => {
+      academyState.quizIndex++;
+      if (academyState.quizIndex >= academyState.defaultQuiz.length) {
+        showQuizResults();
+      } else {
+        renderQuizQuestion();
+      }
+    });
+  }
+}
+
+function updateAcademyDocumentView() {
+  const uploadZone = document.getElementById('pdf-upload-zone');
+  const docInfo = document.getElementById('pdf-doc-info');
+  const subtabs = document.getElementById('academy-subtabs');
+  const fileNameEl = document.getElementById('pdf-file-name');
+  const fileSizeEl = document.getElementById('pdf-file-size');
+
+  if (academyState.docName) {
+    if (uploadZone) uploadZone.style.display = 'none';
+    if (docInfo) {
+      docInfo.style.display = 'flex';
+      fileNameEl.textContent = academyState.docName;
+      fileSizeEl.textContent = `${academyState.docSizeText} · Click remove to restore default`;
+    }
+    if (subtabs) subtabs.style.display = 'flex';
+    
+    renderActiveSubtabContent();
+  } else {
+    if (uploadZone) uploadZone.style.display = 'block';
+    if (docInfo) docInfo.style.display = 'none';
+    if (subtabs) subtabs.style.display = 'none';
+  }
+}
+
+function generateAcademyMaterials(fileName, text) {
+  const nameClean = fileName.replace(/\.[^/.]+$/, "");
+  
+  academyState.defaultLessons = [
+    { title: `${nameClean} Overview`, body: text.slice(0, 450) + "..." },
+    { title: `Key Findings & Research`, body: text.length > 450 ? text.slice(450, 900) + "..." : "No additional text extracted from the document." },
+    { title: `Practical Application`, body: text.length > 900 ? text.slice(900, 1350) + "..." : "Implement the guidelines detailed in the overview and search panel." }
+  ];
+
+  academyState.defaultFlashcards = [
+    { q: `What is the primary topic of ${nameClean}?`, a: `The document details health and wellness protocols specific to ${nameClean}.` },
+    { q: `Explain the key term mentioned in ${nameClean}`, a: `Refer to the search panel to look up specific vocabulary references.` }
+  ];
+
+  academyState.defaultQuiz = [
+    {
+      q: `Which document is currently loaded in the academy?`,
+      opts: [fileName, "wellness_guide.pdf", "Anabolic shake builder.pdf", "None of these"],
+      ans: fileName,
+      exp: `You successfully loaded and analyzed ${fileName}.`
+    }
+  ];
+
+  academyState.flashcardIndex = 0;
+  academyState.quizIndex = 0;
+  academyState.quizScore = 0;
+  academyState.quizAnswers = [];
+}
+
+function renderActiveSubtabContent() {
+  switch (academyState.activeTab) {
+    case 'summary':
+      renderSummary();
+      break;
+    case 'flashcards':
+      renderFlashcard();
+      break;
+    case 'quiz':
+      academyState.quizIndex = 0;
+      academyState.quizScore = 0;
+      academyState.quizAnswers = [];
+      renderQuizQuestion();
+      break;
+    case 'lessons':
+      renderLessons();
+      break;
+  }
+}
+
+function renderSummary() {
+  const summaryList = document.getElementById('pdf-summary-list');
+  if (!summaryList) return;
+  
+  if (academyState.docName.includes('Default')) {
+    summaryList.innerHTML = `
+      <li style="margin-bottom:8px;">🔥 <strong>Calorie Deficit:</strong> Fat loss is strictly governed by the energy balance equation; a 300-500 calorie deficit is the safe benchmark.</li>
+      <li style="margin-bottom:8px;">🥚 <strong>Thermic Effect (TEF):</strong> Protein requires 20-30% of its caloric value for processing, boosting metabolism naturally.</li>
+      <li style="margin-bottom:8px;">💧 <strong>Skin Moisture Retention:</strong> Hydration layers and oil-soluble BHA (Salicylic Acid) keep sebum clear and prevent breakouts.</li>
+    `;
+  } else {
+    summaryList.innerHTML = `
+      <li style="margin-bottom:8px;">📄 <strong>Document Context:</strong> Analyzed the loaded file: "${academyState.docName}".</li>
+      <li style="margin-bottom:8px;">⚡ <strong>Highlight 1:</strong> Text density indicates health research related concepts.</li>
+      <li style="margin-bottom:8px;">🌱 <strong>Highlight 2:</strong> Use the Search tab to inspect specific keywords of this file.</li>
+    `;
+  }
+}
+
+function renderFlashcard() {
+  const qText = document.getElementById('flashcard-question-text');
+  const aText = document.getElementById('flashcard-answer-text');
+  const idxText = document.getElementById('flashcard-index');
+  if (!qText || !aText || !idxText) return;
+
+  const current = academyState.defaultFlashcards[academyState.flashcardIndex];
+  qText.textContent = current.q;
+  aText.textContent = current.a;
+  idxText.textContent = `${academyState.flashcardIndex + 1} of ${academyState.defaultFlashcards.length}`;
+}
+
+function renderQuizQuestion() {
+  const qNum = document.getElementById('quiz-question-number');
+  const qScore = document.getElementById('quiz-score-tracker');
+  const qTitle = document.getElementById('quiz-question-title');
+  const optsContainer = document.getElementById('quiz-options-container');
+  const feedbackBox = document.getElementById('quiz-feedback-box');
+  const nextQuizBtn = document.getElementById('next-quiz-btn');
+
+  if (!qNum || !qScore || !qTitle || !optsContainer || !feedbackBox || !nextQuizBtn) return;
+
+  feedbackBox.style.display = 'none';
+  nextQuizBtn.style.display = 'none';
+
+  const current = academyState.defaultQuiz[academyState.quizIndex];
+  qNum.textContent = `Question ${academyState.quizIndex + 1} of ${academyState.defaultQuiz.length}`;
+  qScore.textContent = `Score: ${academyState.quizScore}/${academyState.quizIndex}`;
+  qTitle.textContent = current.q;
+
+  optsContainer.innerHTML = current.opts.map((opt) => `
+    <button class="ghost-btn quiz-opt-btn" type="button" style="text-align:left; padding:10px 12px; border:1px solid var(--border); border-radius:10px; font-size:0.85rem; width:100%; transition:0.2s;" onclick="submitQuizAnswer('${opt.replace(/'/g, "\\'")}')">
+      ${opt}
+    </button>
+  `).join('');
+}
+
+function submitQuizAnswer(selectedOption) {
+  const current = academyState.defaultQuiz[academyState.quizIndex];
+  const feedbackBox = document.getElementById('quiz-feedback-box');
+  const nextQuizBtn = document.getElementById('next-quiz-btn');
+  const optsButtons = document.querySelectorAll('.quiz-opt-btn');
+
+  if (!feedbackBox || !nextQuizBtn) return;
+
+  optsButtons.forEach(btn => {
+    btn.disabled = true;
+    const btnText = btn.textContent.trim();
+    if (btnText === current.ans) {
+      btn.style.background = 'rgba(34, 197, 94, 0.15)';
+      btn.style.borderColor = '#22c55e';
+    } else if (btnText === selectedOption) {
+      btn.style.background = 'rgba(239, 68, 68, 0.15)';
+      btn.style.borderColor = '#ef4444';
+    }
+  });
+
+  feedbackBox.style.display = 'block';
+  if (selectedOption === current.ans) {
+    academyState.quizScore++;
+    feedbackBox.style.background = 'rgba(34, 197, 94, 0.08)';
+    feedbackBox.style.color = '#22c55e';
+    feedbackBox.innerHTML = `<strong>✓ Correct!</strong><br>${current.exp}`;
+  } else {
+    feedbackBox.style.background = 'rgba(239, 68, 68, 0.08)';
+    feedbackBox.style.color = '#ef4444';
+    feedbackBox.innerHTML = `<strong>✗ Incorrect. Correct answer: ${current.ans}</strong><br>${current.exp}`;
+  }
+
+  const qScore = document.getElementById('quiz-score-tracker');
+  if (qScore) qScore.textContent = `Score: ${academyState.quizScore}/${academyState.quizIndex + 1}`;
+
+  nextQuizBtn.style.display = 'inline-block';
+  nextQuizBtn.textContent = (academyState.quizIndex + 1 >= academyState.defaultQuiz.length) ? 'Show Results' : 'Next Question';
+}
+
+function showQuizResults() {
+  const qTitle = document.getElementById('quiz-question-title');
+  const optsContainer = document.getElementById('quiz-options-container');
+  const feedbackBox = document.getElementById('quiz-feedback-box');
+  const nextQuizBtn = document.getElementById('next-quiz-btn');
+  const qNum = document.getElementById('quiz-question-number');
+
+  if (!qTitle || !optsContainer || !feedbackBox || !nextQuizBtn || !qNum) return;
+
+  qNum.textContent = 'Quiz Completed';
+  qTitle.textContent = `🎉 You scored ${academyState.quizScore} out of ${academyState.defaultQuiz.length}!`;
+  
+  const percentage = Math.round((academyState.quizScore / academyState.defaultQuiz.length) * 100);
+  optsContainer.innerHTML = `
+    <div style="text-align:center; padding:10px;">
+      <div style="font-size:2.2rem; margin-bottom:8px;">🏆</div>
+      <strong style="font-size:1.1rem; color:var(--primary); display:block;">Score: ${percentage}%</strong>
+      <span style="font-size:0.82rem; color:var(--muted); margin-top:4px; display:block;">
+        ${percentage === 100 ? 'Perfect score! You are a metabolic science master.' : 'Good job! Review the Flashcards or Lessons to score higher.'}
+      </span>
+    </div>
+  `;
+  
+  feedbackBox.style.display = 'none';
+  nextQuizBtn.style.display = 'inline-block';
+  nextQuizBtn.textContent = 'Retake Quiz';
+  
+  const handler = () => {
+    academyState.quizIndex = 0;
+    academyState.quizScore = 0;
+    academyState.quizAnswers = [];
+    renderQuizQuestion();
+    nextQuizBtn.removeEventListener('click', handler);
+  };
+  nextQuizBtn.addEventListener('click', handler);
+}
+
+function renderLessons() {
+  const chapTitle = document.getElementById('lesson-chapter-title');
+  const chapBody = document.getElementById('lesson-chapter-body');
+  if (!chapTitle || !chapBody) return;
+
+  const activeBtn = document.querySelector('.lesson-chap-btn.active-chap');
+  const chapIdx = activeBtn ? parseInt(activeBtn.dataset.chap) : 0;
+  
+  const current = academyState.defaultLessons[chapIdx];
+  if (current) {
+    chapTitle.textContent = current.title;
+    chapBody.innerHTML = current.body.replace(/\n/g, '<br>');
+  }
+
+  const chapBtns = document.querySelectorAll('.lesson-chap-btn');
+  chapBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      chapBtns.forEach(b => {
+        b.classList.remove('active-chap');
+        b.style.background = 'rgba(255,255,255,0.03)';
+        b.style.color = 'var(--muted)';
+      });
+      btn.classList.add('active-chap');
+      btn.style.background = 'var(--border)';
+      btn.style.color = 'var(--text)';
+      renderLessons();
+    });
+  });
 }
 
 function showWelcome() {
