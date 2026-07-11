@@ -370,8 +370,10 @@ app.post('/api/ai/chat', async (req, res) => {
     } else {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
+        systemInstruction: {
+          parts: [{ text: systemInstruction }]
+        },
         contents: [
-          { role: 'user', parts: [{ text: systemInstruction }] },
           ...messages.map(m => ({
             role: m.role === 'user' ? 'user' : 'model',
             parts: [{ text: m.content || m.parts?.[0]?.text || '' }]

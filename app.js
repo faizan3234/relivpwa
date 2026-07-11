@@ -308,7 +308,7 @@ const state = {
 };
 
 const knowledgeBase = [];
-let chatMessages = [];
+let chatMessages = JSON.parse(localStorage.getItem('relix-chat-messages') || '[]');
 let installPrompt = null;
 
 const els = {
@@ -684,6 +684,7 @@ function bindEvents() {
       renderNaturalCare();
 
       if (els.setupModal) {
+        if (document.activeElement) document.activeElement.blur();
         els.setupModal.style.display = 'none';
         els.setupModal.classList.remove('open');
         els.setupModal.setAttribute('aria-hidden', 'true');
@@ -1618,7 +1619,8 @@ function renderRoutine() {
   const doneCount = state.completedTasks.filter((value) => typeof value === 'number').length;
   const percent = habits.length > 0 ? Math.round((doneCount / habits.length) * 100) : 0;
   els.routineProgress.style.width = `${percent}%`;
-  els.routineProgress.parentElement.querySelector('.tracker-copy').textContent = `${doneCount} of ${habits.length} complete · ${percent}%`;
+  const copyEl = els.routineProgress.closest('.tracker-card')?.querySelector('.tracker-copy') || document.querySelector('.tracker-copy');
+  if (copyEl) copyEl.textContent = `${doneCount} of ${habits.length} complete · ${percent}%`;
   renderTodayLogs();
 }
 
@@ -2090,6 +2092,17 @@ function renderNaturalCare() {
     }
   }
 
+  const kitchenDescEl = document.getElementById('natural-kitchen-desc');
+  if (kitchenDescEl) {
+    if (isSkin) {
+      kitchenDescEl.textContent = 'Check ingredients in your kitchen to view matching face masks & skincare pastes:';
+    } else if (isLose) {
+      kitchenDescEl.textContent = 'Check ingredients in your kitchen to view matching metabolic drinks & home fat-loss hacks:';
+    } else {
+      kitchenDescEl.textContent = 'Check ingredients in your kitchen to view matching recovery recipes & anabolic snacks:';
+    }
+  }
+
   const lockedTypeEl = document.getElementById('natural-skin-type-locked');
   if (lockedTypeEl) {
     lockedTypeEl.textContent = state.skinType || 'oily';
@@ -2422,7 +2435,6 @@ function renderNaturalCare() {
   }
 
   // Render Skincare & Weight Loss Concern Library
-  const concernContainer = document.getElementById('concern-library-container');
   if (concernContainer) {
     if (isSkin || isLose) {
       concernContainer.style.display = 'block';
@@ -2699,6 +2711,7 @@ function renderMessages() {
     </div>
   `).join('');
   els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+  localStorage.setItem('relix-chat-messages', JSON.stringify(chatMessages));
 }
 
 function switchView(target) {
@@ -2891,7 +2904,7 @@ async function getCoachReply(message) {
     "schedule": null
   }`;
 
-  const lastFewMessages = chatMessages.slice(-6).map(m => ({
+  const lastFewMessages = chatMessages.slice(-20).map(m => ({
     role: m.role === 'user' ? 'user' : 'assistant',
     content: m.text
   }));
