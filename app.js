@@ -1567,7 +1567,11 @@ async function getCoachReply(message) {
       const targetName = result.removeFood.toLowerCase();
       const idx = state.loggedFoods.findIndex(f => f.name.toLowerCase().includes(targetName));
       if (idx !== -1) {
-        state.loggedFoods.splice(idx, 1);
+        const removed = state.loggedFoods.splice(idx, 1)[0];
+        if (!result.calories && !result.protein) {
+          state.consumedCalories = Math.max(0, state.consumedCalories - (removed.calories || 0));
+          state.consumedProtein = Math.max(0, state.consumedProtein - (removed.protein || 0));
+        }
       }
     } else if (result.logFood && (result.calories > 0 || result.protein > 0)) {
       state.loggedFoods.push({
@@ -2449,13 +2453,15 @@ function updateConnectionStatus() {
 }
 
 function checkDailyReset(force = false) {
-  const now = new Date();
-  const start = new Date(state.dayStartTime);
+  const resetInterval = 24 * 60 * 60 * 1000; // 24 hours
+  const warningInterval = 23 * 60 * 60 * 1000; // 23 hours
+  const now = Date.now();
+  const elapsed = now - state.dayStartTime;
 
   renderStreakBanner();
 
-  // If calendar date has changed, or if forced, trigger daily reset
-  if (force || now.toDateString() !== start.toDateString()) {
+  // If elapsed time is >= 24 hours, or if forced, trigger daily reset
+  if (force || elapsed >= resetInterval) {
     let progress = 0;
     if (state.goalType === 'skin') {
       progress = state.targetHydration > 0 ? (state.consumedHydration / state.targetHydration) : 1;
@@ -2476,7 +2482,7 @@ function checkDailyReset(force = false) {
     }
 
     // Archive yesterday's logs
-    const yesterdayDate = start.toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const yesterdayDate = new Date(state.dayStartTime).toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
     const logSummary = {
       date: yesterdayDate,
       calories: state.consumedCalories,
@@ -2497,24 +2503,21 @@ function checkDailyReset(force = false) {
     state.completedTasks = [];
     state.loggedFoods = [];
     state.loggedHydrations = [];
-    state.dayStartTime = now.getTime();
+    state.dayStartTime = now;
     saveState();
 
-    // Reset warning schedule to 11 PM tonight
-    const warningTime = new Date();
-    warningTime.setHours(23, 0, 0, 0);
-    scheduleResetWarningNotification(warningTime.getTime());
+    // Reset warning schedule to 23 hours from now
+    scheduleResetWarningNotification(now + warningInterval);
 
     renderDashboard();
     renderRoutine();
     renderProfile();
     renderStreakBanner();
   } else {
-    // Schedule warning notification at 11 PM today if not already passed
-    const warningTime = new Date();
-    warningTime.setHours(23, 0, 0, 0);
-    if (now.getTime() < warningTime.getTime()) {
-      scheduleResetWarningNotification(warningTime.getTime());
+    // Schedule warning notification at 23 hours from start time
+    const warningTime = state.dayStartTime + warningInterval;
+    if (now < warningTime) {
+      scheduleResetWarningNotification(warningTime);
     }
   }
 }
