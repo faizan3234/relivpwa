@@ -78,6 +78,7 @@ const state = {
   dayStartTime: Number(localStorage.getItem('relix-day-start') || Date.now()),
   restorableStreak: Number(localStorage.getItem('relix-restorable-streak') || -1),
   loggedFoods: JSON.parse(localStorage.getItem('relix-logged-foods') || '[]'),
+  loggedHydrations: JSON.parse(localStorage.getItem('relix-logged-hydrations') || '[]'),
   profilePic: localStorage.getItem('relix-profile-pic') || '',
   pendingMealImageBase64: '',
   reminders: (() => {
@@ -469,14 +470,16 @@ function bindEvents() {
   const undoLogBtn = document.getElementById('undo-log-btn');
   if (undoLogBtn) {
     undoLogBtn.addEventListener('click', () => {
-      if (state.lastLog) {
-        state.consumedCalories = Math.max(0, state.consumedCalories - (state.lastLog.calories || 0));
-        state.consumedProtein = Math.max(0, state.consumedProtein - (state.lastLog.protein || 0));
-        state.lastLog = null;
-        state.loggedFoods.pop();
+      if (state.loggedFoods.length > 0) {
+        const last = state.loggedFoods.pop();
+        state.consumedCalories = Math.max(0, state.consumedCalories - (last.calories || 0));
+        state.consumedProtein = Math.max(0, state.consumedProtein - (last.protein || 0));
+        state.lastLog = null; // clear single log indicator
         saveState();
         renderDashboard();
-        showToast('🔄 Last log undone!');
+        showToast(`🔄 Undone: ${last.name}!`);
+      } else {
+        showToast('No more food logs to undo!');
       }
     });
   }
@@ -486,6 +489,7 @@ function bindEvents() {
       const ml = Number(e.currentTarget.dataset.ml);
       state.consumedHydration += ml;
       state.lastLog = { calories: 0, protein: 0, hydration: ml };
+      state.loggedHydrations.push({ ml: ml, timestamp: Date.now() });
       saveState();
       renderDashboard();
       showToast(`✅ Logged ${ml}ml water!`);
@@ -497,6 +501,7 @@ function bindEvents() {
     resetHydrationBtn.addEventListener('click', () => {
       if (!confirm("Are you sure you want to reset today's hydration progress?")) return;
       state.consumedHydration = 0;
+      state.loggedHydrations = [];
       saveState();
       renderDashboard();
       showToast('Hydration reset.');
@@ -506,12 +511,15 @@ function bindEvents() {
   const undoHydrationBtn = document.getElementById('undo-hydration-btn');
   if (undoHydrationBtn) {
     undoHydrationBtn.addEventListener('click', () => {
-      if (state.lastLog) {
-        state.consumedHydration = Math.max(0, state.consumedHydration - (state.lastLog.hydration || 0));
-        state.lastLog = null;
+      if (state.loggedHydrations.length > 0) {
+        const last = state.loggedHydrations.pop();
+        state.consumedHydration = Math.max(0, state.consumedHydration - (last.ml || 0));
+        state.lastLog = null; // clear single log indicator
         saveState();
         renderDashboard();
-        showToast('🔄 Last log undone!');
+        showToast(`🔄 Undone: ${last.ml}ml water!`);
+      } else {
+        showToast('No more water logs to undo!');
       }
     });
   }
@@ -803,6 +811,28 @@ function renderDashboard() {
   const undoLogBtn = document.getElementById('undo-log-btn');
   const undoHydrationBtn = document.getElementById('undo-hydration-btn');
 
+  const lastFoodEl = document.getElementById('last-logged-food-status');
+  if (lastFoodEl) {
+    if (state.loggedFoods.length > 0) {
+      const last = state.loggedFoods[state.loggedFoods.length - 1];
+      lastFoodEl.textContent = `Last logged: ${last.name} (${last.calories} kcal, ${last.protein}g Protein)`;
+      lastFoodEl.style.display = 'block';
+    } else {
+      lastFoodEl.style.display = 'none';
+    }
+  }
+
+  const lastHydEl = document.getElementById('last-logged-hydration-status');
+  if (lastHydEl) {
+    if (state.loggedHydrations.length > 0) {
+      const last = state.loggedHydrations[state.loggedHydrations.length - 1];
+      lastHydEl.textContent = `Last logged: ${last.ml}ml water`;
+      lastHydEl.style.display = 'block';
+    } else {
+      lastHydEl.style.display = 'none';
+    }
+  }
+
   if (nutritionCard && skincareCard) {
     if (state.goalType === 'skin') {
       nutritionCard.style.display = 'none';
@@ -814,13 +844,13 @@ function renderDashboard() {
       if (hydBar) hydBar.style.width = `${hydPercent}%`;
       if (hydText) hydText.textContent = `${state.consumedHydration} / ${state.targetHydration} ml (${hydPercent}%)`;
 
-      if (undoHydrationBtn) undoHydrationBtn.style.display = state.lastLog ? 'inline-block' : 'none';
+      if (undoHydrationBtn) undoHydrationBtn.style.display = state.loggedHydrations.length > 0 ? 'inline-block' : 'none';
       if (undoLogBtn) undoLogBtn.style.display = 'none';
     } else {
       nutritionCard.style.display = 'flex';
       skincareCard.style.display = 'none';
 
-      if (undoLogBtn) undoLogBtn.style.display = state.lastLog ? 'inline-block' : 'none';
+      if (undoLogBtn) undoLogBtn.style.display = state.loggedFoods.length > 0 ? 'inline-block' : 'none';
       if (undoHydrationBtn) undoHydrationBtn.style.display = 'none';
     }
   }
@@ -2206,6 +2236,7 @@ function deleteData() {
   localStorage.removeItem('relix-day-start');
   localStorage.removeItem('relix-restorable-streak');
   localStorage.removeItem('relix-logged-foods');
+  localStorage.removeItem('relix-logged-hydrations');
   localStorage.removeItem('relix-profile-pic');
   window.location.reload();
 }
@@ -2260,6 +2291,7 @@ function checkDailyReset() {
     state.dailyMeals = 0;
     state.completedTasks = [];
     state.loggedFoods = [];
+    state.loggedHydrations = [];
     state.dayStartTime = now;
     saveState();
 
@@ -2346,6 +2378,7 @@ function saveState() {
   localStorage.setItem('relix-day-start', String(state.dayStartTime));
   localStorage.setItem('relix-restorable-streak', String(state.restorableStreak));
   localStorage.setItem('relix-logged-foods', JSON.stringify(state.loggedFoods));
+  localStorage.setItem('relix-logged-hydrations', JSON.stringify(state.loggedHydrations));
   localStorage.setItem('relix-profile-pic', state.profilePic);
 }
 
