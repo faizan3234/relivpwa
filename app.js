@@ -22,12 +22,38 @@ function getNextDueTime(timeStr) {
 }
 
 function getRemindersForGoal(goal) {
-  if (goal === 'skin') {
-    return {
-      cleanse: { title: 'Morning Cleanse', description: 'Double cleanse with a gentle wash!', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
-      sunscreen: { title: 'SPF Shield', description: 'Apply/reapply your SPF 50 sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-      acne: { title: 'Acne Treatment', description: 'Apply your Korean skincare serums & acne patches.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
-    };
+  if (goal.startsWith('skin')) {
+    if (goal === 'skin-acne') {
+      return {
+        cleanse: { title: 'Salicylic Cleanse', description: 'Wash with Salicylic acid cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'Matte SPF', description: 'Apply non-comedogenic matte sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        treatment: { title: 'Acne Treatment', description: 'Apply salicylic acid or benzoyl peroxide treatment.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+      };
+    } else if (goal === 'skin-hydration') {
+      return {
+        cleanse: { title: 'Hydrating Wash', description: 'Wash with a gentle hyaluronic/ceramide cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'Dewy SPF', description: 'Apply hydrating SPF 50 sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        moisture: { title: 'Moisture Lock', description: 'Apply hyaluronic acid serum on damp skin.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+      };
+    } else if (goal === 'skin-aging') {
+      return {
+        cleanse: { title: 'Gentle Cleanse', description: 'Wash with an amino acid cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'SPF Protection', description: 'Apply sunscreen to prevent photo-aging.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        retinol: { title: 'Youth Restore', description: 'Apply retinoid or peptide anti-aging cream tonight.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+      };
+    } else if (goal === 'skin-sensitive') {
+      return {
+        cleanse: { title: 'Soothing Wash', description: 'Wash with a pH-balanced soothing cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'Mineral SPF', description: 'Apply physical mineral sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        calm: { title: 'Barrier Repair', description: 'Apply cica/ceramide barrier soothing cream.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+      };
+    } else { // skin-korean / default skin
+      return {
+        cleanse: { title: 'Double Cleanse', description: 'Double cleanse with a gentle wash for glass skin!', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'SPF Shield', description: 'Apply/reapply your SPF 50 sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        serum: { title: 'Glow Serum', description: 'Apply Vit C or Niacinamide serum for glass skin.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+      };
+    }
   } else if (goal === 'lose') {
     return {
       water: { title: 'Hydration Nudge', description: 'Sip water to stay full and boost metabolism.', nextDue: getNextDueTime('09:00'), pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
@@ -82,6 +108,8 @@ const state = {
   profilePic: localStorage.getItem('relix-profile-pic') || '',
   pendingMealImageBase64: localStorage.getItem('relix-pending-meal-image') || '',
   historicalLogs: JSON.parse(localStorage.getItem('relix-historical-logs') || '[]'),
+  skinType: localStorage.getItem('relix-skin-type') || 'oily',
+  kitchenIngredients: JSON.parse(localStorage.getItem('relix-kitchen') || '[]'),
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
@@ -173,7 +201,9 @@ const els = {
   proBar: document.getElementById('pro-bar'),
   proText: document.getElementById('pro-text'),
   groqInput: document.getElementById('groq-input'),
-  saveGroq: document.getElementById('save-groq')
+  saveGroq: document.getElementById('save-groq'),
+  setupSkinType: document.getElementById('setup-skin-type'),
+  setupWeightFieldsContainer: document.getElementById('setup-weight-fields-container')
 };
 
 function init() {
@@ -211,6 +241,7 @@ function init() {
   });
   renderRoutine();
   renderProfile();
+  renderNaturalCare();
   renderMealCounter();
   renderMealCamState();
   renderChat();
@@ -353,6 +384,7 @@ function bindEvents() {
       const weightVal = Number(els.setupWeight?.value || 65);
       const targetWeightVal = Number(els.setupTarget?.value || 75);
       const dietVal = els.setupDiet?.value || 'nonveg';
+      const skinTypeVal = els.setupSkinType?.value || 'oily';
 
       if (!nameVal) {
         showToast('Please enter your name.');
@@ -366,18 +398,38 @@ function bindEvents() {
       state.weight = weightVal;
       state.targetWeight = targetWeightVal;
       state.dietType = dietVal;
+      state.skinType = skinTypeVal;
       state.setupComplete = true;
 
-      // Dynamic calculation based on goal
+      // Dynamic calculation based on goal and user's height/weight/age
+      function parseHeightToCm(hStr) {
+        if (!hStr) return 175;
+        const num = Number(hStr);
+        if (!isNaN(num) && num > 100) return num; // cm
+        const match = String(hStr).match(/(\d+)'\s*(\d+)?"?/);
+        if (match) {
+          const feet = Number(match[1]);
+          const inches = Number(match[2] || 0);
+          return Math.round((feet * 12 + inches) * 2.54);
+        }
+        return 175;
+      }
+      const hCm = parseHeightToCm(heightVal);
+      // Harris-Benedict BMR calculation baseline
+      const bmr = Math.round(10 * weightVal + 6.25 * hCm - 5 * ageVal + 5);
+
       if (goalVal === 'muscle') {
-        state.targetCalories = Math.round(2400 + (weightVal * 10)); // bulking surplus
-        state.targetProtein = Math.round(weightVal * 2.2); // high protein
+        state.targetCalories = Math.round(bmr * 1.4 + 500); // bulking surplus (moderate activity)
+        state.targetProtein = Math.round(weightVal * 2.2);
+        state.targetHydration = Math.round(weightVal * 35 + 500);
       } else if (goalVal === 'lose') {
-        state.targetCalories = Math.max(1500, Math.round(2000 - (weightVal * 2))); // cutting deficit
+        state.targetCalories = Math.max(1400, Math.round(bmr * 1.4 - 500)); // cutting deficit
         state.targetProtein = Math.round(weightVal * 1.8);
-      } else { // skin
-        state.targetCalories = 2200;
-        state.targetProtein = 80;
+        state.targetHydration = Math.round(weightVal * 35);
+      } else { // skin targets
+        state.targetCalories = Math.round(bmr * 1.3); // maintenance calories
+        state.targetProtein = Math.round(weightVal * 1.2); // maintenance protein
+        state.targetHydration = Math.round(weightVal * 35 + 1000); // higher hydration target for skincare
       }
 
       // Custom manual overrides
@@ -395,6 +447,7 @@ function bindEvents() {
       renderRoutine();
       renderProfile();
       renderChatSuggestions();
+      renderNaturalCare();
 
       if (els.setupModal) {
         els.setupModal.style.display = 'none';
@@ -691,12 +744,20 @@ function parseLocalFoodIntake(text) {
     editStatsBtn.addEventListener('click', () => {
       if (els.setupModal) {
         if (els.setupName) els.setupName.value = state.profileName;
-        if (els.setupGoal) els.setupGoal.value = state.goalType;
+        if (els.setupGoal) {
+          els.setupGoal.value = state.goalType;
+          if (els.setupGoal.value.startsWith('skin')) {
+            if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'none';
+          } else {
+            if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'grid';
+          }
+        }
         if (els.setupAge) els.setupAge.value = state.age;
         if (els.setupHeight) els.setupHeight.value = state.height;
         if (els.setupWeight) els.setupWeight.value = state.weight;
         if (els.setupTarget) els.setupTarget.value = state.targetWeight;
         if (els.setupDiet) els.setupDiet.value = state.dietType;
+        if (els.setupSkinType) els.setupSkinType.value = state.skinType || 'oily';
 
         els.setupModal.style.display = 'flex';
         els.setupModal.classList.add('open');
@@ -761,6 +822,49 @@ function parseLocalFoodIntake(text) {
     });
     profilePicInput.addEventListener('change', handleProfilePictureUpload);
   }
+
+  // Setup goal change display check
+  if (els.setupGoal) {
+    els.setupGoal.addEventListener('change', () => {
+      if (els.setupGoal.value.startsWith('skin')) {
+        if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'none';
+      } else {
+        if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'grid';
+      }
+    });
+  }
+
+  // Toggle skin check guide box
+  const toggleSkinGuideBtn = document.getElementById('toggle-skin-check-guide');
+  const skinGuideBox = document.getElementById('skin-check-guide-box');
+  if (toggleSkinGuideBtn && skinGuideBox) {
+    toggleSkinGuideBtn.addEventListener('click', () => {
+      const isHidden = skinGuideBox.style.display === 'none';
+      skinGuideBox.style.display = isHidden ? 'block' : 'none';
+    });
+  }
+
+  // Change skin type button in Natural Care Tab
+  const changeSkinBtn = document.getElementById('change-skin-type-btn');
+  if (changeSkinBtn) {
+    changeSkinBtn.addEventListener('click', () => {
+      const editBtn = document.getElementById('edit-stats-btn');
+      if (editBtn) editBtn.click();
+    });
+  }
+
+  // Kitchen ingredients checkbox listeners
+  document.querySelectorAll('.kitchen-ingredient').forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      const checked = [];
+      document.querySelectorAll('.kitchen-ingredient:checked').forEach(cb => {
+        checked.push(cb.value);
+      });
+      state.kitchenIngredients = checked;
+      saveState();
+      renderNaturalCare();
+    });
+  });
 }
 
 function getUnreadReminderCount() {
@@ -858,7 +962,7 @@ function renderDashboard() {
   }
 
   if (nutritionCard && skincareCard) {
-    if (state.goalType === 'skin') {
+    if (state.goalType.startsWith('skin')) {
       nutritionCard.style.display = 'none';
       skincareCard.style.display = 'flex';
       
@@ -905,7 +1009,7 @@ function renderCloseTheGap() {
 
   let html = '';
   
-  if (state.goalType === 'skin') {
+  if (state.goalType.startsWith('skin')) {
     html = `
       <div style="font-size:0.9rem; color:var(--text); line-height:1.4;">
         <p style="margin:0 0 8px 0;">💧 Ensure you drink <strong>3.5L of water</strong> today to flush toxins and maintain skin elasticity.</p>
@@ -1094,7 +1198,7 @@ function renderTodayLogs() {
 
 function renderRoutine() {
   let habits = [];
-  if (state.goalType === 'skin') {
+  if (state.goalType.startsWith('skin')) {
     habits = [
       { title: 'Morning Double Cleanse', description: 'Double cleanse with a gentle wash.', time: '8:00 AM', duration: '5 min', why: 'Removes sebum, sunscreen, and overnight impurities.', scientific: 'Double cleansing keeps pores clean and ready for hydration.', benefits: 'Fewer breakouts, brighter skin tone, clean base.' },
       { title: 'SPF Shield Application', description: 'Apply or reapply your SPF 50 sunscreen.', time: '9:00 AM', duration: '2 min', why: 'Protects the skin barrier from UV aging and damage.', scientific: 'Daily sunscreen reduces photoaging and hyperpigmentation.', benefits: 'Prevents dark spots, preserves collagen, healthy skin.' },
@@ -1164,6 +1268,12 @@ function renderWeightForecast() {
   const titleEl = document.getElementById('forecast-title');
   const descEl = document.getElementById('forecast-desc');
   if (!titleEl || !descEl) return;
+
+  if (state.goalType.startsWith('skin')) {
+    titleEl.textContent = '✨ Skincare Target Activated';
+    descEl.innerHTML = `Your primary focus is a customized <strong>Skincare & Hydration</strong> routine. Your targets, safety warnings, and home remedies are personalized to match your locked skin type: <strong style="text-transform: capitalize; color: var(--primary);">${state.skinType || 'oily'} skin</strong>.`;
+    return;
+  }
 
   const current = state.weight;
   const target = state.targetWeight;
@@ -1242,6 +1352,161 @@ function renderProfile() {
   renderWeightForecast();
 }
 
+const defaultRemedies = [
+  {
+    id: 'curd-turmeric',
+    title: 'Lactic curd & Turmeric Brightening Mask',
+    rating: 4.3,
+    skinTypes: ['oily', 'mixed'],
+    avoidSkin: ['sensitive'],
+    ingredients: ['curd', 'turmeric', 'honey'],
+    preparation: 'Mix 2 tsp of curd, 1/2 tsp of organic turmeric powder, and 1 tsp of honey in a small clean bowl until it forms a smooth, golden paste.',
+    howToApply: 'Cleanse face and pat dry. Apply the paste evenly using fingers or a soft brush, avoiding the delicate eye area. Let it sit for 15 minutes, then rinse off with lukewarm water.',
+    benefits: ['Brightens dull complexion', 'Fights active acne bacteria', 'Reduces red skin inflammation'],
+    timeline: 'Week 1: Skin feels softer and plump. Week 3: Visible evening of skin tone. Week 6: Pronounced healthy skin radiance.',
+    science: 'Turmeric contains Curcumin which is clinically proven to possess anti-inflammatory and antibacterial properties. Curd provides natural Lactic Acid, a gentle alpha-hydroxy acid (AHA) that dissolves dead skin cells.'
+  },
+  {
+    id: 'oatmeal-honey',
+    title: 'Colloidal Oatmeal & Honey Barrier Soother',
+    rating: 4.6,
+    skinTypes: ['dry', 'sensitive', 'mixed'],
+    avoidSkin: [],
+    ingredients: ['oatmeal', 'honey'],
+    preparation: 'Grind 2 tbsp of oatmeal into a fine powder. Mix it with 1.5 tbsp of raw organic honey and a few drops of warm water to create a thick spreadable paste.',
+    howToApply: 'Spread gently onto clean damp skin. Leave on for 20 minutes. To remove, splash warm water and massage in gentle circular motions before rinsing thoroughly.',
+    benefits: ['Deeply moisturizes dry skin barrier', 'Relieves skin tightness & itching', 'Soothes reactive skin redness'],
+    timeline: 'Immediate: Skin tightness completely disappears. Week 2: Flaky dry patches are resolved. Week 5: Enhanced skin barrier resilience.',
+    science: 'Oatmeal contains avenanthramides, unique anti-inflammatory compounds that calm irritation. Honey is a natural humectant, pulling hydration deep into the stratum corneum.'
+  },
+  {
+    id: 'greentea-rice',
+    title: 'Green Tea & Fermented Rice Water Pore Toner',
+    rating: 4.2,
+    skinTypes: ['oily', 'mixed'],
+    avoidSkin: [],
+    ingredients: ['greentea', 'ricewater'],
+    preparation: 'Brew a strong cup of green tea and let it cool completely. Mix it with equal parts of soaked organic rice water. Pour into a clean dispenser or spray bottle.',
+    howToApply: 'After cleansing, sweep a soaked cotton pad across your face morning and night. Do not rinse; follow with your favorite lightweight moisturizer.',
+    benefits: ['Reduces excess sebum and shine', 'Minimizes the appearance of large pores', 'Calms acne breakouts'],
+    timeline: 'Week 1: Noticeable reduction in midday oiliness. Week 3: Pores look tighter. Week 6: Skin looks clear and balanced.',
+    science: 'Green tea is rich in EGCG, a powerful antioxidant that inhibits sebum production. Rice water contains inositol and ferulic acid, which brighten skin and boost elasticity.'
+  },
+  {
+    id: 'aloe-cucumber',
+    title: 'Aloe Vera & Fresh Cucumber Hydro-Cooler',
+    rating: 4.5,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['aloe', 'cucumber'],
+    preparation: 'Extract 2 tbsp of fresh aloe vera gel. Blend or grate 1/4 of a cucumber, filter the juice, and mix thoroughly with the aloe gel. Chill in the fridge for 10 minutes.',
+    howToApply: 'Smooth the chilled gel generously over your face and neck. Let it absorb for 15-20 minutes. Rinse with cool water.',
+    benefits: ['Instantly cools and soothes sun exposure', 'Restores cell hydration level', 'Minimizes puffiness and signs of fatigue'],
+    timeline: 'Immediate: Intense cooling relief. Week 2: Plumper, bouncier skin texture. Week 4: Restored skin cell hydration.',
+    science: 'Cucumber juice is 95% water and loaded with ascorbic acid (Vitamin C) and caffeic acid, reducing swelling. Aloe vera delivers mucopolysaccharides to seal hydration.'
+  }
+];
+
+function renderNaturalCare() {
+  const lockedTypeEl = document.getElementById('natural-skin-type-locked');
+  if (lockedTypeEl) {
+    lockedTypeEl.textContent = state.skinType || 'oily';
+  }
+
+  // Set the checklist checkboxes to match state
+  document.querySelectorAll('.kitchen-ingredient').forEach(checkbox => {
+    checkbox.checked = (state.kitchenIngredients || []).includes(checkbox.value);
+  });
+
+  const listContainer = document.getElementById('curated-remedies-list');
+  if (!listContainer) return;
+
+  const hasIngredientsFilter = state.kitchenIngredients && state.kitchenIngredients.length > 0;
+  const filtered = defaultRemedies.filter(recipe => {
+    const matchesSkin = recipe.skinTypes.includes(state.skinType) && !recipe.avoidSkin.includes(state.skinType);
+    if (!matchesSkin) return false;
+    if (hasIngredientsFilter) {
+      return recipe.ingredients.every(ing => state.kitchenIngredients.includes(ing));
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    listContainer.innerHTML = `
+      <p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:24px 12px; background:rgba(255,255,255,0.02); border-radius:16px; border:1px dashed var(--border); line-height:1.4;">
+        No home remedies match your current kitchen ingredients.<br>
+        <span style="font-size:0.78rem; font-weight:normal;">Try checking more ingredients in the checklist above!</span>
+      </p>
+    `;
+    return;
+  }
+
+  listContainer.innerHTML = filtered.map(recipe => {
+    const feedbackKey = `relix-remedy-feedback-${recipe.id}`;
+    const userVote = localStorage.getItem(feedbackKey) || ''; // 'better', 'same', 'worse'
+    
+    // Calculate adjusted rating
+    let adjustedRating = recipe.rating;
+    if (userVote === 'better') adjustedRating = Math.min(5.0, recipe.rating + 0.1);
+    if (userVote === 'worse') adjustedRating = Math.max(0.0, recipe.rating - 0.1);
+    
+    const starIcons = '⭐'.repeat(Math.round(adjustedRating)) + '☆'.repeat(5 - Math.round(adjustedRating));
+    
+    return `
+      <article class="card" style="padding: 20px; display:flex; flex-direction:column; gap:12px; border: 1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <h4 style="margin:0; font-size:1.1rem; color:var(--text);">${recipe.title}</h4>
+            <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">
+              ${starIcons} <span style="color:var(--muted); font-weight:600; font-size:0.75rem; margin-left:4px;">${adjustedRating.toFixed(1)} rating</span>
+            </div>
+          </div>
+          <span style="font-size:0.72rem; padding:4px 8px; border-radius:8px; background:rgba(255,122,0,0.1); color:var(--primary); font-weight:600; text-transform:uppercase;">${recipe.ingredients.join(', ')}</span>
+        </div>
+        
+        <div style="font-size:0.82rem; color:var(--muted); line-height:1.45;">
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Preparation</strong>
+          <p style="margin:0 0 10px 0;">${recipe.preparation}</p>
+          
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">How to Apply</strong>
+          <p style="margin:0 0 10px 0;">${recipe.howToApply}</p>
+          
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Expected Timeline</strong>
+          <p style="margin:0 0 10px 0;">⏰ ${recipe.timeline}</p>
+
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Scientific Backing</strong>
+          <p style="margin:0 0 0 0; font-style:italic; font-size:0.78rem;">🔬 ${recipe.science}</p>
+        </div>
+
+        <div style="border-top:1px solid var(--border); padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.8rem; font-weight:600;">Did this help?</span>
+          <div style="display:flex; gap:6px;">
+            <button class="feedback-vote-btn primary-btn" data-id="${recipe.id}" data-vote="better" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; background:${userVote === 'better' ? 'var(--primary)' : 'rgba(255,255,255,0.03)'}; border:1px solid var(--border); color:${userVote === 'better' ? '#fff' : 'var(--text)'}; cursor:pointer;">👍 Better</button>
+            <button class="feedback-vote-btn primary-btn" data-id="${recipe.id}" data-vote="same" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; background:${userVote === 'same' ? 'var(--primary)' : 'rgba(255,255,255,0.03)'}; border:1px solid var(--border); color:${userVote === 'same' ? '#fff' : 'var(--text)'}; cursor:pointer;">😐 Same</button>
+            <button class="feedback-vote-btn primary-btn" data-id="${recipe.id}" data-vote="worse" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; background:${userVote === 'worse' ? '#ef4444' : 'rgba(255,255,255,0.03)'}; border:1px solid var(--border); color:${userVote === 'worse' ? '#fff' : 'var(--text)'}; cursor:pointer;">👎 Worse</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  listContainer.querySelectorAll('.feedback-vote-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const recipeId = e.currentTarget.dataset.id;
+      const vote = e.currentTarget.dataset.vote;
+      const key = `relix-remedy-feedback-${recipeId}`;
+      const currentVote = localStorage.getItem(key);
+      if (currentVote === vote) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, vote);
+      }
+      renderNaturalCare();
+      showToast('Thank you for your feedback! Relix is learning.');
+    });
+  });
+}
+
 function renderProfilePicture() {
   const container = document.getElementById('profile-avatar-container');
   if (!container) return;
@@ -1286,7 +1551,7 @@ function renderChatSuggestions() {
   const container = document.querySelector('.suggestion-row');
   if (!container) return;
   let html = '';
-  if (state.goalType === 'skin') {
+  if (state.goalType.startsWith('skin')) {
     html = `
       <button class="suggestion-pill" data-prompt="How can I reduce redness and acne?" type="button">Soothe Redness & Acne</button>
       <button class="suggestion-pill" data-prompt="I just washed my face and applied hyaluronic acid" type="button">Log Skincare Routine</button>
@@ -1487,7 +1752,7 @@ async function getCoachReply(message) {
 
   const systemInstruction = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo, ${state.weight}kg user with target weight ${state.targetWeight}kg.
   Their height is ${state.height} and diet preference is: ${state.dietType}.
-  Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Korean Skincare & Hydration'}.
+  Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Skincare Goal: ' + state.goalType}.
   Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
   
   Yesterday's & Past Days' intake history (for comparison & progress analysis):
@@ -2433,6 +2698,8 @@ function deleteData() {
   localStorage.removeItem('relix-historical-logs');
   localStorage.removeItem('relix-pending-meal-image');
   localStorage.removeItem('relix-last-vision-result');
+  localStorage.removeItem('relix-skin-type');
+  localStorage.removeItem('relix-kitchen');
   window.location.reload();
 }
 
@@ -2463,7 +2730,7 @@ function checkDailyReset(force = false) {
   // If elapsed time is >= 24 hours, or if forced, trigger daily reset
   if (force || elapsed >= resetInterval) {
     let progress = 0;
-    if (state.goalType === 'skin') {
+    if (state.goalType.startsWith('skin')) {
       progress = state.targetHydration > 0 ? (state.consumedHydration / state.targetHydration) : 1;
     } else {
       const calProg = state.targetCalories > 0 ? (state.consumedCalories / state.targetCalories) : 1;
@@ -2572,7 +2839,7 @@ function recalculateDeservedXP() {
   if (state.historicalLogs) {
     state.historicalLogs.forEach(h => {
       let progress = 0;
-      if (state.goalType === 'skin') {
+      if (state.goalType.startsWith('skin')) {
         progress = state.targetHydration > 0 ? (h.hydration / state.targetHydration) : 1;
       } else {
         const calProg = state.targetCalories > 0 ? (h.calories / state.targetCalories) : 1;
@@ -2645,6 +2912,8 @@ function saveState() {
   localStorage.setItem('relix-pending-meal-image', state.pendingMealImageBase64);
   localStorage.setItem('relix-last-vision-result', JSON.stringify(lastVisionResult));
   localStorage.setItem('relix-historical-logs', JSON.stringify(state.historicalLogs));
+  localStorage.setItem('relix-skin-type', state.skinType || 'oily');
+  localStorage.setItem('relix-kitchen', JSON.stringify(state.kitchenIngredients || []));
 }
 
 function saveProfileName() {

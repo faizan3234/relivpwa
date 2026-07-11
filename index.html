@@ -346,11 +346,63 @@
           </div>
         </div>
       </section>
+
+      <section class="view-section" data-view="natural">
+        <div class="card" style="padding: 20px; margin-bottom: 18px;">
+          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">Natural Care Hub</strong>
+          <h3 style="margin:0; font-size:1.4rem;">AI Recommended Home Remedies</h3>
+          <p style="margin:6px 0 0 0; font-size:0.85rem; color:var(--muted); line-height:1.45;">Personalized remedies matching your skin type and available kitchen ingredients.</p>
+          
+          <div id="natural-skin-type-banner" style="margin-top: 14px; background: rgba(33, 150, 243, 0.08); border: 1px solid rgba(33, 150, 243, 0.15); border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
+            <div>👤 Skin Type: <strong id="natural-skin-type-locked" style="text-transform: capitalize;">Oily</strong></div>
+            <button id="change-skin-type-btn" class="link-btn" type="button" style="color: var(--primary); font-size: 0.8rem; cursor: pointer; background:none; border:none; font-weight:600;">Change</button>
+          </div>
+        </div>
+
+        <!-- Kitchen Mode Card -->
+        <div class="card" style="padding: 20px; margin-bottom: 18px;">
+          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">🍃 Kitchen Mode</strong>
+          <p style="margin:0 0 12px 0; font-size:0.82rem; color:var(--muted);">Check ingredients in your kitchen to view matching home remedies:</p>
+          
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;" id="kitchen-ingredients-grid">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="curd"> 🥛 Curd
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="turmeric"> 💛 Turmeric
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="honey"> 🍯 Honey
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="aloe"> 🌱 Aloe Vera
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="greentea"> 🍵 Green Tea
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="ricewater"> 🌾 Rice Water
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="oatmeal"> 🥣 Oatmeal
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+              <input type="checkbox" class="kitchen-ingredient" value="cucumber"> 🥒 Cucumber
+            </label>
+          </div>
+        </div>
+
+        <!-- Curated Remedies List -->
+        <div id="curated-remedies-list" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 80px;">
+          <!-- Recipes will be rendered here dynamically -->
+        </div>
+      </section>
     </div>
 
     <nav class="bottom-nav" aria-label="Bottom navigation">
       <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Dashboard</span></button>
       <button class="nav-pill" data-tab="routine" type="button">🧘<span>Routine</span></button>
+      <button class="nav-pill" data-tab="natural" type="button">🍃<span>Natural</span></button>
       <button class="nav-pill" data-tab="coach" type="button">🤖<span>Coach</span></button>
       <button class="nav-pill" data-tab="meal" type="button">📸<span>Meal Cam</span></button>
       <button class="nav-pill" data-tab="profile" type="button">👤<span>Profile</span></button>
@@ -428,7 +480,11 @@
             <select id="setup-goal" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
               <option value="muscle">💪 Muscle & Weight Gain</option>
               <option value="lose">📉 Weight Loss & Tone</option>
-              <option value="skin">🧴 Korean Skincare Routine</option>
+              <option value="skin-korean">🧴 Korean Skincare & Glass Skin</option>
+              <option value="skin-acne">🛡️ Acne & Oil Control Focus</option>
+              <option value="skin-hydration">💧 Deep Hydration & Moisture</option>
+              <option value="skin-aging">⏳ Anti-Aging & Youth Restore</option>
+              <option value="skin-sensitive">🌸 Sensitive Skin Calming</option>
             </select>
           </div>
 
@@ -443,7 +499,7 @@
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div id="setup-weight-fields-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
             <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
               <label style="font-weight:600; font-size:0.9rem;">Weight (kg)</label>
               <input id="setup-weight" type="number" placeholder="65" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
@@ -451,6 +507,25 @@
             <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
               <label style="font-weight:600; font-size:0.9rem;">Target Weight (kg)</label>
               <input id="setup-target" type="number" placeholder="75" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            </div>
+          </div>
+
+          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-weight:600; font-size:0.9rem;">Skin Type</label>
+            <select id="setup-skin-type" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <option value="oily">✨ Oily Skin</option>
+              <option value="dry">🍂 Dry Skin</option>
+              <option value="mixed">🧬 Mixed / Combination Skin</option>
+              <option value="sensitive">🌸 Sensitive Skin</option>
+            </select>
+            <button id="toggle-skin-check-guide" type="button" class="link-btn" style="background:none; border:none; color:var(--primary); font-size:0.8rem; text-align:left; padding:4px 0; cursor:pointer; font-weight:600; width:fit-content;">Don't know your skin type? How to check</button>
+            <div id="skin-check-guide-box" style="display:none; background:rgba(255,255,255,0.03); border:1px dashed var(--border); border-radius:12px; padding:10px; font-size:0.8rem; line-height:1.4; color:var(--muted); margin-top:2px;">
+              <strong>Morning Wash Test:</strong><br>
+              Wash face with a gentle cleanser and wait 1 hour without applying any products:<br>
+              • <strong>Oily</strong>: Shiny & greasy all over.<br>
+              • <strong>Dry</strong>: Tight, flaky, rough or dry patches.<br>
+              • <strong>Mixed (Combination)</strong>: Shiny T-Zone but dry/tight cheeks.<br>
+              • <strong>Sensitive</strong>: Redness, itching, or burning sensation.
             </div>
           </div>
 
