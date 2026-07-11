@@ -59,7 +59,6 @@
             </div>
             <div class="hero-meta">
               <span class="pill" id="level-pill">Level 1</span>
-              <button id="claim-xp" class="primary-btn" type="button">Claim XP</button>
             </div>
           </div>
           <div class="hero-stats">
@@ -144,6 +143,11 @@
                 <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">💧</span>1000 ml bottle</button>
                 <button class="ghost-btn log-hydration-btn" data-ml="150" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍵</span>150 ml green tea</button>
               </div>
+
+              <form id="custom-hydration-form" style="display:flex; gap:8px; margin-top:8px;">
+                <input type="number" id="custom-hydration-input" placeholder="Or enter specific ml..." aria-label="Custom hydration" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" min="1" max="5000" required />
+                <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
+              </form>
             </div>
           </div>
         </div>
@@ -214,6 +218,19 @@
             <p>Unlock your certificate at day 30 by staying consistent.</p>
           </div>
           <div id="routine-list" class="routine-list"></div>
+        </div>
+
+        <div class="card" style="padding: 24px; margin-top: 18px;">
+          <div class="hero-head" style="margin-bottom: 12px; align-items: center;">
+            <div class="hero-title">
+              <p>Daily logs feed</p>
+              <h3 style="margin: 0;">Today's Intake History</h3>
+            </div>
+            <button id="routine-reset-logs-btn" class="ghost-btn" type="button" style="font-size:0.8rem; padding:4px 8px; border:1px solid var(--border);">Reset All</button>
+          </div>
+          <div id="routine-logs-container" style="display:flex; flex-direction:column; gap:8px;">
+            <p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:12px 0;">No items logged today yet.</p>
+          </div>
         </div>
       </section>
 
@@ -301,6 +318,12 @@
             <div class="chip"><strong id="profile-xp">0</strong><span>XP</span></div>
             <div class="chip"><strong id="profile-level">1</strong><span>Level</span></div>
             <div class="chip"><strong id="profile-streak">0</strong><span>Streak</span></div>
+          </div>
+
+          <div class="card" style="padding: 20px; margin-bottom: 18px; background: linear-gradient(135deg, rgba(255,122,0,0.08), rgba(255,122,0,0.02)); border: 1px solid rgba(255,122,0,0.15); display: flex; flex-direction: column; gap: 8px;">
+            <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block;">AI Progress Planner</strong>
+            <h3 id="forecast-title" style="margin:0; font-size:1.15rem;">Calculating Weight Forecast...</h3>
+            <p id="forecast-desc" style="margin:0; font-size:0.85rem; color:var(--muted); line-height:1.45;"></p>
           </div>
 
           <div class="settings-card">

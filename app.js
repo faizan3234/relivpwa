@@ -80,7 +80,8 @@ const state = {
   loggedFoods: JSON.parse(localStorage.getItem('relix-logged-foods') || '[]'),
   loggedHydrations: JSON.parse(localStorage.getItem('relix-logged-hydrations') || '[]'),
   profilePic: localStorage.getItem('relix-profile-pic') || '',
-  pendingMealImageBase64: '',
+  pendingMealImageBase64: localStorage.getItem('relix-pending-meal-image') || '',
+  historicalLogs: JSON.parse(localStorage.getItem('relix-historical-logs') || '[]'),
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
@@ -116,7 +117,6 @@ const els = {
   progressBar: document.getElementById('progress-bar'),
   progressText: document.getElementById('progress-text'),
   weeklyValue: document.getElementById('weekly-value'),
-  missionBtn: document.getElementById('claim-xp'),
   recentList: document.getElementById('recent-list'),
   reminderList: document.getElementById('reminder-list'),
   pauseRemindersButton: document.getElementById('pause-reminders'),
@@ -212,6 +212,7 @@ function init() {
   renderRoutine();
   renderProfile();
   renderMealCounter();
+  renderMealCamState();
   renderChat();
   registerServiceWorker();
   registerInstallPrompt();
@@ -295,7 +296,6 @@ function bindEvents() {
     tab.addEventListener('click', () => switchView(tab.dataset.tab));
   });
 
-  els.missionBtn.addEventListener('click', claimDailyMission);
   els.suggestions.forEach((pill) => {
     pill.addEventListener('click', () => sendSuggestedQuestion(pill.dataset.prompt));
   });
@@ -427,8 +427,7 @@ function bindEvents() {
       state.consumedProtein += pro;
       state.lastLog = { calories: cals, protein: pro, hydration: 0 };
       state.loggedFoods.push({ name: foodName, calories: cals, protein: pro, timestamp: Date.now() });
-      saveState();
-      renderDashboard();
+      recordActivity(`Quick Log: ${foodName}`, 20);
       showToast('✅ Logged! No math required.');
     });
   });
@@ -448,8 +447,7 @@ function bindEvents() {
         foodName = `Manual Protein Adjustment (+${val}g)`;
       }
       state.loggedFoods.push({ name: foodName, calories: type === 'cal' ? val : 0, protein: type === 'pro' ? val : 0, timestamp: Date.now() });
-      saveState();
-      renderDashboard();
+      recordActivity(`Macro Adjusted: ${foodName}`, 20);
       showToast(`✅ Added +${val}${type === 'cal' ? ' kcal' : 'g Protein'}!`);
     });
   });
@@ -490,8 +488,7 @@ function bindEvents() {
       state.consumedHydration += ml;
       state.lastLog = { calories: 0, protein: 0, hydration: ml };
       state.loggedHydrations.push({ ml: ml, timestamp: Date.now() });
-      saveState();
-      renderDashboard();
+      recordActivity(`Water logged: ${ml}ml`, 10);
       showToast(`✅ Logged ${ml}ml water!`);
     });
   });
@@ -581,8 +578,7 @@ function parseLocalFoodIntake(text) {
           state.consumedProtein += localEst.protein;
           state.lastLog = { calories: localEst.calories, protein: localEst.protein, hydration: 0 };
           state.loggedFoods.push({ name: foodItem, calories: localEst.calories, protein: localEst.protein, timestamp: Date.now() });
-          saveState();
-          renderDashboard();
+          recordActivity(`Logged Custom Food: ${foodItem}`, 20);
           showToast(`✅ Logged: ${localEst.calories} kcal & ${localEst.protein}g protein! (Offline)`);
         } else {
           const reply = await getCoachReply(foodItem);
@@ -599,6 +595,38 @@ function parseLocalFoodIntake(text) {
       customFoodInput.value = '';
       btn.textContent = originalText;
       btn.disabled = false;
+    });
+  }
+
+  const customHydrationForm = document.getElementById('custom-hydration-form');
+  const customHydrationInput = document.getElementById('custom-hydration-input');
+  if (customHydrationForm && customHydrationInput) {
+    customHydrationForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const ml = Number(customHydrationInput.value);
+      if (ml <= 0 || isNaN(ml)) return;
+      state.consumedHydration += ml;
+      state.lastLog = { calories: 0, protein: 0, hydration: ml };
+      state.loggedHydrations.push({ ml: ml, timestamp: Date.now() });
+      customHydrationInput.value = '';
+      recordActivity(`Water logged: ${ml}ml`, 10);
+      showToast(`✅ Logged ${ml}ml water!`);
+    });
+  }
+
+  const resetRoutineLogsBtn = document.getElementById('routine-reset-logs-btn');
+  if (resetRoutineLogsBtn) {
+    resetRoutineLogsBtn.addEventListener('click', () => {
+      if (!confirm("Are you sure you want to clear all logged food & hydration entries for today?")) return;
+      state.consumedCalories = 0;
+      state.consumedProtein = 0;
+      state.consumedHydration = 0;
+      state.loggedFoods = [];
+      state.loggedHydrations = [];
+      saveState();
+      renderDashboard();
+      renderRoutine();
+      showToast("Cleared today's intake history.");
     });
   }
 
@@ -993,6 +1021,81 @@ function renderCloseTheGap() {
   });
 }
 
+function renderTodayLogs() {
+  const container = document.getElementById('routine-logs-container');
+  if (!container) return;
+
+  const logs = [];
+  state.loggedFoods.forEach((food) => {
+    logs.push({ ...food, type: 'food' });
+  });
+  state.loggedHydrations.forEach((hyd) => {
+    logs.push({ ...hyd, type: 'hydration' });
+  });
+
+  // Sort chronologically
+  logs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  if (logs.length === 0) {
+    container.innerHTML = `<p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:12px 0;">No items logged today yet.</p>`;
+    return;
+  }
+
+  container.innerHTML = logs.map((log) => {
+    const timeStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    if (log.type === 'food') {
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:10px 14px; border-radius:12px;">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <strong style="font-size:0.9rem; color:var(--text);">🍲 ${log.name}</strong>
+            <span style="font-size:0.75rem; color:var(--muted);">${log.calories} kcal · ${log.protein}g Protein · ${timeStr}</span>
+          </div>
+          <button class="delete-log-item-btn icon-btn" data-type="food" data-timestamp="${log.timestamp}" type="button" style="color:#ef4444; font-size:1.1rem; padding:4px;" aria-label="Delete entry">🗑️</button>
+        </div>
+      `;
+    } else {
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:10px 14px; border-radius:12px;">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <strong style="font-size:0.9rem; color:#2196F3;">💧 Water (${log.ml}ml)</strong>
+            <span style="font-size:0.75rem; color:var(--muted);">${timeStr}</span>
+          </div>
+          <button class="delete-log-item-btn icon-btn" data-type="hydration" data-timestamp="${log.timestamp}" type="button" style="color:#ef4444; font-size:1.1rem; padding:4px;" aria-label="Delete entry">🗑️</button>
+        </div>
+      `;
+    }
+  }).join('');
+
+  // Add click listeners to delete buttons
+  container.querySelectorAll('.delete-log-item-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const type = btn.dataset.type;
+      const timestamp = Number(btn.dataset.timestamp);
+      
+      if (type === 'food') {
+        const idx = state.loggedFoods.findIndex((f) => f.timestamp === timestamp);
+        if (idx !== -1) {
+          const removed = state.loggedFoods.splice(idx, 1)[0];
+          state.consumedCalories = Math.max(0, state.consumedCalories - (removed.calories || 0));
+          state.consumedProtein = Math.max(0, state.consumedProtein - (removed.protein || 0));
+          showToast(`Deleted: ${removed.name}`);
+        }
+      } else {
+        const idx = state.loggedHydrations.findIndex((h) => h.timestamp === timestamp);
+        if (idx !== -1) {
+          const removed = state.loggedHydrations.splice(idx, 1)[0];
+          state.consumedHydration = Math.max(0, state.consumedHydration - (removed.ml || 0));
+          showToast(`Deleted: ${removed.ml}ml water`);
+        }
+      }
+      
+      saveState();
+      renderDashboard();
+      renderTodayLogs();
+    });
+  });
+}
+
 function renderRoutine() {
   let habits = [];
   if (state.goalType === 'skin') {
@@ -1058,6 +1161,80 @@ function renderRoutine() {
   const percent = habits.length > 0 ? Math.round((doneCount / habits.length) * 100) : 0;
   els.routineProgress.style.width = `${percent}%`;
   els.routineProgress.parentElement.querySelector('.tracker-copy').textContent = `${doneCount} of ${habits.length} complete · ${percent}%`;
+  renderTodayLogs();
+}
+
+function renderWeightForecast() {
+  const titleEl = document.getElementById('forecast-title');
+  const descEl = document.getElementById('forecast-desc');
+  if (!titleEl || !descEl) return;
+
+  const current = state.weight;
+  const target = state.targetWeight;
+  const diff = target - current;
+
+  if (Math.abs(diff) < 0.1) {
+    titleEl.textContent = 'Goal Weight Achieved! 🎉';
+    descEl.innerHTML = `You've achieved your target weight of <strong>${target} kg</strong>. Continue your current routine to maintain this balance!`;
+    return;
+  }
+
+  // Determine rate and weeks
+  const isLoss = diff < 0;
+  const weeklyRate = isLoss ? 0.5 : 0.25; // 0.5 kg loss, 0.25 kg gain per week
+  const weeks = Math.ceil(Math.abs(diff) / weeklyRate);
+  
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + (weeks * 7));
+  const dateStr = targetDate.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const goalText = isLoss ? 'Weight Loss & Tone' : 'Muscle & Weight Gain';
+  const dietText = state.dietType === 'veg' ? 'Vegetarian' : state.dietType === 'omni' ? 'Omnivore' : 'Non-Vegetarian';
+
+  titleEl.textContent = `Estimated Timeline: ${weeks} Weeks`;
+  descEl.innerHTML = `Based on your diet preference (<strong>${dietText}</strong>) and wellness focus (<strong>${goalText}</strong>), you are projected to reach your target of <strong>${target} kg</strong> around <strong>${dateStr}</strong> by targeting a safe, steady change of <strong>${weeklyRate} kg/week</strong>.`;
+}
+
+function renderMealCamState() {
+  if (state.pendingMealImageBase64) {
+    els.mealPreview.innerHTML = `<img src="${state.pendingMealImageBase64}" alt="Selected meal preview">`;
+    els.mealStatus.textContent = 'Image loaded. Tap analyze to see real AI analysis.';
+  }
+  
+  const resultCard = document.getElementById('meal-result-card');
+  const resultTitle = document.getElementById('meal-result-title');
+  const resultDesc = document.getElementById('meal-result-desc');
+  const nutritionGrid = document.getElementById('meal-nutrition-grid');
+  const logBtn = document.getElementById('log-meal-btn');
+  
+  if (lastVisionResult && resultCard) {
+    resultCard.style.display = 'flex';
+    if (lastVisionResult.type === 'food') {
+      resultTitle.textContent = `🍕 ${lastVisionResult.foodName || 'Estimated Food'}`;
+      resultDesc.textContent = lastVisionResult.analysisText;
+      document.getElementById('meal-cal-val').textContent = lastVisionResult.calories || 0;
+      document.getElementById('meal-pro-val').textContent = `${lastVisionResult.protein || 0}g`;
+      document.getElementById('meal-carb-val').textContent = `${lastVisionResult.carbs || 0}g`;
+      document.getElementById('meal-fat-val').textContent = `${lastVisionResult.fat || 0}g`;
+      nutritionGrid.style.display = 'grid';
+      logBtn.style.display = 'block';
+    } else if (lastVisionResult.type === 'human') {
+      resultTitle.textContent = '👤 Human Detected!';
+      resultDesc.textContent = lastVisionResult.analysisText;
+      nutritionGrid.style.display = 'none';
+      logBtn.style.display = 'none';
+    } else if (lastVisionResult.type === 'animal') {
+      resultTitle.textContent = '🐾 Animal Detected!';
+      resultDesc.textContent = lastVisionResult.analysisText;
+      nutritionGrid.style.display = 'none';
+      logBtn.style.display = 'none';
+    } else {
+      resultTitle.textContent = '📦 Object Detected!';
+      resultDesc.textContent = lastVisionResult.analysisText;
+      nutritionGrid.style.display = 'none';
+      logBtn.style.display = 'none';
+    }
+  }
 }
 
 function renderProfile() {
@@ -1066,6 +1243,7 @@ function renderProfile() {
   document.getElementById('profile-streak').textContent = state.streak;
   syncProfileMeta();
   renderProfilePicture();
+  renderWeightForecast();
 }
 
 function renderProfilePicture() {
@@ -1141,9 +1319,11 @@ function renderChatSuggestions() {
 }
 
 function renderChat() {
-  chatMessages = [
-    { role: 'assistant', text: 'I can guide you with nutrition, sleep, movement, and recovery. Ask me something health-focused.' }
-  ];
+  if (chatMessages.length === 0) {
+    chatMessages = [
+      { role: 'assistant', text: 'I can guide you with nutrition, sleep, movement, and recovery. Ask me something health-focused.' }
+    ];
+  }
   renderMessages();
   renderChatSuggestions();
 }
@@ -1163,18 +1343,11 @@ function switchView(target) {
   els.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === target));
 }
 
-function claimDailyMission() {
-  state.completedTasks.push('daily-mission');
-  recordActivity('Daily mission completed', 80);
-  createConfetti();
-  showToast('Daily mission claimed. +80 XP');
-}
-
 function toggleHabit(event) {
   const index = Number(event.target.dataset.index);
   if (event.target.checked) {
     if (!state.completedTasks.includes(index)) state.completedTasks.push(index);
-    recordActivity('Routine completed', 20);
+    recordActivity('Routine completed', 30);
   } else {
     state.completedTasks = state.completedTasks.filter((item) => item !== index);
   }
@@ -1306,6 +1479,11 @@ async function getCoachReply(message) {
   const timeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
   const deviceLocalTime = now.toLocaleString('en-US', timeOpts);
 
+  // Prepare a description of historical logs from previous days
+  const historicalLogsStr = state.historicalLogs && state.historicalLogs.length > 0
+    ? state.historicalLogs.map(h => `• ${h.date}: ${h.calories} kcal, ${h.protein}g protein, Hydration: ${h.hydration}ml. Foods: [${h.foods || 'None'}]`).join('\n')
+    : 'No historical logs from previous days.';
+
   // Prepare a dynamic description of today's logged foods
   const loggedFoodsStr = state.loggedFoods.length > 0 
     ? state.loggedFoods.map(f => `• ${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join('\n')
@@ -1316,6 +1494,11 @@ async function getCoachReply(message) {
   Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Korean Skincare & Hydration'}.
   Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
   
+  Yesterday's & Past Days' intake history (for comparison & progress analysis):
+  ${historicalLogsStr}
+  
+  Use this past days' history to answer questions like "what did I have yesterday?" or "how much improvement from yesterday to today?". Compare their protein and calorie intake from previous days to today, and give constructive coaching advice.
+  ` + `
   The user's current local device clock is: ${deviceLocalTime}.
   Use this clock time as your absolute source of truth when user talks about timing (e.g. "in 30 mins", "tonight", "at 9 PM").
   
@@ -1382,6 +1565,7 @@ async function getCoachReply(message) {
       state.lastLog = { calories: result.calories || 0, protein: result.protein || 0, hydration: 0 };
     }
 
+    let hasLoggedFood = false;
     // Manage today's logged foods list
     if (result.removeFood) {
       const targetName = result.removeFood.toLowerCase();
@@ -1396,10 +1580,15 @@ async function getCoachReply(message) {
         protein: result.protein || 0,
         timestamp: Date.now()
       });
+      hasLoggedFood = true;
     }
 
-    saveState();
-    renderDashboard();
+    if (hasLoggedFood) {
+      recordActivity(`Food logged: ${result.logFood}`, 20);
+    } else {
+      saveState();
+      renderDashboard();
+    }
 
     return result;
   } catch (e) {
@@ -1429,7 +1618,7 @@ function retrieveKnowledge(message) {
   return knowledgeBase.find((item) => item.keywords.some((keyword) => lower.includes(keyword)));
 }
 
-let lastVisionResult = null;
+let lastVisionResult = JSON.parse(localStorage.getItem('relix-last-vision-result') || 'null');
 
 function previewMeal(event) {
   const file = event.target.files?.[0];
@@ -1444,6 +1633,7 @@ function previewMeal(event) {
     els.mealPreview.innerHTML = `<img src="${reader.result}" alt="Selected meal preview">`;
     els.mealStatus.textContent = 'Image loaded. Tap analyze to see real AI analysis.';
     state.pendingMealImageBase64 = reader.result;
+    saveState();
     
     const resultCard = document.getElementById('meal-result-card');
     if (resultCard) resultCard.style.display = 'none';
@@ -1535,6 +1725,7 @@ async function analyzeMeal() {
     const textRes = data.choices[0].message.content.trim();
     const result = JSON.parse(textRes);
     lastVisionResult = result;
+    saveState();
 
     els.mealStatus.textContent = 'Analysis complete.';
     
@@ -2238,6 +2429,10 @@ function deleteData() {
   localStorage.removeItem('relix-logged-foods');
   localStorage.removeItem('relix-logged-hydrations');
   localStorage.removeItem('relix-profile-pic');
+  localStorage.removeItem('relix-chat-messages');
+  localStorage.removeItem('relix-historical-logs');
+  localStorage.removeItem('relix-pending-meal-image');
+  localStorage.removeItem('relix-last-vision-result');
   window.location.reload();
 }
 
@@ -2283,6 +2478,21 @@ function checkDailyReset() {
       state.streak += 1;
       state.restorableStreak = -1;
       showToast('🎉 Day target complete! Streak incremented!');
+    }
+
+    // Archive yesterday's logs
+    const yesterdayDate = new Date(state.dayStartTime).toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const logSummary = {
+      date: yesterdayDate,
+      calories: state.consumedCalories,
+      protein: state.consumedProtein,
+      hydration: state.consumedHydration,
+      foods: state.loggedFoods.map(f => `${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join(', ')
+    };
+    if (!state.historicalLogs) state.historicalLogs = [];
+    state.historicalLogs.push(logSummary);
+    if (state.historicalLogs.length > 14) {
+      state.historicalLogs.shift();
     }
 
     state.consumedCalories = 0;
@@ -2380,6 +2590,9 @@ function saveState() {
   localStorage.setItem('relix-logged-foods', JSON.stringify(state.loggedFoods));
   localStorage.setItem('relix-logged-hydrations', JSON.stringify(state.loggedHydrations));
   localStorage.setItem('relix-profile-pic', state.profilePic);
+  localStorage.setItem('relix-pending-meal-image', state.pendingMealImageBase64);
+  localStorage.setItem('relix-last-vision-result', JSON.stringify(lastVisionResult));
+  localStorage.setItem('relix-historical-logs', JSON.stringify(state.historicalLogs));
 }
 
 function saveProfileName() {
