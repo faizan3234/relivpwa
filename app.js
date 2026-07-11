@@ -88,7 +88,7 @@ const state = {
   consumedCalories: Number(localStorage.getItem('relix-consumed-cal') || 0),
   consumedProtein: Number(localStorage.getItem('relix-consumed-pro') || 0),
   consumedHydration: Number(localStorage.getItem('relix-consumed-hyd') || 0),
-  targetHydration: 3500,
+  targetHydration: Number(localStorage.getItem('relix-target-hyd') || 3500),
   lastLog: JSON.parse(localStorage.getItem('relix-last-log') || 'null'),
   xp: Number(localStorage.getItem('relix-xp') || 0),
   level: Number(localStorage.getItem('relix-level') || 1),
@@ -379,10 +379,10 @@ function bindEvents() {
     els.finishSetup.addEventListener('click', () => {
       const nameVal = (els.setupName?.value || '').trim();
       const goalVal = els.setupGoal?.value || 'muscle';
-      const ageVal = Number(els.setupAge?.value || 22);
-      const heightVal = (els.setupHeight?.value || "6'1\"").trim();
-      const weightVal = Number(els.setupWeight?.value || 65);
-      const targetWeightVal = Number(els.setupTarget?.value || 75);
+      const ageVal = els.setupAge?.value ? Number(els.setupAge.value) : null;
+      const heightVal = (els.setupHeight?.value || '').trim();
+      const weightVal = els.setupWeight?.value ? Number(els.setupWeight.value) : null;
+      const targetWeightVal = els.setupTarget?.value ? Number(els.setupTarget.value) : null;
       const dietVal = els.setupDiet?.value || 'nonveg';
       const skinTypeVal = els.setupSkinType?.value || 'oily';
 
@@ -390,16 +390,39 @@ function bindEvents() {
         showToast('Please enter your name.');
         return;
       }
+      if (!ageVal || isNaN(ageVal)) {
+        showToast('Please enter your age.');
+        return;
+      }
+      if (!heightVal) {
+        showToast('Please enter your height (e.g. 5\'9" or 175 cm).');
+        return;
+      }
+
+      const isSkincare = goalVal.startsWith('skin');
+      if (!isSkincare) {
+        if (!weightVal || isNaN(weightVal)) {
+          showToast('Please enter your weight.');
+          return;
+        }
+        if (!targetWeightVal || isNaN(targetWeightVal)) {
+          showToast('Please enter your target weight.');
+          return;
+        }
+      }
 
       state.profileName = nameVal;
       state.goalType = goalVal;
       state.age = ageVal;
       state.height = heightVal;
-      state.weight = weightVal;
-      state.targetWeight = targetWeightVal;
       state.dietType = dietVal;
       state.skinType = skinTypeVal;
       state.setupComplete = true;
+
+      if (!isSkincare) {
+        state.weight = weightVal;
+        state.targetWeight = targetWeightVal;
+      }
 
       // Dynamic calculation based on goal and user's height/weight/age
       function parseHeightToCm(hStr) {
@@ -415,8 +438,9 @@ function bindEvents() {
         return 175;
       }
       const hCm = parseHeightToCm(heightVal);
+      const effectiveWeight = isSkincare ? (state.weight || 60) : weightVal;
       // Harris-Benedict BMR calculation baseline
-      const bmr = Math.round(10 * weightVal + 6.25 * hCm - 5 * ageVal + 5);
+      const bmr = Math.round(10 * effectiveWeight + 6.25 * hCm - 5 * ageVal + 5);
 
       if (goalVal === 'muscle') {
         state.targetCalories = Math.round(bmr * 1.4 + 500); // bulking surplus (moderate activity)
@@ -428,8 +452,8 @@ function bindEvents() {
         state.targetHydration = Math.round(weightVal * 35);
       } else { // skin targets
         state.targetCalories = Math.round(bmr * 1.3); // maintenance calories
-        state.targetProtein = Math.round(weightVal * 1.2); // maintenance protein
-        state.targetHydration = Math.round(weightVal * 35 + 1000); // higher hydration target for skincare
+        state.targetProtein = Math.round(effectiveWeight * 1.2); // maintenance protein
+        state.targetHydration = Math.round(effectiveWeight * 35 + 1000); // higher hydration target for skincare
       }
 
       // Custom manual overrides
@@ -2700,6 +2724,7 @@ function deleteData() {
   localStorage.removeItem('relix-last-vision-result');
   localStorage.removeItem('relix-skin-type');
   localStorage.removeItem('relix-kitchen');
+  localStorage.removeItem('relix-target-hyd');
   window.location.reload();
 }
 
@@ -2892,6 +2917,7 @@ function saveState() {
   localStorage.setItem('relix-consumed-cal', String(state.consumedCalories));
   localStorage.setItem('relix-consumed-pro', String(state.consumedProtein));
   localStorage.setItem('relix-consumed-hyd', String(state.consumedHydration));
+  localStorage.setItem('relix-target-hyd', String(state.targetHydration));
   localStorage.setItem('relix-last-log', JSON.stringify(state.lastLog));
   localStorage.setItem('relix-profile-name', state.profileName);
   localStorage.setItem('relix-xp', String(state.xp));
