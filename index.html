@@ -365,30 +365,7 @@
           <p style="margin:0 0 12px 0; font-size:0.82rem; color:var(--muted);">Check ingredients in your kitchen to view matching home remedies:</p>
           
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;" id="kitchen-ingredients-grid">
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="curd"> 🥛 Curd
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="turmeric"> 💛 Turmeric
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="honey"> 🍯 Honey
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="aloe"> 🌱 Aloe Vera
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="greentea"> 🍵 Green Tea
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="ricewater"> 🌾 Rice Water
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="oatmeal"> 🥣 Oatmeal
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-              <input type="checkbox" class="kitchen-ingredient" value="cucumber"> 🥒 Cucumber
-            </label>
+            <!-- Dynamically populated in app.js based on selected goal -->
           </div>
         </div>
 
@@ -495,8 +472,55 @@
             </div>
             <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
               <label style="font-weight:600; font-size:0.9rem;">Height</label>
-              <input id="setup-height" type="text" placeholder="6'1\" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+              <select id="setup-height" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+                <option value="4'5\"">4'5" (134 cm)</option>
+                <option value="4'6\"">4'6" (137 cm)</option>
+                <option value="4'7\"">4'7" (139 cm)</option>
+                <option value="4'8\"">4'8" (142 cm)</option>
+                <option value="4'9\"">4'9" (144 cm)</option>
+                <option value="4'10\"">4'10" (147 cm)</option>
+                <option value="4'11\"">4'11" (149 cm)</option>
+                <option value="5'0\"">5'0" (152 cm)</option>
+                <option value="5'1\"">5'1" (154 cm)</option>
+                <option value="5'2\"">5'2" (157 cm)</option>
+                <option value="5'3\"">5'3" (160 cm)</option>
+                <option value="5'4\"">5'4" (162 cm)</option>
+                <option value="5'5\"">5'5" (165 cm)</option>
+                <option value="5'6\"">5'6" (167 cm)</option>
+                <option value="5'7\"">5'7" (170 cm)</option>
+                <option value="5'8\"">5'8" (172 cm)</option>
+                <option value="5'9\"">5'9" (175 cm)</option>
+                <option value="5'10\"">5'10" (177 cm)</option>
+                <option value="5'11\"">5'11" (180 cm)</option>
+                <option value="6'0\"">6'0" (182 cm)</option>
+                <option value="6'1\"">6'1" (185 cm)</option>
+                <option value="6'2\"">6'2" (187 cm)</option>
+                <option value="6'3\"">6'3" (190 cm)</option>
+                <option value="6'4\"">6'4" (193 cm)</option>
+                <option value="6'5\"">6'5" (195 cm)</option>
+                <option value="6'6\"">6'6" (198 cm)</option>
+                <option value="6'7\"">6'7" (200 cm)</option>
+                <option value="6'8\"">6'8" (203 cm)</option>
+                <option value="6'9\"">6'9" (205 cm)</option>
+                <option value="6'10\"">6'10" (208 cm)</option>
+                <option value="6'11\"">6'11" (210 cm)</option>
+                <option value="7'0\"">7'0" (213 cm)</option>
+              </select>
             </div>
+          </div>
+
+          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-weight:600; font-size:0.9rem;">🕢 When do you wake up?</label>
+            <select id="setup-wakeup-time" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <option value="05:00">5:00 AM (Early Riser)</option>
+              <option value="06:00">6:00 AM</option>
+              <option value="07:00" selected>7:00 AM (Standard)</option>
+              <option value="08:00">8:00 AM</option>
+              <option value="09:00">9:00 AM</option>
+              <option value="10:00">10:00 AM</option>
+              <option value="11:00">11:00 AM (Late Riser)</option>
+              <option value="12:00">12:00 PM (Noon)</option>
+            </select>
           </div>
 
           <div id="setup-weight-fields-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
@@ -510,7 +534,7 @@
             </div>
           </div>
 
-          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+          <div id="setup-skin-fields-container" style="display:none; flex-direction:column; gap:4px;">
             <label style="font-weight:600; font-size:0.9rem;">Skin Type</label>
             <select id="setup-skin-type" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
               <option value="oily">✨ Oily Skin</option>
@@ -551,6 +575,20 @@
 
           <button id="finish-setup" class="primary-btn" type="button" style="margin-top:10px; padding:12px; font-weight:700;">Save Stats & Adjust Target</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Save Confirmation Alert Modal -->
+    <div id="save-confirm-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:10000; background:rgba(0,0,0,0.6);">
+      <div class="modal-card" style="text-align: center; max-width: 380px; padding: 24px; display:flex; flex-direction:column; gap:16px; align-items:center;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #4caf50, #81c784); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white; box-shadow: 0 4px 15px rgba(76,175,80,0.3);">
+          ✓
+        </div>
+        <div>
+          <h3 style="margin: 0; font-size: 1.3rem;">Vibe Saved!</h3>
+          <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.45; margin-top: 8px;">Your profile targets and custom reminders have been successfully adjusted and initialized.</p>
+        </div>
+        <button id="dismiss-save-confirm" class="primary-btn" type="button" style="width: 100%; padding: 12px; font-weight: 700; background:#4caf50; border:none; border-radius:12px; color:white; cursor:pointer;">Let's Go!</button>
       </div>
     </div>
 

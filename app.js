@@ -20,51 +20,65 @@ function getNextDueTime(timeStr) {
   }
   return target.getTime();
 }
+function getReminderTimeOffset(startTimeStr, offsetMinutes) {
+  const parts = (startTimeStr || '07:00').split(':').map(Number);
+  const hrs = parts[0];
+  const mins = parts[1];
+  const target = new Date();
+  target.setHours(hrs, mins, 0, 0);
+  target.setTime(target.getTime() + offsetMinutes * 60 * 1000);
+  
+  if (target.getTime() <= Date.now()) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target.getTime();
+}
 
 function getRemindersForGoal(goal) {
+  const wake = state.wakeUpTime || '07:00';
   if (goal.startsWith('skin')) {
     if (goal === 'skin-acne') {
       return {
-        cleanse: { title: 'Salicylic Cleanse', description: 'Wash with Salicylic acid cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
-        sunscreen: { title: 'Matte SPF', description: 'Apply non-comedogenic matte sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-        treatment: { title: 'Acne Treatment', description: 'Apply salicylic acid or benzoyl peroxide treatment.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+        cleanse: { title: 'Salicylic Cleanse', description: 'Wash with Salicylic acid cleanser.', nextDue: getReminderTimeOffset(wake, 20), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'Matte SPF', description: 'Apply non-comedogenic matte sunscreen.', nextDue: getReminderTimeOffset(wake, 360), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        treatment: { title: 'Acne Treatment', description: 'Apply salicylic acid or benzoyl peroxide treatment.', nextDue: getReminderTimeOffset(wake, 780), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
       };
     } else if (goal === 'skin-hydration') {
       return {
-        cleanse: { title: 'Hydrating Wash', description: 'Wash with a gentle hyaluronic/ceramide cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
-        sunscreen: { title: 'Dewy SPF', description: 'Apply hydrating SPF 50 sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-        moisture: { title: 'Moisture Lock', description: 'Apply hyaluronic acid serum on damp skin.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+        cleanse: { title: 'Hydrating Wash', description: 'Wash with a gentle hyaluronic/ceramide cleanser.', nextDue: getReminderTimeOffset(wake, 20), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'Dewy SPF', description: 'Apply hydrating SPF 50 sunscreen.', nextDue: getReminderTimeOffset(wake, 360), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        moisture: { title: 'Moisture Lock', description: 'Apply hyaluronic acid serum on damp skin.', nextDue: getReminderTimeOffset(wake, 780), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
       };
     } else if (goal === 'skin-aging') {
       return {
-        cleanse: { title: 'Gentle Cleanse', description: 'Wash with an amino acid cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
-        sunscreen: { title: 'SPF Protection', description: 'Apply sunscreen to prevent photo-aging.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-        retinol: { title: 'Youth Restore', description: 'Apply retinoid or peptide anti-aging cream tonight.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+        cleanse: { title: 'Gentle Cleanse', description: 'Wash with an amino acid cleanser.', nextDue: getReminderTimeOffset(wake, 20), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'SPF Protection', description: 'Apply sunscreen to prevent photo-aging.', nextDue: getReminderTimeOffset(wake, 360), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        retinol: { title: 'Youth Restore', description: 'Apply retinoid or peptide anti-aging cream tonight.', nextDue: getReminderTimeOffset(wake, 780), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
       };
     } else if (goal === 'skin-sensitive') {
       return {
-        cleanse: { title: 'Soothing Wash', description: 'Wash with a pH-balanced soothing cleanser.', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
-        sunscreen: { title: 'Mineral SPF', description: 'Apply physical mineral sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-        calm: { title: 'Barrier Repair', description: 'Apply cica/ceramide barrier soothing cream.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+        cleanse: { title: 'Soothing Wash', description: 'Wash with a pH-balanced soothing cleanser.', nextDue: getReminderTimeOffset(wake, 20), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'Mineral SPF', description: 'Apply physical mineral sunscreen.', nextDue: getReminderTimeOffset(wake, 360), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        calm: { title: 'Barrier Repair', description: 'Apply cica/ceramide barrier soothing cream.', nextDue: getReminderTimeOffset(wake, 780), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
       };
     } else { // skin-korean / default skin
       return {
-        cleanse: { title: 'Double Cleanse', description: 'Double cleanse with a gentle wash for glass skin!', nextDue: getNextDueTime('08:00'), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
-        sunscreen: { title: 'SPF Shield', description: 'Apply/reapply your SPF 50 sunscreen.', nextDue: getNextDueTime('13:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-        serum: { title: 'Glow Serum', description: 'Apply Vit C or Niacinamide serum for glass skin.', nextDue: getNextDueTime('21:00'), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
+        cleanse: { title: 'Double Cleanse', description: 'Double cleanse with a gentle wash for glass skin!', nextDue: getReminderTimeOffset(wake, 20), pending: false, lastAction: '', missedCount: 0, followUp: 36000000 },
+        sunscreen: { title: 'SPF Shield', description: 'Apply/reapply your SPF 50 sunscreen.', nextDue: getReminderTimeOffset(wake, 360), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+        serum: { title: 'Glow Serum', description: 'Apply Vit C or Niacinamide serum for glass skin.', nextDue: getReminderTimeOffset(wake, 780), pending: false, lastAction: '', missedCount: 0, followUp: 43200000 }
       };
     }
   } else if (goal === 'lose') {
     return {
-      water: { title: 'Hydration Nudge', description: 'Sip water to stay full and boost metabolism.', nextDue: getNextDueTime('09:00'), pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
-      portion: { title: 'Portion Control', description: 'Eat slowly. Stop eating when you are 80% full.', nextDue: getNextDueTime('13:30'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-      walk: { title: 'Active Walk', description: 'Take a short 10-minute active walking break.', nextDue: getNextDueTime('18:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 }
+      water: { title: 'Hydration Nudge', description: 'Sip water to stay full and boost metabolism.', nextDue: getReminderTimeOffset(wake, 120), pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
+      portion: { title: 'Portion Control', description: 'Eat slowly. Stop eating when you are 80% full.', nextDue: getReminderTimeOffset(wake, 360), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      walk: { title: 'Active Walk', description: 'Take a short 10-minute active walking break.', nextDue: getReminderTimeOffset(wake, 660), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 }
     };
   } else {
     return {
-      water: { title: 'Hydration Boost', description: 'Drink water to support protein synthesis.', nextDue: getNextDueTime('09:00'), pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
-      shake: { title: 'Calorie Shake', description: 'Time for your high-calorie banana peanut butter shake!', nextDue: getNextDueTime('11:00'), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
-      diet: { title: 'Protein & calories', description: 'Eat paneer, eggs, chicken, or curd now!', nextDue: getNextDueTime('20:30'), pending: false, lastAction: '', missedCount: 0, followUp: 10800000 }
+      water: { title: 'Hydration Boost', description: 'Drink water to support protein synthesis.', nextDue: getReminderTimeOffset(wake, 120), pending: false, lastAction: '', missedCount: 0, followUp: 3600000 },
+      shake: { title: 'Calorie Shake', description: 'Time for your high-calorie banana peanut butter shake!', nextDue: getReminderTimeOffset(wake, 240), pending: false, lastAction: '', missedCount: 0, followUp: 14400000 },
+      diet: { title: 'Protein & calories', description: 'Eat paneer, eggs, chicken, or curd now!', nextDue: getReminderTimeOffset(wake, 720), pending: false, lastAction: '', missedCount: 0, followUp: 10800000 }
     };
   }
 }
@@ -80,6 +94,7 @@ const state = {
   goalType: localStorage.getItem('relix-goal') || 'muscle',
   age: Number(localStorage.getItem('relix-age') || 22),
   height: localStorage.getItem('relix-height') || "6'1\"",
+  wakeUpTime: localStorage.getItem('relix-wakeup-time') || '07:00',
   weight: Number(localStorage.getItem('relix-weight') || 65),
   targetWeight: Number(localStorage.getItem('relix-target-weight') || 75),
   dietType: localStorage.getItem('relix-diet') || 'nonveg',
@@ -194,6 +209,9 @@ const els = {
   setupWeight: document.getElementById('setup-weight'),
   setupTarget: document.getElementById('setup-target'),
   setupDiet: document.getElementById('setup-diet'),
+  setupSkinType: document.getElementById('setup-skin-type'),
+  setupWakeUpTime: document.getElementById('setup-wakeup-time'),
+  setupWeightFieldsContainer: document.getElementById('setup-weight-fields-container'),
   finishSetup: document.getElementById('finish-setup'),
   closeSetupModal: document.getElementById('close-setup-modal'),
   calBar: document.getElementById('cal-bar'),
@@ -385,6 +403,7 @@ function bindEvents() {
       const targetWeightVal = els.setupTarget?.value ? Number(els.setupTarget.value) : null;
       const dietVal = els.setupDiet?.value || 'nonveg';
       const skinTypeVal = els.setupSkinType?.value || 'oily';
+      const wakeUpTimeVal = els.setupWakeUpTime?.value || '07:00';
 
       if (!nameVal) {
         showToast('Please enter your name.');
@@ -417,6 +436,7 @@ function bindEvents() {
       state.height = heightVal;
       state.dietType = dietVal;
       state.skinType = skinTypeVal;
+      state.wakeUpTime = wakeUpTimeVal;
       state.setupComplete = true;
 
       if (!isSkincare) {
@@ -478,7 +498,13 @@ function bindEvents() {
         els.setupModal.classList.remove('open');
         els.setupModal.setAttribute('aria-hidden', 'true');
       }
-      showToast('Profile & goal targets updated successfully!');
+      
+      const confirmModal = document.getElementById('save-confirm-modal');
+      if (confirmModal) {
+        confirmModal.style.display = 'flex';
+        confirmModal.classList.add('open');
+        confirmModal.setAttribute('aria-hidden', 'false');
+      }
     });
   }
 
@@ -770,18 +796,21 @@ function parseLocalFoodIntake(text) {
         if (els.setupName) els.setupName.value = state.profileName;
         if (els.setupGoal) {
           els.setupGoal.value = state.goalType;
-          if (els.setupGoal.value.startsWith('skin')) {
-            if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'none';
-          } else {
-            if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'grid';
-          }
+          const isSkin = els.setupGoal.value.startsWith('skin');
+          const skinFields = document.getElementById('setup-skin-fields-container');
+          if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = isSkin ? 'none' : 'grid';
+          if (skinFields) skinFields.style.display = isSkin ? 'flex' : 'none';
         }
         if (els.setupAge) els.setupAge.value = state.age;
-        if (els.setupHeight) els.setupHeight.value = state.height;
+        if (els.setupHeight) {
+          const optExists = Array.from(els.setupHeight.options).some(o => o.value === state.height);
+          els.setupHeight.value = optExists ? state.height : '5\'9"';
+        }
         if (els.setupWeight) els.setupWeight.value = state.weight;
         if (els.setupTarget) els.setupTarget.value = state.targetWeight;
         if (els.setupDiet) els.setupDiet.value = state.dietType;
         if (els.setupSkinType) els.setupSkinType.value = state.skinType || 'oily';
+        if (els.setupWakeUpTime) els.setupWakeUpTime.value = state.wakeUpTime || '07:00';
 
         els.setupModal.style.display = 'flex';
         els.setupModal.classList.add('open');
@@ -847,14 +876,24 @@ function parseLocalFoodIntake(text) {
     profilePicInput.addEventListener('change', handleProfilePictureUpload);
   }
 
+  // Dismiss save confirm modal
+  const dismissSaveBtn = document.getElementById('dismiss-save-confirm');
+  const confirmModal = document.getElementById('save-confirm-modal');
+  if (dismissSaveBtn && confirmModal) {
+    dismissSaveBtn.addEventListener('click', () => {
+      confirmModal.style.display = 'none';
+      confirmModal.classList.remove('open');
+      confirmModal.setAttribute('aria-hidden', 'true');
+    });
+  }
+
   // Setup goal change display check
   if (els.setupGoal) {
     els.setupGoal.addEventListener('change', () => {
-      if (els.setupGoal.value.startsWith('skin')) {
-        if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'none';
-      } else {
-        if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = 'grid';
-      }
+      const isSkin = els.setupGoal.value.startsWith('skin');
+      const skinFields = document.getElementById('setup-skin-fields-container');
+      if (els.setupWeightFieldsContainer) els.setupWeightFieldsContainer.style.display = isSkin ? 'none' : 'grid';
+      if (skinFields) skinFields.style.display = isSkin ? 'flex' : 'none';
     });
   }
 
@@ -1377,78 +1416,288 @@ function renderProfile() {
 }
 
 const defaultRemedies = [
+  // --- SKINCARE ---
   {
     id: 'curd-turmeric',
+    category: 'skin',
     title: 'Lactic curd & Turmeric Brightening Mask',
     rating: 4.3,
     skinTypes: ['oily', 'mixed'],
     avoidSkin: ['sensitive'],
     ingredients: ['curd', 'turmeric', 'honey'],
-    preparation: 'Mix 2 tsp of curd, 1/2 tsp of organic turmeric powder, and 1 tsp of honey in a small clean bowl until it forms a smooth, golden paste.',
-    howToApply: 'Cleanse face and pat dry. Apply the paste evenly using fingers or a soft brush, avoiding the delicate eye area. Let it sit for 15 minutes, then rinse off with lukewarm water.',
-    benefits: ['Brightens dull complexion', 'Fights active acne bacteria', 'Reduces red skin inflammation'],
-    timeline: 'Week 1: Skin feels softer and plump. Week 3: Visible evening of skin tone. Week 6: Pronounced healthy skin radiance.',
-    science: 'Turmeric contains Curcumin which is clinically proven to possess anti-inflammatory and antibacterial properties. Curd provides natural Lactic Acid, a gentle alpha-hydroxy acid (AHA) that dissolves dead skin cells.'
+    preparation: 'Mix 2 tsp of curd, 1/2 tsp of organic turmeric powder, and 1 tsp of honey in a small clean bowl until smooth.',
+    howToApply: 'Apply evenly. Let sit for 15 minutes, then rinse with lukewarm water.',
+    benefits: ['Brightens complexion', 'Fights acne bacteria', 'Reduces inflammation'],
+    timeline: 'Immediate soft feel. Week 3: Even skin tone.',
+    science: 'Turmeric containing Curcumin possesses proven anti-inflammatory properties, while Curd delivers natural Lactic Acid to dissolve dead skin cells.'
   },
   {
     id: 'oatmeal-honey',
+    category: 'skin',
     title: 'Colloidal Oatmeal & Honey Barrier Soother',
     rating: 4.6,
     skinTypes: ['dry', 'sensitive', 'mixed'],
     avoidSkin: [],
     ingredients: ['oatmeal', 'honey'],
-    preparation: 'Grind 2 tbsp of oatmeal into a fine powder. Mix it with 1.5 tbsp of raw organic honey and a few drops of warm water to create a thick spreadable paste.',
-    howToApply: 'Spread gently onto clean damp skin. Leave on for 20 minutes. To remove, splash warm water and massage in gentle circular motions before rinsing thoroughly.',
-    benefits: ['Deeply moisturizes dry skin barrier', 'Relieves skin tightness & itching', 'Soothes reactive skin redness'],
-    timeline: 'Immediate: Skin tightness completely disappears. Week 2: Flaky dry patches are resolved. Week 5: Enhanced skin barrier resilience.',
-    science: 'Oatmeal contains avenanthramides, unique anti-inflammatory compounds that calm irritation. Honey is a natural humectant, pulling hydration deep into the stratum corneum.'
+    preparation: 'Grind 2 tbsp of oatmeal. Mix with 1.5 tbsp of raw honey and a few drops of warm water.',
+    howToApply: 'Spread onto clean damp skin. Leave for 20 minutes, then massage and rinse.',
+    benefits: ['Deeply moisturizes', 'Relieves skin itching', 'Soothes redness'],
+    timeline: 'Immediate tightness relief. Week 2: No dry patches.',
+    science: 'Oatmeal contains avenanthramides that suppress skin irritation. Raw honey is a natural humectant that acts as a moisture seal.'
   },
   {
     id: 'greentea-rice',
+    category: 'skin',
     title: 'Green Tea & Fermented Rice Water Pore Toner',
     rating: 4.2,
     skinTypes: ['oily', 'mixed'],
     avoidSkin: [],
     ingredients: ['greentea', 'ricewater'],
-    preparation: 'Brew a strong cup of green tea and let it cool completely. Mix it with equal parts of soaked organic rice water. Pour into a clean dispenser or spray bottle.',
-    howToApply: 'After cleansing, sweep a soaked cotton pad across your face morning and night. Do not rinse; follow with your favorite lightweight moisturizer.',
-    benefits: ['Reduces excess sebum and shine', 'Minimizes the appearance of large pores', 'Calms acne breakouts'],
-    timeline: 'Week 1: Noticeable reduction in midday oiliness. Week 3: Pores look tighter. Week 6: Skin looks clear and balanced.',
-    science: 'Green tea is rich in EGCG, a powerful antioxidant that inhibits sebum production. Rice water contains inositol and ferulic acid, which brighten skin and boost elasticity.'
+    preparation: 'Brew green tea and let cool. Mix with equal parts of soaked organic rice water.',
+    howToApply: 'Sweep a soaked cotton pad across your face morning and night. Do not rinse.',
+    benefits: ['Reduces midday shine', 'Tightens large pores', 'Calms active breakouts'],
+    timeline: 'Week 1: Lower oil output. Week 3: Less visible pores.',
+    science: 'Green tea catechins (EGCG) reduce sebum production, and rice water amino acids promote skin elasticity.'
   },
   {
     id: 'aloe-cucumber',
+    category: 'skin',
     title: 'Aloe Vera & Fresh Cucumber Hydro-Cooler',
     rating: 4.5,
     skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
     avoidSkin: [],
     ingredients: ['aloe', 'cucumber'],
-    preparation: 'Extract 2 tbsp of fresh aloe vera gel. Blend or grate 1/4 of a cucumber, filter the juice, and mix thoroughly with the aloe gel. Chill in the fridge for 10 minutes.',
-    howToApply: 'Smooth the chilled gel generously over your face and neck. Let it absorb for 15-20 minutes. Rinse with cool water.',
-    benefits: ['Instantly cools and soothes sun exposure', 'Restores cell hydration level', 'Minimizes puffiness and signs of fatigue'],
-    timeline: 'Immediate: Intense cooling relief. Week 2: Plumper, bouncier skin texture. Week 4: Restored skin cell hydration.',
-    science: 'Cucumber juice is 95% water and loaded with ascorbic acid (Vitamin C) and caffeic acid, reducing swelling. Aloe vera delivers mucopolysaccharides to seal hydration.'
+    preparation: 'Mix 2 tbsp of fresh aloe vera gel with the juice of 1/4 blended cucumber. Chill.',
+    howToApply: 'Smooth the chilled gel over face and neck. Let absorb for 15-20 minutes, then rinse.',
+    benefits: ['Cools sun exposure', 'Restores hydration', 'Minimizes morning puffiness'],
+    timeline: 'Immediate cooling sensation. Week 2: Plumper skin.',
+    science: 'Aloe vera delivers cooling mucopolysaccharides, while cucumber antioxidants calm capillary swelling.'
+  },
+
+  // --- WEIGHT LOSS ---
+  {
+    id: 'acv-morning',
+    category: 'lose',
+    title: 'Apple Cider Vinegar (ACV) Metabolism Nudge',
+    rating: 4.4,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['acv', 'lemon'],
+    preparation: 'Stir 1 tbsp of organic Apple Cider Vinegar and 1 tsp of lemon juice into 250ml of warm water.',
+    howToApply: 'Drink 15 minutes before your largest meal of the day (lunch or breakfast) using a straw to protect tooth enamel.',
+    benefits: ['Improves post-meal insulin sensitivity', 'Suppresses fat storage signals', 'Suppresses immediate sugar cravings'],
+    timeline: 'Day 1: Better digestion. Week 4: Steady body fat decrease when paired with target deficit.',
+    science: 'Acetic acid slows down stomach emptying, which delays glucose absorption, lowering the glycemic response of meals by up to 30%.'
+  },
+  {
+    id: 'psyllium-satiety',
+    category: 'lose',
+    title: 'Psyllium Husk (Isabgol) High-Volume Satiety Shield',
+    rating: 4.7,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['psyllium'],
+    preparation: 'Vigorously mix 2 tsp of Psyllium Husk in 250ml of room-temperature water. Drink immediately before it thickens into gel.',
+    howToApply: 'Consume 30 minutes before your dinner. Follow up with another full glass of water.',
+    benefits: ['Blocks late night snacking urges', 'Slows gastric digestion', 'Improves gut transit & detox'],
+    timeline: 'Immediate: Feels full and satisfied. Week 2: Natural portion control without feeling starved.',
+    science: 'Psyllium husk is a soluble viscous fiber that swells up to 10x in size, physically stimulating stretch receptors in the stomach to send fullness signals to the brain.'
+  },
+  {
+    id: 'greentea-ginger',
+    category: 'lose',
+    title: 'Metabolism-Boosting Ginger Green Tea',
+    rating: 4.3,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['greentea', 'ginger'],
+    preparation: 'Steep a green tea bag with 1/2 tsp of freshly grated ginger in boiling water for 3-5 minutes.',
+    howToApply: 'Drink in the afternoon (3-4 PM) or 30 minutes before your scheduled active walk.',
+    benefits: ['Elevates energy levels cleanly', 'Aids thermogenesis', 'Speeds up fat oxidation rate'],
+    timeline: 'Day 1: Sustained afternoon energy. Week 8: Enhanced metabolic rate.',
+    science: 'Green tea catechins (specifically EGCG) combined with gingerols stimulate catecholamines to release fatty acids from storage.'
+  },
+  {
+    id: 'cucumber-cabbage',
+    category: 'lose',
+    title: 'High-Volume Cucumber & Cabbage Starter Plate',
+    rating: 4.5,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['cucumber', 'cabbage', 'lemon'],
+    preparation: 'Toss 1 cup of thinly shredded cabbage and 1 sliced cucumber with freshly squeezed lemon juice and a pinch of black salt.',
+    howToApply: 'Eat the entire bowl as a pre-meal starter before sitting down for lunch or dinner.',
+    benefits: ['Lowers main meal calorie intake', 'Fills stomach volume with near-zero calories', 'Improves dietary fiber levels'],
+    timeline: 'Immediate: Prevents overeating during meals. Week 3: Sustainable fat loss progress.',
+    science: 'Consuming high-volume foods with low energy density fills stomach volume early, activating mechanical stretch receptors to release leptin.'
+  },
+
+  // --- BULKING / MUSCLE ---
+  {
+    id: 'yogurt-paneer',
+    category: 'muscle',
+    title: 'Anabolic Greek Yogurt & Paneer Dip',
+    rating: 4.5,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['curd', 'paneer', 'garlic'],
+    preparation: 'Blend 100g of hung curd, 50g of crumbled low-fat paneer, 1 crushed garlic clove, and a pinch of salt until smooth.',
+    howToApply: 'Use as a high-protein spread on whole wheat toast or eat directly as a mid-afternoon anabolic snack.',
+    benefits: ['20g+ pure protein per serving', 'Sustained amino acid release', 'Great healthy snack replacement'],
+    timeline: 'Day 1: High protein target achieved easily. Week 4: Muscle fullness support.',
+    science: 'Combining whey protein from curd and slow-digesting casein protein from paneer gives a sustained release of leucine to trigger muscle synthesis.'
+  },
+  {
+    id: 'oats-banana',
+    category: 'muscle',
+    title: 'Anabolic Pre-Workout Oatmeal Fuel',
+    rating: 4.8,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['oats', 'banana', 'milk', 'honey'],
+    preparation: 'Cook 50g of oats in 200ml of milk. Stir in 1 tbsp of honey and top with 1 sliced banana.',
+    howToApply: 'Eat 60-90 minutes before your workout or heavy weight training session.',
+    benefits: ['Explosive gym workout energy', 'Restores glycogen reserves', 'Prevents early fatigue'],
+    timeline: 'Day 1: Higher stamina during lifts. Week 4: Weight gain progress.',
+    science: 'Complex oats carbohydrates supply sustained glucose, and honey provides rapid simple carbs to power ATP conversion during heavy lifts.'
+  },
+  {
+    id: 'chia-pb',
+    category: 'muscle',
+    title: 'Overnight Chia & Peanut Butter Recovery Pudding',
+    rating: 4.6,
+    skinTypes: ['dry', 'oily', 'mixed', 'sensitive'],
+    avoidSkin: [],
+    ingredients: ['chia', 'pb', 'milk', 'honey'],
+    preparation: 'Mix 2 tbsp of chia seeds, 1 tbsp of peanut butter, 1 tsp of honey, and 150ml of milk in a jar. Shake well and chill overnight.',
+    howToApply: 'Consume as a late-night recovery meal or immediately post-workout to support repair.',
+    benefits: ['Loaded with anti-inflammatory omega-3s', 'Prevents overnight catabolism', 'Rich in healthy calorie density'],
+    timeline: 'Day 1: Reduced muscle soreness. Week 4: Muscle mass repair.',
+    science: 'Peanut butter and milk provide dense calories and protein, while chia seeds yield omega-3 alpha-linolenic acids to soothe muscle fiber inflammation.'
   }
 ];
 
 function renderNaturalCare() {
+  const isSkin = state.goalType.startsWith('skin');
+  const isLose = state.goalType === 'lose';
+  const isMuscle = state.goalType === 'muscle';
+
+  // Dynamic tab bar title updates
+  const naturalTabBtn = document.querySelector('.tab-btn[data-tab="natural"]');
+  if (naturalTabBtn) {
+    if (isSkin) {
+      naturalTabBtn.innerHTML = '<span style="font-size:1.4rem; display:block; margin-bottom:2px;">🍃</span>Natural';
+    } else if (isLose) {
+      naturalTabBtn.innerHTML = '<span style="font-size:1.4rem; display:block; margin-bottom:2px;">🍃</span>Home Hacks';
+    } else {
+      naturalTabBtn.innerHTML = '<span style="font-size:1.4rem; display:block; margin-bottom:2px;">🍃</span>Anabolic Prep';
+    }
+  }
+
+  // Dynamic section titles and text
+  const naturalView = document.querySelector('[data-view="natural"]');
+  if (naturalView) {
+    const hubTag = naturalView.querySelector('.card strong');
+    const hubTitle = naturalView.querySelector('.card h3');
+    const hubDesc = naturalView.querySelector('.card p');
+    const bannerEl = document.getElementById('natural-skin-type-banner');
+
+    if (isSkin) {
+      if (hubTag) hubTag.textContent = 'Natural Care Hub';
+      if (hubTitle) hubTitle.textContent = 'AI Recommended Home Remedies';
+      if (hubDesc) hubDesc.textContent = 'Personalized remedies matching your skin type and available kitchen ingredients.';
+      if (bannerEl) bannerEl.style.display = 'flex';
+    } else if (isLose) {
+      if (hubTag) hubTag.textContent = 'Weight Loss Guide';
+      if (hubTitle) hubTitle.textContent = 'AI Healthy Guides & Home Hacks';
+      if (hubDesc) hubDesc.textContent = 'Curated evidence-based metabolic hacks and prep guidelines using kitchen ingredients.';
+      if (bannerEl) bannerEl.style.display = 'none';
+    } else {
+      if (hubTag) hubTag.textContent = 'Bulking Recipes';
+      if (hubTitle) hubTitle.textContent = 'AI Anabolic Recipes & Recovery Guides';
+      if (hubDesc) hubDesc.textContent = 'Curated protein-packed quick-prep guides and recovery snacks using kitchen ingredients.';
+      if (bannerEl) bannerEl.style.display = 'none';
+    }
+  }
+
   const lockedTypeEl = document.getElementById('natural-skin-type-locked');
   if (lockedTypeEl) {
     lockedTypeEl.textContent = state.skinType || 'oily';
   }
 
-  // Set the checklist checkboxes to match state
-  document.querySelectorAll('.kitchen-ingredient').forEach(checkbox => {
-    checkbox.checked = (state.kitchenIngredients || []).includes(checkbox.value);
-  });
+  // Render checkbox ingredients dynamically
+  const gridContainer = document.getElementById('kitchen-ingredients-grid');
+  if (gridContainer) {
+    let ingList = [];
+    if (isSkin) {
+      ingList = [
+        { val: 'curd', text: '🥛 Curd' },
+        { val: 'turmeric', text: '💛 Turmeric' },
+        { val: 'honey', text: '🍯 Honey' },
+        { val: 'aloe', text: '🌱 Aloe Vera' },
+        { val: 'greentea', text: '🍵 Green Tea' },
+        { val: 'ricewater', text: '🌾 Rice Water' },
+        { val: 'oatmeal', text: '🥣 Oatmeal' },
+        { val: 'cucumber', text: '🥒 Cucumber' }
+      ];
+    } else if (isLose) {
+      ingList = [
+        { val: 'acv', text: '🍎 Apple Cider Vinegar' },
+        { val: 'lemon', text: '🍋 Lemon' },
+        { val: 'psyllium', text: '🌾 Psyllium Husk (Isabgol)' },
+        { val: 'greentea', text: '🍵 Green Tea' },
+        { val: 'ginger', text: '🫚 Ginger' },
+        { val: 'cabbage', text: '🥬 Cabbage' },
+        { val: 'cucumber', text: '🥒 Cucumber' }
+      ];
+    } else if (isMuscle) {
+      ingList = [
+        { val: 'curd', text: '🥛 Curd / Hung Curd' },
+        { val: 'paneer', text: '🧀 Paneer' },
+        { val: 'garlic', text: '🧄 Garlic' },
+        { val: 'oats', text: '🥣 Oats' },
+        { val: 'banana', text: '🍌 Banana' },
+        { val: 'milk', text: '🥛 Milk' },
+        { val: 'honey', text: '🍯 Honey' },
+        { val: 'chia', text: '🌱 Chia Seeds' },
+        { val: 'pb', text: '🥜 Peanut Butter' }
+      ];
+    }
+
+    gridContainer.innerHTML = ingList.map(ing => `
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+        <input type="checkbox" class="kitchen-ingredient" value="${ing.val}" ${ (state.kitchenIngredients || []).includes(ing.val) ? 'checked' : '' }> ${ing.text}
+      </label>
+    `).join('');
+
+    // Re-bind change listeners to checkboxes
+    document.querySelectorAll('.kitchen-ingredient').forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        const selected = Array.from(document.querySelectorAll('.kitchen-ingredient:checked')).map(cb => cb.value);
+        state.kitchenIngredients = selected;
+        localStorage.setItem('relix-kitchen', JSON.stringify(selected));
+        renderNaturalCare();
+      });
+    });
+  }
 
   const listContainer = document.getElementById('curated-remedies-list');
   if (!listContainer) return;
 
   const hasIngredientsFilter = state.kitchenIngredients && state.kitchenIngredients.length > 0;
   const filtered = defaultRemedies.filter(recipe => {
-    const matchesSkin = recipe.skinTypes.includes(state.skinType) && !recipe.avoidSkin.includes(state.skinType);
-    if (!matchesSkin) return false;
+    // 1. Filter by category
+    if (isSkin) {
+      if (recipe.category !== 'skin') return false;
+      const matchesSkin = recipe.skinTypes.includes(state.skinType || 'oily') && !recipe.avoidSkin.includes(state.skinType || 'oily');
+      if (!matchesSkin) return false;
+    } else if (isLose) {
+      if (recipe.category !== 'lose') return false;
+    } else if (isMuscle) {
+      if (recipe.category !== 'muscle') return false;
+    }
+
+    // 2. Filter by ingredients if checked
     if (hasIngredientsFilter) {
       return recipe.ingredients.every(ing => state.kitchenIngredients.includes(ing));
     }
@@ -1458,8 +1707,8 @@ function renderNaturalCare() {
   if (filtered.length === 0) {
     listContainer.innerHTML = `
       <p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:24px 12px; background:rgba(255,255,255,0.02); border-radius:16px; border:1px dashed var(--border); line-height:1.4;">
-        No home remedies match your current kitchen ingredients.<br>
-        <span style="font-size:0.78rem; font-weight:normal;">Try checking more ingredients in the checklist above!</span>
+        No home remedies or hacks match your current kitchen ingredients.<br>
+        <span style="font-size:0.78rem; font-weight:normal;">Try unchecking filters or check what you have in the checklist above!</span>
       </p>
     `;
     return;
@@ -1492,16 +1741,16 @@ function renderNaturalCare() {
           <strong style="color:var(--text); display:block; margin-bottom:4px;">Preparation</strong>
           <p style="margin:0 0 10px 0;">${recipe.preparation}</p>
           
-          <strong style="color:var(--text); display:block; margin-bottom:4px;">How to Apply</strong>
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Instructions</strong>
           <p style="margin:0 0 10px 0;">${recipe.howToApply}</p>
           
           <strong style="color:var(--text); display:block; margin-bottom:4px;">Expected Timeline</strong>
           <p style="margin:0 0 10px 0;">⏰ ${recipe.timeline}</p>
-
+ 
           <strong style="color:var(--text); display:block; margin-bottom:4px;">Scientific Backing</strong>
           <p style="margin:0 0 0 0; font-style:italic; font-size:0.78rem;">🔬 ${recipe.science}</p>
         </div>
-
+ 
         <div style="border-top:1px solid var(--border); padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:0.8rem; font-weight:600;">Did this help?</span>
           <div style="display:flex; gap:6px;">
@@ -1513,7 +1762,7 @@ function renderNaturalCare() {
       </article>
     `;
   }).join('');
-
+ 
   listContainer.querySelectorAll('.feedback-vote-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const recipeId = e.currentTarget.dataset.id;
@@ -1775,7 +2024,7 @@ async function getCoachReply(message) {
     : 'No foods logged yet today.';
 
   const systemInstruction = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo, ${state.weight}kg user with target weight ${state.targetWeight}kg.
-  Their height is ${state.height} and diet preference is: ${state.dietType}.
+  Their height is ${state.height}, diet preference is: ${state.dietType}, and they wake up at ${state.wakeUpTime || '07:00'}.
   Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Skincare Goal: ' + state.goalType}.
   Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
   
@@ -2725,6 +2974,7 @@ function deleteData() {
   localStorage.removeItem('relix-skin-type');
   localStorage.removeItem('relix-kitchen');
   localStorage.removeItem('relix-target-hyd');
+  localStorage.removeItem('relix-wakeup-time');
   window.location.reload();
 }
 
@@ -2918,6 +3168,7 @@ function saveState() {
   localStorage.setItem('relix-consumed-pro', String(state.consumedProtein));
   localStorage.setItem('relix-consumed-hyd', String(state.consumedHydration));
   localStorage.setItem('relix-target-hyd', String(state.targetHydration));
+  localStorage.setItem('relix-wakeup-time', state.wakeUpTime);
   localStorage.setItem('relix-last-log', JSON.stringify(state.lastLog));
   localStorage.setItem('relix-profile-name', state.profileName);
   localStorage.setItem('relix-xp', String(state.xp));
