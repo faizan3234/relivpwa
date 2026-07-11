@@ -11,18 +11,16 @@ import https from 'https';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+
+// ---------------------------------------------------------------------------
+// GEMINI API KEY (Secure - kept on backend only)
+// ---------------------------------------------------------------------------
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 // ---------------------------------------------------------------------------
 // VAPID KEYS
-// ---------------------------------------------------------------------------
-// Priority:
-//   1. Real env vars (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY) - survives every
-//      restart AND every redeploy. THIS IS THE FIX for "key resets on refresh".
-//   2. A local vapid-keys.json file - survives sleep/wake restarts on Render's
-//      free tier (same container), but NOT a fresh deploy.
-//   3. Freshly generated keys as a last resort (will change on every restart -
-//      you'll see a loud warning telling you to fix this).
 // ---------------------------------------------------------------------------
 const KEYS_FILE = path.join(__dirname, 'vapid-keys.json');
 
@@ -40,10 +38,6 @@ function loadOrCreateVapidKeys() {
       const saved = JSON.parse(fs.readFileSync(KEYS_FILE, 'utf8'));
       if (saved.publicKey && saved.privateKey) {
         console.log('[vapid] Loaded previously generated keys from vapid-keys.json.');
-        console.log('[vapid] IMPORTANT: set these as real env vars on your host so they');
-        console.log('[vapid] survive a redeploy too, not just a restart:');
-        console.log(`VAPID_PUBLIC_KEY=${saved.publicKey}`);
-        console.log(`VAPID_PRIVATE_KEY=${saved.privateKey}`);
         return saved;
       }
     } catch (err) {
@@ -56,12 +50,7 @@ function loadOrCreateVapidKeys() {
     fs.writeFileSync(KEYS_FILE, JSON.stringify(fresh, null, 2));
   } catch (err) {
     console.log('[vapid] WARNING: could not write vapid-keys.json (read-only filesystem?).');
-    console.log('[vapid] Your keys WILL change on next restart until you set env vars below.');
   }
-  console.log('[vapid] Generated NEW VAPID keys. Set these as env vars on your host');
-  console.log('[vapid] (e.g. Render > Environment) to stop them from ever changing again:');
-  console.log(`VAPID_PUBLIC_KEY=${fresh.publicKey}`);
-  console.log(`VAPID_PRIVATE_KEY=${fresh.privateKey}`);
   return fresh;
 }
 
@@ -72,10 +61,7 @@ process.env.VAPID_PRIVATE_KEY = vapidKeys.privateKey;
 webpush.setVapidDetails('mailto:admin@relivpwa.onrender.com', vapidKeys.publicKey, vapidKeys.privateKey);
 
 // ---------------------------------------------------------------------------
-// SUBSCRIPTIONS - persisted to disk so a restart doesn't silently drop every
-// device (which is why "it only works while the app is open" happened: after
-// any restart the in-memory Set was empty, so /water/start and /test/start
-// had nobody to actually push to, even though the app looked "subscribed").
+// SUBSCRIPTIONS
 // ---------------------------------------------------------------------------
 const SUBS_FILE = path.join(__dirname, 'subscriptions.json');
 
@@ -107,7 +93,6 @@ async function broadcast(payloadObj) {
     try {
       await webpush.sendNotification(JSON.parse(subStr), payload, { TTL: 86400, urgency: 'high' });
     } catch (err) {
-      // 404/410 = the subscription is dead (user uninstalled, permission revoked, etc).
       if (err.statusCode === 404 || err.statusCode === 410) {
         subscriptions.delete(subStr);
         removed++;
@@ -192,18 +177,8 @@ app.post('/api/push/remind', (req, res) => {
 // ---------------------------------------------------------------------------
 // KEYED, PERSISTENT REMINDER SCHEDULER
 // ---------------------------------------------------------------------------
-// Used for the recurring water/skin/diet reminders. Two problems this fixes
-// vs. plain setTimeout:
-//   1. Duplicate pushes: the app re-syncs every time it's opened/focused. A
-//      bare setTimeout per call would stack N pending timers for the same
-//      reminder. Keying by `key` means a new call REPLACES the old timer.
-//   2. Missed pushes: if the server restarts (Render free tier sleeping)
-//      between "schedule" and "due", a plain in-memory timer is lost forever.
-//      Persisting to disk lets us recover on boot - firing immediately if the
-//      due time already passed, or re-arming with the remaining delay.
-// ---------------------------------------------------------------------------
 const SCHEDULE_FILE = path.join(__dirname, 'schedules.json');
-const scheduledTimers = {}; // key -> Node timeout handle (in-memory, not persisted)
+const scheduledTimers = {};
 
 function loadSchedules() {
   try {
@@ -260,7 +235,7 @@ function startSelfPing(url) {
     if (serverPublicUrl) {
       pingUrl(serverPublicUrl);
     }
-  }, 10 * 60 * 1000); // every 10 minutes
+  }, 10 * 60 * 1000);
 }
 
 function armSchedule(key, title, body, dueAt) {
@@ -274,7 +249,6 @@ function armSchedule(key, title, body, dueAt) {
   }, delay);
 }
 
-// Recover anything that was still pending when the server last stopped.
 const recoveredKeys = Object.keys(schedules);
 recoveredKeys.forEach((key) => {
   if (key === '_serverPublicUrl') return;
@@ -295,7 +269,6 @@ app.post('/api/push/schedule', (req, res) => {
   saveSchedules();
   armSchedule(key, title, body, dueAt);
 
-  // Self-ping to keep Render container awake during pending reminders
   const selfUrl = `${req.protocol}://${req.get('host')}`;
   startSelfPing(selfUrl);
 
@@ -311,7 +284,6 @@ app.post('/api/push/cancel', (req, res) => {
   res.json({ ok: true });
 });
 
-// Dynamic Background Timers
 let waterInterval = null;
 
 app.post('/api/push/water/start', (req, res) => {
@@ -319,7 +291,7 @@ app.post('/api/push/water/start', (req, res) => {
   broadcast({ title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.' });
   waterInterval = setInterval(() => {
     broadcast({ title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.' });
-  }, 45 * 60 * 1000); // 45 minutes
+  }, 45 * 60 * 1000);
   res.json({ ok: true, status: 'started' });
 });
 
@@ -337,7 +309,146 @@ app.get('/api/push/status', (req, res) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// AI API PROXIES - Secure (Backend holds API keys)
+// ---------------------------------------------------------------------------
+
+// POST /api/ai/chat - Proxy chat requests to Gemini or Groq
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    const { messages, useGroq } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Invalid messages array' });
+    }
+
+    let response;
+    if (useGroq && GROQ_API_KEY) {
+      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages,
+          response_format: { type: 'json_object' }
+        })
+      });
+    } else {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const payload = {
+        contents: messages.map((m, i) => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        })),
+        generationConfig: { responseMimeType: 'application/json' }
+      };
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('[ai/chat] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai/analyze-image - Proxy meal/face image analysis to Gemini
+app.post('/api/ai/analyze-image', async (req, res) => {
+  try {
+    const { imageBase64, prompt, mimeType } = req.body;
+    if (!imageBase64 || !prompt) {
+      return res.status(400).json({ error: 'Missing imageBase64 or prompt' });
+    }
+
+    let base64Data = imageBase64;
+    let detectedMimeType = mimeType || 'image/jpeg';
+    if (imageBase64.includes(',')) {
+      const parts = imageBase64.split(',');
+      detectedMimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+      base64Data = parts[1];
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const payload = {
+      contents: [{
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: detectedMimeType,
+              data: base64Data
+            }
+          }
+        ]
+      }],
+      generationConfig: { responseMimeType: 'application/json' }
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('[ai/analyze-image] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai/pdf-process - Extract and process PDF for AI knowledge base
+app.post('/api/ai/pdf-process', async (req, res) => {
+  try {
+    const { pdfText, action } = req.body; // action: 'flashcards' | 'quiz' | 'lesson' | 'summary'
+    if (!pdfText || !action) {
+      return res.status(400).json({ error: 'Missing pdfText or action' });
+    }
+
+    let prompt = '';
+    if (action === 'flashcards') {
+      prompt = `Extract key concepts from this text and create a JSON array of flashcard objects. Each object should have 'front' (question) and 'back' (answer) fields. Return ONLY valid JSON.\n\nText:\n${pdfText}`;
+    } else if (action === 'quiz') {
+      prompt = `Create a JSON array of 5 multiple-choice quiz questions from this text. Each question should have 'question', 'options' (array of 4), and 'correct' (index of correct answer). Return ONLY valid JSON.\n\nText:\n${pdfText}`;
+    } else if (action === 'lesson') {
+      prompt = `Summarize this text as structured lesson with 'title', 'overview', 'keyPoints' (array), and 'summary'. Return ONLY valid JSON.\n\nText:\n${pdfText}`;
+    } else {
+      prompt = `Create a concise summary of this text. Return valid JSON with 'summary' and 'keyTakeaways' fields.\n\nText:\n${pdfText}`;
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const payload = {
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: { responseMimeType: 'application/json' }
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('[ai/pdf-process] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Reliv backend running on port ${PORT}`);
+  console.log(`[ai] Gemini API configured: ${GEMINI_API_KEY ? 'Yes' : 'No'}`);
+  console.log(`[ai] Groq API configured: ${GROQ_API_KEY ? 'Yes' : 'No'}`);
 });
