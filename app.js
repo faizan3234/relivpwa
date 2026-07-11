@@ -220,6 +220,7 @@ function init() {
   showWelcome();
   processMissedActions();
   checkDailyReset();
+  setInterval(checkDailyReset, 60000);
 
   if ('serviceWorker' in navigator && 'PushManager' in window) {
     subscribeToPushNotifications(false);
@@ -455,13 +456,8 @@ function bindEvents() {
   const resetDailyBtn = document.getElementById('reset-daily-progress');
   if (resetDailyBtn) {
     resetDailyBtn.addEventListener('click', () => {
-      if (!confirm("Are you sure you want to reset today's food macro counters?")) return;
-      state.consumedCalories = 0;
-      state.consumedProtein = 0;
-      state.loggedFoods = [];
-      saveState();
-      renderDashboard();
-      showToast('Daily progress reset.');
+      if (!confirm("Are you sure you want to force a New Day Reset? This will archive today's stats, update your streak, and start a fresh day.")) return;
+      checkDailyReset(true);
     });
   }
 
@@ -2452,15 +2448,14 @@ function updateConnectionStatus() {
   }
 }
 
-function checkDailyReset() {
-  const resetInterval = 24 * 60 * 60 * 1000; // 24 hours
-  const warningInterval = 23 * 60 * 60 * 1000; // 23 hours
-  const now = Date.now();
-  const elapsed = now - state.dayStartTime;
+function checkDailyReset(force = false) {
+  const now = new Date();
+  const start = new Date(state.dayStartTime);
 
   renderStreakBanner();
 
-  if (elapsed >= resetInterval) {
+  // If calendar date has changed, or if forced, trigger daily reset
+  if (force || now.toDateString() !== start.toDateString()) {
     let progress = 0;
     if (state.goalType === 'skin') {
       progress = state.targetHydration > 0 ? (state.consumedHydration / state.targetHydration) : 1;
@@ -2481,7 +2476,7 @@ function checkDailyReset() {
     }
 
     // Archive yesterday's logs
-    const yesterdayDate = new Date(state.dayStartTime).toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const yesterdayDate = start.toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
     const logSummary = {
       date: yesterdayDate,
       calories: state.consumedCalories,
@@ -2502,19 +2497,24 @@ function checkDailyReset() {
     state.completedTasks = [];
     state.loggedFoods = [];
     state.loggedHydrations = [];
-    state.dayStartTime = now;
+    state.dayStartTime = now.getTime();
     saveState();
 
-    scheduleResetWarningNotification(now + warningInterval);
+    // Reset warning schedule to 11 PM tonight
+    const warningTime = new Date();
+    warningTime.setHours(23, 0, 0, 0);
+    scheduleResetWarningNotification(warningTime.getTime());
 
     renderDashboard();
     renderRoutine();
     renderProfile();
     renderStreakBanner();
   } else {
-    const warningTime = state.dayStartTime + warningInterval;
-    if (now < warningTime) {
-      scheduleResetWarningNotification(warningTime);
+    // Schedule warning notification at 11 PM today if not already passed
+    const warningTime = new Date();
+    warningTime.setHours(23, 0, 0, 0);
+    if (now.getTime() < warningTime.getTime()) {
+      scheduleResetWarningNotification(warningTime.getTime());
     }
   }
 }
@@ -2559,7 +2559,56 @@ function restoreStreak() {
   }
 }
 
+function recalculateDeservedXP() {
+  let totalXP = 0;
+  
+  // Base XP from current streak:
+  totalXP += (state.streak || 0) * 100;
+  
+  // Historical logs:
+  if (state.historicalLogs) {
+    state.historicalLogs.forEach(h => {
+      let progress = 0;
+      if (state.goalType === 'skin') {
+        progress = state.targetHydration > 0 ? (h.hydration / state.targetHydration) : 1;
+      } else {
+        const calProg = state.targetCalories > 0 ? (h.calories / state.targetCalories) : 1;
+        const proProg = state.targetProtein > 0 ? (h.protein / state.targetProtein) : 1;
+        progress = (calProg + proProg) / 2;
+      }
+      if (progress >= 0.8) {
+        totalXP += 150;
+      } else {
+        totalXP += 50;
+      }
+    });
+  }
+  
+  // Today's completed habits:
+  const doneHabitsCount = (state.completedTasks || []).filter((value) => typeof value === 'number').length;
+  totalXP += doneHabitsCount * 30;
+  
+  // Today's quick check-ins:
+  const doneQuickChecksCount = (state.completedTasks || []).filter((value) => typeof value === 'string').length;
+  totalXP += doneQuickChecksCount * 15;
+  
+  // Today's logged foods:
+  const foodCount = Math.min(5, (state.loggedFoods || []).length);
+  totalXP += foodCount * 20;
+  
+  // Today's logged hydration (capped at targetHydration):
+  const waterXP = Math.floor(Math.min(state.consumedHydration || 0, state.targetHydration || 3500) / 250) * 10;
+  totalXP += waterXP;
+  
+  state.xp = totalXP;
+  state.level = 1 + Math.floor(state.xp / 250);
+  state.weekly = Math.min(100, Math.round(20 + state.xp / 10 + (state.streak || 0) * 2));
+  state.dailyScore = Math.min(100, Math.round(40 + doneHabitsCount * 8 + doneQuickChecksCount * 5 + Math.min(5, state.dailyMeals || 0) * 5 + (state.streak || 0) * 3));
+}
+
 function saveState() {
+  recalculateDeservedXP();
+
   localStorage.setItem('relix-setup', String(state.setupComplete));
   localStorage.setItem('relix-groq-key', state.groqKey);
   localStorage.setItem('relix-goal', state.goalType);
@@ -2620,10 +2669,6 @@ function recordActivity(label, points = 10) {
     }
     state.lastActivityDate = today;
   }
-  state.xp += points;
-  state.level = 1 + Math.floor(state.xp / 250);
-  state.weekly = Math.min(100, Math.round(20 + state.xp / 10 + state.streak * 2));
-  state.dailyScore = Math.min(100, Math.round(40 + state.completedTasks.length * 8 + state.dailyMeals * 5 + state.streak * 3));
   state.recentActivity.unshift({ label, time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) });
   state.recentActivity = state.recentActivity.slice(0, 5);
   saveState();
