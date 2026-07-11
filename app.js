@@ -11,6 +11,164 @@ const brand = {
   reminder: 'Hydration check-in · 3:30 PM'
 };
 
+const shakeIngredients = [
+  { id: 'curd', name: '🥛 Curd (100g)', protein: 10, calories: 98 },
+  { id: 'milk', name: '🥛 Milk (250ml)', protein: 8, calories: 150 },
+  { id: 'biscuit', name: '🍪 Biscuit (4 pcs)', protein: 2, calories: 120 },
+  { id: 'oats', name: '🥣 Oats (40g)', protein: 5, calories: 152 },
+  { id: 'banana', name: '🍌 Banana (1 large)', protein: 1.3, calories: 105 },
+  { id: 'chocolate', name: '🍫 Chocolate (1 tbsp)', protein: 0.5, calories: 50 },
+  { id: 'coffee', name: '☕ Coffee (1 tsp)', protein: 0.2, calories: 5 },
+  { id: 'pb', name: '🥜 Peanut Butter (1 tbsp)', protein: 4, calories: 94 },
+  { id: 'almond', name: '🥜 Almonds (10 pcs)', protein: 2.5, calories: 70 },
+  { id: 'dates', name: '🌴 Dates (3 pcs)', protein: 0.6, calories: 60 },
+  { id: 'honey', name: '🍯 Honey (1 tbsp)', protein: 0, calories: 64 }
+];
+
+const skincareConcerns = [
+  {
+    id: 'pih',
+    title: '🔴 Post-Acne Marks (PIH)',
+    desc: 'Leftover dark brown/black marks from previous pimples.',
+    symptoms: 'Flat, dark-pigmented spots on cheeks/forehead.',
+    why: 'Melanin overproduction triggered by acne inflammation.',
+    best: 'Sunscreen (SPF 50), Vitamin C (morning), Niacinamide, Retinoids (night).',
+    worst: 'Picking pimples, using harsh scrubs, skipping sunscreen.',
+    routine: 'Morning: Vit C + Niacinamide + Sunscreen. Night: Gentle Cleanser + Retinoid + Moisturizer.',
+    home: 'Curd & Turmeric pack (helps fade marks gently).',
+    medical: 'Chemical peels, Microneedling, Q-switched Nd:YAG laser.',
+    timeline: '3 to 6 months of daily consistency.'
+  },
+  {
+    id: 'scars',
+    title: '🟡 Atrophic Acne Scarring',
+    desc: 'Shallow depressions or pits in the skin.',
+    symptoms: 'Uneven light reflection, boxcar or rolling depressions.',
+    why: 'Collagen loss during severe or picked acne healing.',
+    best: 'Retinoids (adapalene, tretinoin), Glycolic acid.',
+    worst: 'Over-exfoliating, hoping creams alone will lift deep scars.',
+    routine: 'Morning: Hydrating SPF. Night: Retinoid + Ceramide moisturizer.',
+    home: 'Aloe vera & Honey (soothes but does not lift deep scars).',
+    medical: 'Microneedling (strong evidence), RF Microneedling, Fractional CO2 Laser, Subcision.',
+    timeline: '6 to 12 months with clinic procedures.'
+  },
+  {
+    id: 'pores',
+    title: '🔵 Enlarged Pores & Rough Texture',
+    desc: 'Visible pores and bumpy texture blocking glass skin.',
+    symptoms: 'Orange-peel look, slightly rough cheek/nose area.',
+    why: 'Excess sebum, lost elasticity around pore walls, dead cell buildup.',
+    best: 'Salicylic Acid (BHA), Niacinamide (oil control), Retinoids.',
+    worst: 'Comedogenic oils (coconut oil), heavy makeup, skipping washing.',
+    routine: 'Morning: Niacinamide. Night: BHA toner (2-3x weekly) + Retinoid.',
+    home: 'Oatmeal & Honey scrub (smooths rough dead skin gently).',
+    medical: 'Salicylic acid peels, Laser resurfacing, HydraFacial.',
+    timeline: '4 to 8 weeks for visible oil reduction.'
+  },
+  {
+    id: 'pcod',
+    title: '🟢 PCOS Acne & Hormonal Breakouts',
+    desc: 'Acne on the jawline, chin, and neck associated with hormone cycles.',
+    symptoms: 'Deep painful cysts, irregular periods, facial hair.',
+    why: 'Excess androgens stimulating oil glands (often linked to PCOS).',
+    best: 'Salicylic acid, Benzoyl peroxide, Niacinamide, Zinc.',
+    worst: 'High sugar foods, dairy, popping deep hormonal cysts.',
+    routine: 'Morning: Gentle foaming cleanser + Niacinamide + SPF. Night: Salicylic acid + Moisturizer.',
+    home: 'Green Tea rinse (anti-androgenetic properties on skin).',
+    medical: 'Oral contraceptives, Spironolactone (prescribed by doctor), hormonal blood tests.',
+    timeline: '3 to 6 months to balance hormonal flareups.'
+  },
+  {
+    id: 'beard',
+    title: '🧔 Beard Patchiness & Shadow',
+    desc: 'Sparse growth on cheeks and dark shadow after shaving.',
+    symptoms: 'Patchy cheek density, ingrown hairs, dark follicle dots.',
+    why: 'Genetics, local blood circulation, or follicle sensitivity to DHT.',
+    best: 'Gentle exfoliating acids (salicylic acid to prevent razor bumps).',
+    worst: 'Dry shaving, dull razors, heavy comedogenic beard oils.',
+    routine: 'Morning: Clean shave + Moisturize. Night: Gentle BHA scrub + barrier repair.',
+    home: 'Aloe vera & Cucumber gel (cools shaving irritation).',
+    medical: 'Dermatologist consultation, Minoxidil (under guidance), Microneedling.',
+    timeline: 'Beard continues maturing into the late 20s.'
+  },
+  {
+    id: 'glass',
+    title: '🇰🇷 Korean Glass Skin Guide',
+    desc: 'How to achieve the translucent, dewy, and smooth glass skin finish.',
+    symptoms: 'Dullness, dehydration, lack of dewy bounce.',
+    why: 'Dry skin and lack of deep hydration layers.',
+    best: 'Hyaluronic Acid, Ceramides, Rice Water Toner, Snail Mucin.',
+    worst: 'Harsh alcohol-based toners, skipping moisturizer, sun exposure.',
+    routine: 'Double Cleanse -> Hydrating Toner -> Essence/Mucin -> Moisturizer -> SPF.',
+    home: 'Green Tea & Rice Water compress (hydrates and brightens).',
+    medical: 'Skin booster injections, Chemical peels, RF Microneedling.',
+    timeline: '3 to 6 weeks for standard hydration bounce.'
+  }
+];
+
+const weightLossConcerns = [
+  {
+    id: 'deficit',
+    title: '🔥 Calorie Deficit Guide',
+    desc: 'The absolute baseline rule of fat loss.',
+    why: 'Fat loss occurs only when energy output exceeds energy input.',
+    best: 'Fibre-rich vegetables, lean proteins, high-volume foods.',
+    worst: 'Crash diets (below 1200 kcal), skipping meals then binge eating.',
+    routine: 'Track daily meals, walk 8000+ steps, sleep 8 hours.',
+    home: 'Drink warm water or black coffee to blunt sudden hunger cues.',
+    swap: 'Swap Butter Naan (320 kcal) for Phulka (80 kcal).',
+    timeline: 'Safe fat loss is 0.5kg to 1kg per week.'
+  },
+  {
+    id: 'protein',
+    title: '🥚 Protein & Muscle Retention',
+    desc: 'Why protein is your best friend during a cut.',
+    why: 'Protein has a high thermic effect and keeps you full while preserving muscle.',
+    best: 'Egg whites, chicken breast, paneer, curd, soya chunks.',
+    worst: 'Eating carb-only meals (like bread/jam) which lead to rapid hunger spikes.',
+    routine: 'Aim for 1.8g to 2.2g of protein per kg of bodyweight daily.',
+    home: 'Keep boiled eggs or roasted chana handy for quick, high-protein snacks.',
+    swap: 'Swap chips for roasted peanuts or roasted chana.',
+    timeline: 'Immediate boost in satiety from Day 1.'
+  },
+  {
+    id: 'plateau',
+    title: '🛑 AI Plateau Doctor',
+    desc: 'What to do if your weight loss halts for 2+ weeks.',
+    why: 'Metabolic adaptation, hidden liquid calories, or fluid retention masking fat loss.',
+    best: 'Increasing step count, double checking portion sizes, sleeping well.',
+    worst: 'Panicking and dropping calories further, which harms metabolism.',
+    routine: 'Reset targets, add a 10-minute walk after each meal.',
+    home: 'Stress reduction techniques (high cortisol levels retain water).',
+    swap: 'Use a digital scale instead of guessing cup sizes.',
+    timeline: 'Usually breaks the plateau within 7 to 10 days.'
+  },
+  {
+    id: 'fluctuation',
+    title: '📈 Overnight Weight Fluctuation',
+    desc: 'Why your scale weight jumped 1kg overnight.',
+    why: 'Carbohydrate storage (1g carbs holds 3g water), sodium/salt, stress, or digestion.',
+    best: 'Understanding that water weight is not fat gain.',
+    worst: 'Crash dieting or over-exercising the next day to "compensate".',
+    routine: 'Weigh yourself once a week under consistent morning conditions.',
+    home: 'Sip lemon water to naturally flush excess sodium retention.',
+    swap: 'Trust the weekly average, not the daily number.',
+    timeline: 'Water shifts normalize within 24 to 48 hours.'
+  },
+  {
+    id: 'cheat',
+    title: '🍕 Cheat Meal & Event Planner',
+    desc: 'How to manage weddings, festivals, and cheat meals.',
+    why: 'Restricting foods completely leads to binging. Guided balance is key.',
+    best: 'Protein-first eating before the event, portion control.',
+    worst: 'Starving yourself all day before a cheat meal (causes heavy overeating).',
+    routine: 'Limit cheat meals to once a week. Fill up on salad/water first.',
+    home: 'Walk 10,000 steps on the day of a heavy meal to increase burn.',
+    swap: 'Swap sugary cold drinks for Coke Zero or club soda.',
+    timeline: 'Saves 500-1000 kcal per social event.'
+  }
+];
+
 function getNextDueTime(timeStr) {
   const [hours, minutes] = timeStr.split(':').map(Number);
   const target = new Date();
@@ -89,6 +247,7 @@ const state = {
   remindersPaused: localStorage.getItem('relix-reminders-paused') === 'true',
   activeTab: 'dashboard',
   profileName: localStorage.getItem('relix-profile-name') || 'Your Name',
+  gender: localStorage.getItem('relix-gender') || 'female',
   groqKey: localStorage.getItem('relix-groq-key') || '',
   setupComplete: localStorage.getItem('relix-setup') === 'true',
   goalType: localStorage.getItem('relix-goal') || 'muscle',
@@ -125,6 +284,7 @@ const state = {
   historicalLogs: JSON.parse(localStorage.getItem('relix-historical-logs') || '[]'),
   skinType: localStorage.getItem('relix-skin-type') || 'oily',
   kitchenIngredients: JSON.parse(localStorage.getItem('relix-kitchen') || '[]'),
+  shakeIngredients: JSON.parse(localStorage.getItem('relix-shake-ingredients') || '[]'),
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
@@ -204,6 +364,7 @@ const els = {
   inviteTeam: document.getElementById('invite-team'),
   setupModal: document.getElementById('setup-modal'),
   setupName: document.getElementById('setup-name'),
+  setupGender: document.getElementById('setup-gender'),
   setupGoal: document.getElementById('setup-goal'),
   setupAge: document.getElementById('setup-age'),
   setupHeight: document.getElementById('setup-height'),
@@ -395,6 +556,7 @@ function bindEvents() {
   if (els.finishSetup) {
     els.finishSetup.addEventListener('click', () => {
       const nameVal = (els.setupName?.value || '').trim();
+      const genderVal = els.setupGender?.value || 'female';
       const goalVal = els.setupGoal?.value || 'muscle';
       const ageVal = els.setupAge?.value ? Number(els.setupAge.value) : null;
       const heightVal = (els.setupHeight?.value || '').trim();
@@ -404,32 +566,46 @@ function bindEvents() {
       const skinTypeVal = els.setupSkinType?.value || 'oily';
       const wakeUpTimeVal = els.setupWakeUpTime?.value || '07:00';
 
+      // Reset borders first
+      if (els.setupName) els.setupName.style.border = '1px solid var(--border)';
+      if (els.setupGender) els.setupGender.style.border = '1px solid var(--border)';
+      if (els.setupAge) els.setupAge.style.border = '1px solid var(--border)';
+      if (els.setupHeight) els.setupHeight.style.border = '1px solid var(--border)';
+      if (els.setupWeight) els.setupWeight.style.border = '1px solid var(--border)';
+      if (els.setupTarget) els.setupTarget.style.border = '1px solid var(--border)';
+
       if (!nameVal) {
+        if (els.setupName) els.setupName.style.border = '2px solid #ef4444';
         showToast('Please enter your name.');
         return;
       }
       if (!ageVal || isNaN(ageVal)) {
+        if (els.setupAge) els.setupAge.style.border = '2px solid #ef4444';
         showToast('Please enter your age.');
         return;
       }
       if (!heightVal) {
-        showToast('Please enter your height (e.g. 5\'9" or 175 cm).');
+        if (els.setupHeight) els.setupHeight.style.border = '2px solid #ef4444';
+        showToast('Please select your height.');
         return;
       }
 
       const isSkincare = goalVal.startsWith('skin');
       if (!isSkincare) {
         if (!weightVal || isNaN(weightVal)) {
+          if (els.setupWeight) els.setupWeight.style.border = '2px solid #ef4444';
           showToast('Please enter your weight.');
           return;
         }
         if (!targetWeightVal || isNaN(targetWeightVal)) {
+          if (els.setupTarget) els.setupTarget.style.border = '2px solid #ef4444';
           showToast('Please enter your target weight.');
           return;
         }
       }
 
       state.profileName = nameVal;
+      state.gender = genderVal;
       state.goalType = goalVal;
       state.age = ageVal;
       state.height = heightVal;
@@ -793,6 +969,7 @@ function parseLocalFoodIntake(text) {
     editStatsBtn.addEventListener('click', () => {
       if (els.setupModal) {
         if (els.setupName) els.setupName.value = state.profileName;
+        if (els.setupGender) els.setupGender.value = state.gender || 'female';
         if (els.setupGoal) {
           els.setupGoal.value = state.goalType;
           const isSkin = els.setupGoal.value.startsWith('skin');
@@ -927,6 +1104,59 @@ function parseLocalFoodIntake(text) {
       renderNaturalCare();
     });
   });
+
+  // Shake confirm modal event listeners
+  const confirmShakeYes = document.getElementById('confirm-shake-yes');
+  const confirmShakeNo = document.getElementById('confirm-shake-no');
+  const shakeModal = document.getElementById('shake-confirm-modal');
+  if (confirmShakeYes && shakeModal) {
+    confirmShakeYes.addEventListener('click', () => {
+      let totalCal = 0;
+      let totalPro = 0;
+      const currentSelected = state.shakeIngredients || [];
+      
+      shakeIngredients.forEach(ing => {
+        if (currentSelected.includes(ing.id)) {
+          totalCal += ing.calories;
+          totalPro += ing.protein;
+        }
+      });
+      
+      const newFood = {
+        name: 'Homemade Anabolic Shake',
+        calories: totalCal,
+        protein: Math.round(totalPro)
+      };
+      
+      state.consumedCalories += newFood.calories;
+      state.consumedProtein += newFood.protein;
+      state.loggedFoods.push(newFood);
+      
+      // Reward some experience points
+      state.xp += 15;
+      if (state.xp >= state.level * 200) {
+        state.xp -= state.level * 200;
+        state.level += 1;
+        showToast(`🎉 Level Up! You are now Level ${state.level}!`);
+      }
+      
+      saveState();
+      renderDashboard();
+      renderRoutine();
+      
+      shakeModal.style.display = 'none';
+      shakeModal.classList.remove('open');
+      shakeModal.setAttribute('aria-hidden', 'true');
+      showToast('Shake logged successfully!');
+    });
+  }
+  if (confirmShakeNo && shakeModal) {
+    confirmShakeNo.addEventListener('click', () => {
+      shakeModal.style.display = 'none';
+      shakeModal.classList.remove('open');
+      shakeModal.setAttribute('aria-hidden', 'true');
+    });
+  }
 }
 
 function getUnreadReminderCount() {
@@ -1085,7 +1315,24 @@ function renderCloseTheGap() {
       </div>
     `;
   } else if (state.goalType === 'lose') {
-    if (leftCal === 0) {
+    const isCalOver = state.consumedCalories > state.targetCalories;
+    const isProOver = state.consumedProtein > state.targetProtein;
+    
+    if (isCalOver || isProOver) {
+      let warningMsg = '';
+      if (isCalOver) {
+        warningMsg += `<p style="margin: 0 0 6px 0;">⚠️ <strong>Calorie Deficit Warning:</strong> You are over your daily calorie limit for weight loss by <strong>${state.consumedCalories - state.targetCalories} kcal</strong>. This halts fat loss.</p>`;
+      }
+      if (isProOver) {
+        warningMsg += `<p style="margin: 0;">⚠️ <strong>Protein Warning:</strong> You are over your daily protein target by <strong>${state.consumedProtein - state.targetProtein}g</strong>. Keep your intake balanced.</p>`;
+      }
+      
+      html = `
+        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.18); border-radius:16px; padding:12px 14px; font-size:0.86rem; color:#ef4444; line-height:1.45; margin-bottom: 8px;">
+          ${warningMsg}
+        </div>
+      `;
+    } else if (leftCal === 0) {
       html = `
         <div style="text-align:center; padding:12px; background:rgba(22,163,74,0.08); border-radius:16px;">
           <strong style="color:#16a34a; font-size:1.1rem; display:block;">🎉 Deficit targets hit!</strong>
@@ -1582,14 +1829,14 @@ function renderNaturalCare() {
   const isMuscle = state.goalType === 'muscle';
 
   // Dynamic tab bar title updates
-  const naturalTabBtn = document.querySelector('.tab-btn[data-tab="natural"]');
+  const naturalTabBtn = document.querySelector('.nav-pill[data-tab="natural"]');
   if (naturalTabBtn) {
     if (isSkin) {
-      naturalTabBtn.innerHTML = '<span style="font-size:1.4rem; display:block; margin-bottom:2px;">🍃</span>Natural';
+      naturalTabBtn.innerHTML = '🍃<span>Natural</span>';
     } else if (isLose) {
-      naturalTabBtn.innerHTML = '<span style="font-size:1.4rem; display:block; margin-bottom:2px;">🍃</span>Home Hacks';
+      naturalTabBtn.innerHTML = '🍃<span>Home Hacks</span>';
     } else {
-      naturalTabBtn.innerHTML = '<span style="font-size:1.4rem; display:block; margin-bottom:2px;">🍃</span>Anabolic Prep';
+      naturalTabBtn.innerHTML = '🍃<span>Anabolic Prep</span>';
     }
   }
 
@@ -1622,6 +1869,77 @@ function renderNaturalCare() {
   const lockedTypeEl = document.getElementById('natural-skin-type-locked');
   if (lockedTypeEl) {
     lockedTypeEl.textContent = state.skinType || 'oily';
+  }
+
+  // Render Anabolic Shake Builder dynamically when active goal is Bulking / Muscle Gain
+  const builderContainer = document.getElementById('anabolic-shake-builder-container');
+  if (builderContainer) {
+    if (isMuscle) {
+      builderContainer.style.display = 'block';
+      const currentSelected = state.shakeIngredients || [];
+      let totalCal = 0;
+      let totalPro = 0;
+      
+      shakeIngredients.forEach(ing => {
+        if (currentSelected.includes(ing.id)) {
+          totalCal += ing.calories;
+          totalPro += ing.protein;
+        }
+      });
+      
+      const checkboxesHTML = shakeIngredients.map(ing => {
+        const isChecked = currentSelected.includes(ing.id) ? 'checked' : '';
+        return `
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer; padding:4px 0;">
+            <input type="checkbox" class="shake-builder-ing" value="${ing.id}" ${isChecked}>
+            <span>${ing.name} <span style="color:var(--muted); font-size:0.75rem;">(${ing.calories} kcal, ${ing.protein}g protein)</span></span>
+          </label>
+        `;
+      }).join('');
+      
+      builderContainer.innerHTML = `
+        <div class="card" style="padding: 20px;">
+          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">💪 Anabolic Shake Builder</strong>
+          <p style="margin:0 0 12px 0; font-size:0.82rem; color:var(--muted);">Select items to include in your custom homemade shake recipe:</p>
+          
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px 12px; margin-bottom: 14px;">
+            ${checkboxesHTML}
+          </div>
+          
+          <div style="background:rgba(255,122,0,0.06); border:1px solid var(--border); border-radius:16px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div>
+              <span style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; display:block; font-weight:600;">Shake Macros</span>
+              <strong style="font-size:0.95rem; color:var(--text);">${totalCal} kcal · ${totalPro.toFixed(1)}g protein</strong>
+            </div>
+            <button id="log-shake-btn" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.82rem; border-radius:12px; font-weight:700;" ${currentSelected.length === 0 ? 'disabled' : ''}>Consume & Log</button>
+          </div>
+        </div>
+      `;
+      
+      builderContainer.querySelectorAll('.shake-builder-ing').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+          const selected = Array.from(builderContainer.querySelectorAll('.shake-builder-ing:checked')).map(cb => cb.value);
+          state.shakeIngredients = selected;
+          saveState();
+          renderNaturalCare();
+        });
+      });
+      
+      const logShakeBtn = document.getElementById('log-shake-btn');
+      if (logShakeBtn) {
+        logShakeBtn.addEventListener('click', () => {
+          const shakeModal = document.getElementById('shake-confirm-modal');
+          if (shakeModal) {
+            shakeModal.style.display = 'flex';
+            shakeModal.classList.add('open');
+            shakeModal.setAttribute('aria-hidden', 'false');
+          }
+        });
+      }
+    } else {
+      builderContainer.style.display = 'none';
+      builderContainer.innerHTML = '';
+    }
   }
 
   // Render checkbox ingredients dynamically
@@ -1678,6 +1996,96 @@ function renderNaturalCare() {
         renderNaturalCare();
       });
     });
+  }
+
+  // Render Skincare & Weight Loss Concern Library
+  const concernContainer = document.getElementById('concern-library-container');
+  if (concernContainer) {
+    if (isSkin || isLose) {
+      concernContainer.style.display = 'block';
+      const items = isSkin ? skincareConcerns : weightLossConcerns;
+      const titleText = isSkin ? '🎯 Skin Concern Library' : '🧠 Weight Loss Academy';
+      
+      const cardsHTML = items.map(c => {
+        return `
+          <div class="card" style="padding: 16px; border-radius: 18px; margin-bottom: 10px; display:flex; flex-direction:column; gap:8px; border: 1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap: 8px;">
+              <strong style="font-size: 0.95rem; color:var(--text);">${c.title}</strong>
+              <button class="ghost-btn read-concern-btn" data-id="${c.id}" type="button" style="font-size:0.75rem; padding:6px 12px; border-radius:10px; box-shadow:none; border:1px solid var(--border); cursor:pointer;">Learn more</button>
+            </div>
+            <p style="margin:0; font-size:0.82rem; color:var(--muted);">${c.desc}</p>
+          </div>
+        `;
+      }).join('');
+      
+      concernContainer.innerHTML = `
+        <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 10px; margin-top: 10px;">${titleText}</strong>
+        <div style="display:flex; flex-direction:column;">
+          ${cardsHTML}
+        </div>
+      `;
+      
+      concernContainer.querySelectorAll('.read-concern-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          const concern = items.find(x => x.id === id);
+          if (concern) {
+            const modal = document.getElementById('why-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            if (modal && modalTitle && modalBody) {
+              modalTitle.textContent = concern.title;
+              modalBody.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:12px; font-size:0.9rem; line-height:1.5; color:var(--text);">
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">Why it happens:</strong>
+                    <span>${concern.why}</span>
+                  </div>
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">Best Active Ingredients:</strong>
+                    <span>${concern.best}</span>
+                  </div>
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">Things to Avoid:</strong>
+                    <span>${concern.worst}</span>
+                  </div>
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">Action Routine:</strong>
+                    <span>${concern.routine}</span>
+                  </div>
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">At-Home Remedies:</strong>
+                    <span>${concern.home}</span>
+                  </div>
+                  ${concern.swap ? `
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">Suggested Smart Swap:</strong>
+                    <span>${concern.swap}</span>
+                  </div>
+                  ` : ''}
+                  ${concern.medical ? `
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">Clinical Procedures:</strong>
+                    <span>${concern.medical}</span>
+                  </div>
+                  ` : ''}
+                  <div>
+                    <strong style="color:var(--primary); font-size:0.82rem; text-transform:uppercase; display:block;">Expected Timeline:</strong>
+                    <span>${concern.timeline}</span>
+                  </div>
+                </div>
+              `;
+              modal.style.display = 'flex';
+              modal.classList.add('open');
+              modal.setAttribute('aria-hidden', 'false');
+            }
+          }
+        });
+      });
+    } else {
+      concernContainer.style.display = 'none';
+      concernContainer.innerHTML = '';
+    }
   }
 
   const listContainer = document.getElementById('curated-remedies-list');
@@ -2004,9 +2412,8 @@ function scheduleCoachReminder(schedule) {
 }
 
 async function getCoachReply(message) {
-  if (!state.groqKey) {
-    return 'Please set your Groq API Key in the Profile tab so I can analyze your food and track your macros!';
-  }
+  const isGroq = !!state.groqKey;
+  const apiKey = isGroq ? state.groqKey : 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
 
   const now = new Date();
   const timeOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
@@ -2022,10 +2429,15 @@ async function getCoachReply(message) {
     ? state.loggedFoods.map(f => `• ${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join('\n')
     : 'No foods logged yet today.';
 
-  const systemInstruction = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo, ${state.weight}kg user with target weight ${state.targetWeight}kg.
+  const systemInstruction = `You are a strict, helpful Indian fitness & wellness coach helping ${state.profileName}, a ${state.age}yo ${state.gender || 'female'}, ${state.weight}kg user with target weight ${state.targetWeight}kg.
   Their height is ${state.height}, diet preference is: ${state.dietType}, and they wake up at ${state.wakeUpTime || '07:00'}.
   Their active focus is: ${state.goalType === 'muscle' ? 'Weight/Muscle Gain (Bulking)' : state.goalType === 'lose' ? 'Weight Loss/Tone' : 'Skincare Goal: ' + state.goalType}.
   Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
+  
+  GENDER & HORMONAL BREAKOUT INSTRUCTIONS:
+  - If the user is female (Gender: ${state.gender || 'female'}), pay special attention to PCOS/PCOD hormonal breakouts (typically cystic acne on jawline/chin), cycle sync nutrition, and irregular periods. Guide them with empathy, scientific home hacks (e.g. spearmint tea, green tea rinse, warm curd/turmeric), and low-GI foods.
+  - If they mention skincare struggles, explain how hormonal imbalances might trigger sebum overproduction and outline lifestyle recommendations accordingly.
+  ` + `
   
   Yesterday's & Past Days' intake history (for comparison & progress analysis):
   ${historicalLogsStr}
@@ -2039,11 +2451,13 @@ async function getCoachReply(message) {
   ${loggedFoodsStr}
   
   CRITICAL LOGGING & CLARIFICATION RULE:
-  - If the user states they ate a food (e.g. "I had a burger", "I ate kebabs", "logging pizza"), if the details are vague (missing brand like KFC/McDonald's/Homemade, or size/portion like leg piece vs palm size, or preparation style like oily vs grilled):
+  - If the user logs a food without details, you MUST NOT guess or assume generic values. It is your responsibility as a coach to clarify:
+    1. BRAND: Check if it was from a specific brand/bakery (e.g., Mio Amore, Tasty Bites, McDonald's, local bakery) or homemade.
+    2. PORTION & QUANTITY: Since the user typically does not know exact weights, you must ask how much they had using easy, physical visual parameters (e.g., small katori/bowl, standard plate, fist-sized portion, size relative to their palm, pocket/puff size for pastries, or single/double patty).
+    If these details are missing:
     1. Do NOT log the macros yet. Return 0 for "calories" and "protein" in the JSON properties.
-    2. In your "reply", ask exactly 1 or 2 specific, friendly clarifying questions to get the details (e.g., "Was it KFC, McDonald's, or homemade?", "Was the kebab piece larger or smaller than your palm?", "Was it oily or grilled?").
-    3. Keep it brief and non-annoying, but make the user feel that a precise, high-quality calculation is happening.
-  - If the user provides details or answers your questions (e.g. "it was homemade", "smaller than my palm", "KFC"), calculate the exact calories, protein, carbs, and fats (break down good vs bad fats, brand factors, and oiliness in your "reply"). Include these exact numbers in your coaching response and set non-zero values in the JSON fields.
+    2. In your "reply", ask exactly 1 or 2 specific, helpful clarifying questions using these parameters so they can easily answer.
+  - If the user provides details or answers your questions (e.g., "it was a Mio Amore chicken roll", "about palm-sized"), calculate the exact calories and protein. Include these numbers in your coaching response and set non-zero values in the JSON fields.
   - If the user explicitly asks to cancel or remove a logged food (e.g., "Remove biryani", "Cancel my last meal", "Remove burger from my log"), or cancel a self-logged item:
     1. Set the "calories" and "protein" to negative values corresponding to the food to subtract them (e.g. calories: -350, protein: -10).
     2. Set "removeFood" in JSON to the name of the food to remove (e.g. "biryani").
@@ -2068,27 +2482,55 @@ async function getCoachReply(message) {
   }));
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${state.groqKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemInstruction },
-          ...lastFewMessages,
-          { role: 'user', content: message }
+    let textRes = '';
+    if (isGroq) {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            ...lastFewMessages,
+            { role: 'user', content: message }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      textRes = data.choices[0].message.content.trim();
+    } else {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [
+          { role: 'user', parts: [{ text: systemInstruction }] },
+          ...lastFewMessages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content }]
+          })),
+          { role: 'user', parts: [{ text: message }] }
         ],
-        response_format: { type: "json_object" }
-      })
-    });
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      textRes = data.candidates[0].content.parts[0].text;
+    }
 
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-
-    const textRes = data.choices[0].message.content.trim();
+    textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(textRes);
 
     // Apply macro updates based on LLM JSON output
@@ -2187,12 +2629,8 @@ async function analyzeMeal() {
     els.mealStatus.textContent = 'Upload a photo first to analyze.';
     return;
   }
-  if (!state.groqKey) {
-    els.mealStatus.textContent = 'Please enter your Groq API Key in the Profile tab first!';
-    return;
-  }
 
-  els.mealStatus.textContent = 'Analyzing image with Groq Vision Model (Llama 3.2)...';
+  els.mealStatus.textContent = 'Analyzing image with Google Gemini 1.5 Flash...';
   els.mealButton.disabled = true;
 
   const resultCard = document.getElementById('meal-result-card');
@@ -2235,31 +2673,49 @@ async function analyzeMeal() {
   }`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const apiKey = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    let base64Data = state.pendingMealImageBase64;
+    let mimeType = 'image/jpeg';
+    if (base64Data.includes(',')) {
+      const parts = base64Data.split(',');
+      mimeType = parts[0].match(/:(.*?);/)[1];
+      base64Data = parts[1];
+    }
+    
+    const payload = {
+      contents: [
+        {
+          parts: [
+            { text: visionPrompt },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    };
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${state.groqKey}`
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'llama-3.2-11b-vision-preview',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: visionPrompt },
-              { type: 'image_url', image_url: { url: state.pendingMealImageBase64 } }
-            ]
-          }
-        ],
-        response_format: { type: "json_object" }
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
 
-    const textRes = data.choices[0].message.content.trim();
+    let textRes = data.candidates[0].content.parts[0].text;
+    textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(textRes);
     lastVisionResult = result;
     saveState();
@@ -2897,23 +3353,31 @@ function registerInstallPrompt() {
 }
 
 function showInstallPrompt() {
-  if (!els.installModal) return;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  if (isIOS) {
-    if (els.installModalTitle) els.installModalTitle.textContent = 'Add to Home Screen';
-    if (els.installModalCopy) els.installModalCopy.textContent = 'Tap the Share button and choose Add to Home Screen to install Relix on your iPhone.';
-    if (els.installModalAction) els.installModalAction.textContent = 'Open instructions';
-  } else if (installPrompt) {
-    if (els.installModalTitle) els.installModalTitle.textContent = 'Install Relix';
-    if (els.installModalCopy) els.installModalCopy.textContent = 'Install Relix to your device for a faster app-like experience.';
-    if (els.installModalAction) els.installModalAction.textContent = 'Install now';
-  } else {
-    if (els.installModalTitle) els.installModalTitle.textContent = 'Install Relix';
-    if (els.installModalCopy) els.installModalCopy.textContent = 'Use your browser menu to install Relix on this device.';
-    if (els.installModalAction) els.installModalAction.textContent = 'Use browser menu';
+  if (installPrompt) {
+    installPrompt.prompt();
+    installPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('[PWA] User accepted install prompt');
+        installPrompt = null;
+        updateActionButtons();
+      }
+    });
+    return;
   }
-  els.installModal.classList.add('open');
-  els.installModal.setAttribute('aria-hidden', 'false');
+  
+  if (isIOS) {
+    if (els.installModal) {
+      if (els.installModalTitle) els.installModalTitle.textContent = 'Add to Home Screen';
+      if (els.installModalCopy) els.installModalCopy.textContent = 'Tap the Share button and choose Add to Home Screen to install Relix on your iPhone.';
+      if (els.installModalAction) els.installModalAction.textContent = 'Got it';
+      els.installModal.style.display = 'flex';
+      els.installModal.classList.add('open');
+      els.installModal.setAttribute('aria-hidden', 'false');
+    }
+  } else {
+    showToast('💡 Open your browser menu and select "Install" or "Add to Home screen" to install.');
+  }
 }
 
 function closeInstallPrompt() {
@@ -2927,7 +3391,7 @@ function handleInstallAction() {
     installPrompt.prompt();
     return;
   }
-  showToast('Use your browser menu to install Relix on this device.');
+  showToast('Open your browser menu and select "Install" or "Add to Home screen" to install.');
   closeInstallPrompt();
 }
 
@@ -2974,6 +3438,7 @@ function deleteData() {
   localStorage.removeItem('relix-kitchen');
   localStorage.removeItem('relix-target-hyd');
   localStorage.removeItem('relix-wakeup-time');
+  localStorage.removeItem('relix-shake-ingredients');
   window.location.reload();
 }
 
@@ -3154,6 +3619,7 @@ function saveState() {
   recalculateDeservedXP();
 
   localStorage.setItem('relix-setup', String(state.setupComplete));
+  localStorage.setItem('relix-gender', state.gender || 'female');
   localStorage.setItem('relix-groq-key', state.groqKey);
   localStorage.setItem('relix-goal', state.goalType);
   localStorage.setItem('relix-age', String(state.age));
@@ -3168,6 +3634,7 @@ function saveState() {
   localStorage.setItem('relix-consumed-hyd', String(state.consumedHydration));
   localStorage.setItem('relix-target-hyd', String(state.targetHydration));
   localStorage.setItem('relix-wakeup-time', state.wakeUpTime);
+  localStorage.setItem('relix-shake-ingredients', JSON.stringify(state.shakeIngredients || []));
   localStorage.setItem('relix-last-log', JSON.stringify(state.lastLog));
   localStorage.setItem('relix-profile-name', state.profileName);
   localStorage.setItem('relix-xp', String(state.xp));

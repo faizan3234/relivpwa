@@ -370,6 +370,8 @@
         </div>
 
         <!-- Curated Remedies List -->
+        <div id="anabolic-shake-builder-container" style="display: none; margin-bottom: 18px;"></div>
+        <div id="concern-library-container" style="margin-bottom: 18px;"></div>
         <div id="curated-remedies-list" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 80px;">
           <!-- Recipes will be rendered here dynamically -->
         </div>
@@ -450,6 +452,15 @@
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-weight:600; font-size:0.9rem;">Your Name</label>
             <input id="setup-name" type="text" placeholder="Ava Chen" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+          </div>
+
+          <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-weight:600; font-size:0.9rem;">Gender / Assigned Sex</label>
+            <select id="setup-gender" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+            </select>
           </div>
 
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
@@ -589,6 +600,23 @@
           <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.45; margin-top: 8px;">Your profile targets and custom reminders have been successfully adjusted and initialized.</p>
         </div>
         <button id="dismiss-save-confirm" class="primary-btn" type="button" style="width: 100%; padding: 12px; font-weight: 700; background:#4caf50; border:none; border-radius:12px; color:white; cursor:pointer;">Let's Go!</button>
+      </div>
+    </div>
+
+    <!-- Shake Consumption Confirm Modal -->
+    <div id="shake-confirm-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:10000; background:rgba(0,0,0,0.6);">
+      <div class="modal-card" style="text-align: center; max-width: 380px; padding: 24px; display:flex; flex-direction:column; gap:16px; align-items:center;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white; box-shadow: 0 4px 15px rgba(255,106,0,0.3);">
+          🥛
+        </div>
+        <div>
+          <h3 style="margin: 0; font-size: 1.3rem;">Log Homemade Shake?</h3>
+          <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.45; margin-top: 8px;">Did you consume the homemade anabolic shake we discussed?</p>
+        </div>
+        <div style="display:flex; gap:10px; width: 100%;">
+          <button id="confirm-shake-yes" class="primary-btn" type="button" style="flex:1; padding: 12px; font-weight: 700; border:none; border-radius:12px; color:white; cursor:pointer;">Yes, consumed!</button>
+          <button id="confirm-shake-no" class="ghost-btn" type="button" style="flex:1; padding: 12px; font-weight: 700; border:1px solid var(--border); border-radius:12px; cursor:pointer;">No, not yet</button>
+        </div>
       </div>
     </div>
 
