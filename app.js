@@ -34,8 +34,8 @@ function getReminderTimeOffset(startTimeStr, offsetMinutes) {
   return target.getTime();
 }
 
-function getRemindersForGoal(goal) {
-  const wake = state.wakeUpTime || '07:00';
+function getRemindersForGoal(goal, wakeTime) {
+  const wake = wakeTime || '07:00';
   if (goal.startsWith('skin')) {
     if (goal === 'skin-acne') {
       return {
@@ -128,7 +128,8 @@ const state = {
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
-    const defaults = getRemindersForGoal(goal);
+    const wake = localStorage.getItem('relix-wakeup-time') || '07:00';
+    const defaults = getRemindersForGoal(goal, wake);
     if (!saved) return JSON.parse(JSON.stringify(defaults));
     return Object.fromEntries(Object.entries(defaults).map(([key, baseReminder]) => {
       const savedReminder = saved[key] || {};
@@ -219,9 +220,7 @@ const els = {
   proBar: document.getElementById('pro-bar'),
   proText: document.getElementById('pro-text'),
   groqInput: document.getElementById('groq-input'),
-  saveGroq: document.getElementById('save-groq'),
-  setupSkinType: document.getElementById('setup-skin-type'),
-  setupWeightFieldsContainer: document.getElementById('setup-weight-fields-container')
+  saveGroq: document.getElementById('save-groq')
 };
 
 function init() {
@@ -483,7 +482,7 @@ function bindEvents() {
       if (customProVal) state.targetProtein = Number(customProVal);
 
       // Re-populate goal specific default reminders
-      state.reminders = getRemindersForGoal(goalVal);
+      state.reminders = getRemindersForGoal(goalVal, wakeUpTimeVal);
 
       saveState();
       syncProfileMeta();
@@ -3254,4 +3253,8 @@ function showWelcome() {
   }
 }
 
-window.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
