@@ -277,6 +277,7 @@ const state = {
   lastActivityDate: localStorage.getItem('relix-last-activity') || '',
   recentActivity: JSON.parse(localStorage.getItem('relix-activity-log') || '[]'),
   routineProgress: Number(localStorage.getItem('relix-routine-progress') || 0),
+  xpManualDelta: Number(localStorage.getItem('relix-xp-delta') || 0),
   mealCount: Number(localStorage.getItem('relix-meal-count') || 0),
   dailyMeals: Number(localStorage.getItem('relix-daily-meals') || 0),
   completedTasks: JSON.parse(localStorage.getItem('relix-completed') || '[]'),
@@ -392,6 +393,191 @@ const els = {
   saveGeminiKey: document.getElementById('save-gemini-key')
 };
 
+const FOOD_DUPLICATE_WINDOW_MS = 15 * 60 * 1000;
+const FOOD_NAME_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'bowl', 'bowls', 'cup', 'cups', 'dish', 'dishes', 'eaten', 'food', 'foods',
+  'for', 'glass', 'large', 'log', 'logged', 'meal', 'medium', 'of', 'one', 'portion', 'portions', 'plate',
+  'plates', 'piece', 'pieces', 'serving', 'servings', 'small', 'snack', 'snacks', 'the', 'to', 'with', 'without'
+]);
+
+function normalizeFoodName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/\bchart\b/g, 'chaat')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenizeFoodName(name) {
+  return normalizeFoodName(name)
+    .split(' ')
+    .filter((token) => token && !FOOD_NAME_STOP_WORDS.has(token) && !/^\d+$/.test(token));
+}
+
+function areFoodNamesSimilar(leftName, rightName) {
+  const leftNormalized = normalizeFoodName(leftName);
+  const rightNormalized = normalizeFoodName(rightName);
+  if (!leftNormalized || !rightNormalized) return false;
+  if (leftNormalized === rightNormalized) return true;
+
+  const leftTokens = tokenizeFoodName(leftName);
+  const rightTokens = tokenizeFoodName(rightName);
+  if (!leftTokens.length || !rightTokens.length) return false;
+
+  const leftSet = new Set(leftTokens);
+  const rightSet = new Set(rightTokens);
+  let shared = 0;
+  leftSet.forEach((token) => {
+    if (rightSet.has(token)) shared += 1;
+  });
+
+  if (shared >= Math.min(leftSet.size, rightSet.size)) return true;
+  if (shared >= 2 && shared / Math.max(leftSet.size, rightSet.size) >= 0.5) return true;
+
+  return leftNormalized.includes(rightNormalized) || rightNormalized.includes(leftNormalized);
+}
+
+function findSimilarFoodLog(entry) {
+  const now = Date.now();
+  for (let index = state.loggedFoods.length - 1; index >= 0; index -= 1) {
+    const candidate = state.loggedFoods[index];
+    if (!candidate || !candidate.timestamp || now - candidate.timestamp > FOOD_DUPLICATE_WINDOW_MS) continue;
+    if (areFoodNamesSimilar(candidate.name, entry.name)) return candidate;
+  }
+  return null;
+}
+
+function confirmFoodLog(entry) {
+  const duplicate = findSimilarFoodLog(entry);
+  if (!duplicate) return true;
+  return confirm(`⚠️ Similar meal already logged:\n\n${duplicate.name} was logged recently.\nDo you want to log ${entry.name} one more time?`);
+}
+
+function refreshTrackerViews() {
+  renderDashboard();
+  renderRoutine();
+  renderProfile();
+}
+
+function logFoodEntry(entry, options = {}) {
+  if (!entry || !entry.name) return false;
+  if (!confirmFoodLog(entry)) {
+    showToast('Cancelled duplicate food log.');
+    return false;
+  }
+
+  state.consumedCalories += Number(entry.calories || 0);
+  state.consumedProtein += Number(entry.protein || 0);
+  state.lastLog = {
+    calories: Number(entry.calories || 0),
+    protein: Number(entry.protein || 0),
+    hydration: 0
+  };
+  state.loggedFoods.push({
+    name: entry.name,
+    calories: Number(entry.calories || 0),
+    protein: Number(entry.protein || 0),
+    timestamp: Date.now()
+  });
+
+  if (options.activityLabel) {
+    recordActivity(options.activityLabel, options.points || 20);
+  } else {
+    saveState();
+    refreshTrackerViews();
+  }
+
+  if (options.toastMessage) showToast(options.toastMessage);
+  return true;
+}
+
+function applyTrackerCommandUpdates(result) {
+  let changed = false;
+
+  if (typeof result.updateStreak === 'number' && !Number.isNaN(result.updateStreak)) {
+    state.streak = Math.max(0, Math.floor(result.updateStreak));
+    state.restorableStreak = -1;
+    changed = true;
+    showToast(`🔥 Streak updated to ${state.streak}`);
+  }
+
+  if (typeof result.updateXpDelta === 'number' && !Number.isNaN(result.updateXpDelta)) {
+    state.xpManualDelta = Number(state.xpManualDelta || 0) + result.updateXpDelta;
+    changed = true;
+    showToast(`⭐ XP adjusted by ${result.updateXpDelta > 0 ? '+' : ''}${result.updateXpDelta}`);
+  }
+
+  if (typeof result.updateTargetCalories === 'number' && result.updateTargetCalories > 0) {
+    state.targetCalories = Math.round(result.updateTargetCalories);
+    changed = true;
+    showToast(`🎯 Calorie goal updated to ${state.targetCalories} kcal`);
+  }
+
+  if (typeof result.updateTargetProtein === 'number' && result.updateTargetProtein > 0) {
+    state.targetProtein = Math.round(result.updateTargetProtein);
+    changed = true;
+    showToast(`🎯 Protein goal updated to ${state.targetProtein}g`);
+  }
+
+  if (typeof result.updateRoutineProgress === 'number' && !Number.isNaN(result.updateRoutineProgress)) {
+    state.routineProgress = Math.max(0, Math.min(100, Math.round(result.updateRoutineProgress)));
+    changed = true;
+  }
+
+  if (typeof result.updateDailyScore === 'number' && !Number.isNaN(result.updateDailyScore)) {
+    state.dailyScore = Math.max(0, Math.min(100, Math.round(result.updateDailyScore)));
+    changed = true;
+  }
+
+  if (changed) {
+    saveState();
+    refreshTrackerViews();
+    renderWeightForecast();
+  }
+
+  return changed;
+}
+
+function applyQuickCoachCommand(message) {
+  const lower = String(message || '').toLowerCase();
+  const updates = [];
+
+  const streakMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?streak\s*(?:to|=)?\s*(\d+)/i);
+  if (streakMatch) {
+    state.streak = Math.max(0, Number(streakMatch[1]));
+    state.restorableStreak = -1;
+    updates.push(`Streak set to ${state.streak}`);
+  }
+
+  const xpMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?xp\s*(?:to|=)?\s*(\d+)/i);
+  if (xpMatch) {
+    const desiredXp = Math.max(0, Number(xpMatch[1]));
+    const currentBaseXp = recalculateDeservedXP(true);
+    state.xpManualDelta = desiredXp - currentBaseXp;
+    updates.push(`XP set to ${desiredXp}`);
+  }
+
+  const calorieMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?(?:calories?|calorie target|cal target|daily calories)\s*(?:to|=)?\s*(\d+)/i);
+  if (calorieMatch) {
+    state.targetCalories = Math.max(1, Number(calorieMatch[1]));
+    updates.push(`Calories set to ${state.targetCalories}`);
+  }
+
+  const proteinMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?(?:protein|protein target|pro target|daily protein)\s*(?:to|=)?\s*(\d+)/i);
+  if (proteinMatch) {
+    state.targetProtein = Math.max(1, Number(proteinMatch[1]));
+    updates.push(`Protein set to ${state.targetProtein}`);
+  }
+
+  if (!updates.length) return null;
+
+  saveState();
+  refreshTrackerViews();
+  renderWeightForecast();
+  return updates.join(' · ');
+}
+
 function init() {
   applyTheme();
   syncProfileMeta();
@@ -412,7 +598,7 @@ function init() {
     if (document.visibilityState === 'visible') {
       initializeReminderSystem();
       checkDailyReset();
-      if ('serviceWorker' in navigator && 'PushManager' in window) {
+      if (shouldAutoSyncPush() && 'serviceWorker' in navigator && 'PushManager' in window) {
         subscribeToPushNotifications(false);
       }
     }
@@ -440,7 +626,7 @@ function init() {
   checkDailyReset();
   setInterval(checkDailyReset, 60000);
 
-  if ('serviceWorker' in navigator && 'PushManager' in window) {
+  if (shouldAutoSyncPush() && 'serviceWorker' in navigator && 'PushManager' in window) {
     subscribeToPushNotifications(false);
   }
 
@@ -724,13 +910,12 @@ function bindEvents() {
       else if (food === 'burger') { cals = 500; pro = 15; foodName = 'Burger'; }
       else if (food === 'coffee') { cals = 100; pro = 2; foodName = 'Coffee'; }
       else if (food === 'chai') { cals = 150; pro = 3; foodName = 'Chai & Biscuit'; }
-      
-      state.consumedCalories += cals;
-      state.consumedProtein += pro;
-      state.lastLog = { calories: cals, protein: pro, hydration: 0 };
-      state.loggedFoods.push({ name: foodName, calories: cals, protein: pro, timestamp: Date.now() });
-      recordActivity(`Quick Log: ${foodName}`, 20);
-      showToast('✅ Logged! No math required.');
+
+      logFoodEntry({ name: foodName, calories: cals, protein: pro }, {
+        activityLabel: `Quick Log: ${foodName}`,
+        points: 20,
+        toastMessage: '✅ Logged! No math required.'
+      });
     });
   });
 
@@ -871,12 +1056,11 @@ function parseLocalFoodIntake(text) {
       try {
         if (!state.groqKey) {
           const localEst = parseLocalFoodIntake(foodItem);
-          state.consumedCalories += localEst.calories;
-          state.consumedProtein += localEst.protein;
-          state.lastLog = { calories: localEst.calories, protein: localEst.protein, hydration: 0 };
-          state.loggedFoods.push({ name: foodItem, calories: localEst.calories, protein: localEst.protein, timestamp: Date.now() });
-          recordActivity(`Logged Custom Food: ${foodItem}`, 20);
-          showToast(`✅ Logged: ${localEst.calories} kcal & ${localEst.protein}g protein! (Offline)`);
+          logFoodEntry({ name: foodItem, calories: localEst.calories, protein: localEst.protein }, {
+            activityLabel: `Logged Custom Food: ${foodItem}`,
+            points: 20,
+            toastMessage: `✅ Logged: ${localEst.calories} kcal & ${localEst.protein}g protein! (Offline)`
+          });
         } else {
           const reply = await getCoachReply(foodItem);
           if (typeof reply === 'string') {
@@ -1158,27 +1342,16 @@ function parseLocalFoodIntake(text) {
         calories: totalCal,
         protein: Math.round(totalPro)
       };
-      
-      state.consumedCalories += newFood.calories;
-      state.consumedProtein += newFood.protein;
-      state.loggedFoods.push(newFood);
-      
-      // Reward some experience points
-      state.xp += 15;
-      if (state.xp >= state.level * 200) {
-        state.xp -= state.level * 200;
-        state.level += 1;
-        showToast(`🎉 Level Up! You are now Level ${state.level}!`);
-      }
-      
-      saveState();
-      renderDashboard();
-      renderRoutine();
+
+      logFoodEntry(newFood, {
+        activityLabel: 'Shake logged successfully',
+        points: 25,
+        toastMessage: 'Shake logged successfully!'
+      });
       
       shakeModal.style.display = 'none';
       shakeModal.classList.remove('open');
       shakeModal.setAttribute('aria-hidden', 'true');
-      showToast('Shake logged successfully!');
     });
   }
   if (confirmShakeNo && shakeModal) {
@@ -1485,12 +1658,11 @@ function renderCloseTheGap() {
     btn.addEventListener('click', (e) => {
       const cal = Number(e.currentTarget.dataset.cal);
       const pro = Number(e.currentTarget.dataset.pro);
-      state.consumedCalories += cal;
-      state.consumedProtein += pro;
-      state.lastLog = { calories: cal, protein: pro, hydration: 0 };
-      saveState();
-      renderDashboard();
-      showToast(`✅ Logged suggested food (+${cal} kcal, +${pro}g Pro)!`);
+      logFoodEntry({ name: `Suggested Food ${cal} kcal / ${pro}g`, calories: cal, protein: pro }, {
+        activityLabel: 'Suggested food logged',
+        points: 20,
+        toastMessage: `✅ Logged suggested food (+${cal} kcal, +${pro}g Pro)!`
+      });
     });
   });
 }
@@ -1545,26 +1717,25 @@ function renderTodayLogs() {
     btn.addEventListener('click', (e) => {
       const type = btn.dataset.type;
       const timestamp = Number(btn.dataset.timestamp);
-      
+
       if (type === 'food') {
         const idx = state.loggedFoods.findIndex((f) => f.timestamp === timestamp);
-        if (idx !== -1) {
-          const removed = state.loggedFoods.splice(idx, 1)[0];
-          state.consumedCalories = Math.max(0, state.consumedCalories - (removed.calories || 0));
-          state.consumedProtein = Math.max(0, state.consumedProtein - (removed.protein || 0));
-          showToast(`Deleted: ${removed.name}`);
-        }
+        if (idx === -1) return;
+        const removed = state.loggedFoods.splice(idx, 1)[0];
+        state.consumedCalories = Math.max(0, state.consumedCalories - (removed.calories || 0));
+        state.consumedProtein = Math.max(0, state.consumedProtein - (removed.protein || 0));
+        showToast(`Deleted: ${removed.name}`);
       } else {
         const idx = state.loggedHydrations.findIndex((h) => h.timestamp === timestamp);
-        if (idx !== -1) {
-          const removed = state.loggedHydrations.splice(idx, 1)[0];
-          state.consumedHydration = Math.max(0, state.consumedHydration - (removed.ml || 0));
-          showToast(`Deleted: ${removed.ml}ml water`);
-        }
+        if (idx === -1) return;
+        const removed = state.loggedHydrations.splice(idx, 1)[0];
+        state.consumedHydration = Math.max(0, state.consumedHydration - (removed.ml || 0));
+        showToast(`Deleted: ${removed.ml}ml water`);
       }
-      
+
       saveState();
       renderDashboard();
+      renderRoutine();
       renderTodayLogs();
     });
   });
@@ -1671,9 +1842,10 @@ function renderWeightForecast() {
 
   const goalText = isLoss ? 'Weight Loss & Tone' : 'Muscle & Weight Gain';
   const dietText = state.dietType === 'veg' ? 'Vegetarian' : state.dietType === 'omni' ? 'Omnivore' : 'Non-Vegetarian';
+  const macroStatus = `Today: ${state.consumedCalories} / ${state.targetCalories} kcal, ${state.consumedProtein} / ${state.targetProtein}g protein`;
 
   titleEl.textContent = `Estimated Timeline: ${weeks} Weeks`;
-  descEl.innerHTML = `Based on your diet preference (<strong>${dietText}</strong>) and wellness focus (<strong>${goalText}</strong>), you are projected to reach your target of <strong>${target} kg</strong> around <strong>${dateStr}</strong> by targeting a safe, steady change of <strong>${weeklyRate} kg/week</strong>.`;
+  descEl.innerHTML = `Based on your diet preference (<strong>${dietText}</strong>) and wellness focus (<strong>${goalText}</strong>), you are projected to reach your target of <strong>${target} kg</strong> around <strong>${dateStr}</strong> by targeting a safe, steady change of <strong>${weeklyRate} kg/week</strong>. <br><br><strong style="color:var(--text);">Macro plan synced:</strong> ${macroStatus}.`;
 }
 
 function renderMealCamState() {
@@ -2852,6 +3024,13 @@ function sendCoachMessage(message) {
     return;
   }
 
+  const quickCommandReply = applyQuickCoachCommand(message);
+  if (quickCommandReply) {
+    chatMessages.push({ role: 'assistant', text: quickCommandReply });
+    renderMessages();
+    return;
+  }
+
   const typing = document.createElement('div');
   typing.className = 'message assistant typing';
   typing.innerHTML = '<div>Thinking…</div>';
@@ -2989,6 +3168,12 @@ async function getCoachReply(message) {
     1. Calculate if the requested goal or rate change is safe and realistic (e.g., losing/gaining >1kg/week is unsafe; calorie targets below 1200 kcal are generally unsafe).
     2. If NOT safe (e.g. "change my rate to 1kg per day"), warn the user in the "reply" property and do NOT update the goals.
     3. If safe, specify the new target values in "updateTargetCalories" and/or "updateTargetProtein".
+  - If the user asks to change their streak, daily score, routine progress, or XP, return the requested values using these fields:
+    - "updateStreak" for the streak number they asked for.
+    - "updateXpDelta" for any XP adjustment needed so the XP changes immediately and stays in sync with the updated streak/routine.
+    - "updateRoutineProgress" for a direct routine progress percentage if they ask to change the routine card.
+    - "updateDailyScore" if they explicitly want the daily overview score changed.
+  - If the user asks to change calories/protein targets, explain how the AI progress planner will update from those new targets.
   - If the user logs a food without details, you MUST NOT guess or assume generic values. Clarify:
     1. BRAND: Check if it was from a specific brand/bakery (e.g., Mio Amore, Tasty Bites) or homemade.
     2. PORTION: Ask how much they had using easy, physical visual parameters (e.g., small katori/bowl, standard plate, fist-sized portion, palm size, pocket/puff size).
@@ -3007,6 +3192,10 @@ async function getCoachReply(message) {
     "removeFood": "Name of food being removed" or null,
     "updateTargetCalories": Number or null, // set new calorie target if requested & safe
     "updateTargetProtein": Number or null,  // set new protein target if requested & safe
+    "updateStreak": Number or null,
+    "updateXpDelta": Number or null,
+    "updateRoutineProgress": Number or null,
+    "updateDailyScore": Number or null,
     "schedule": null
   }`;
 
@@ -3016,27 +3205,6 @@ async function getCoachReply(message) {
   }));
 
   function applyCoachReply(result) {
-    if (result.logFood && (result.calories > 0 || result.protein > 0)) {
-      const isDuplicate = state.loggedFoods.some(f => 
-        f.name.toLowerCase() === result.logFood.toLowerCase() &&
-        (f.calories || 0) === (result.calories || 0) &&
-        (Date.now() - f.timestamp) < 15 * 60 * 1000
-      );
-      if (isDuplicate) {
-        if (!confirm(`⚠️ Duplicate Log Warning:\n\nYou already logged "${result.logFood}" (${result.calories} kcal) recently. Do you want to log it again?`)) {
-          showToast('Cancelled duplicate food log.');
-          return;
-        }
-      }
-    }
-
-    if (result.calories || result.protein) {
-      state.consumedCalories = Math.max(0, state.consumedCalories + (result.calories || 0));
-      state.consumedProtein = Math.max(0, state.consumedProtein + (result.protein || 0));
-      state.lastLog = { calories: result.calories || 0, protein: result.protein || 0, hydration: 0 };
-    }
-
-    let hasLoggedFood = false;
     if (result.removeFood) {
       const targetName = result.removeFood.toLowerCase();
       const idx = state.loggedFoods.findIndex(f => f.name.toLowerCase().includes(targetName));
@@ -3048,30 +3216,21 @@ async function getCoachReply(message) {
         }
       }
     } else if (result.logFood && (result.calories > 0 || result.protein > 0)) {
-      state.loggedFoods.push({
+      logFoodEntry({
         name: result.logFood,
         calories: result.calories || 0,
-        protein: result.protein || 0,
-        timestamp: Date.now()
+        protein: result.protein || 0
+      }, {
+        activityLabel: `Food logged: ${result.logFood}`,
+        points: 20,
+        toastMessage: `✅ Logged: ${result.logFood}`
       });
-      hasLoggedFood = true;
     }
 
-    if (result.updateTargetCalories !== undefined && result.updateTargetCalories !== null && result.updateTargetCalories > 0) {
-      state.targetCalories = Number(result.updateTargetCalories);
-      showToast(`🎯 Calorie goal updated to ${state.targetCalories} kcal!`);
-    }
-    if (result.updateTargetProtein !== undefined && result.updateTargetProtein !== null && result.updateTargetProtein > 0) {
-      state.targetProtein = Number(result.updateTargetProtein);
-      showToast(`🎯 Protein goal updated to ${state.targetProtein}g!`);
-    }
-
-    if (hasLoggedFood) {
-      recordActivity(`Food logged: ${result.logFood}`, 20);
-    } else {
-      saveState();
-      renderDashboard();
-    }
+    applyTrackerCommandUpdates(result);
+    saveState();
+    refreshTrackerViews();
+    renderWeightForecast();
   }
 
   async function queryDirectClient() {
@@ -3488,24 +3647,22 @@ function logVisionMeal() {
     const cals = lastVisionResult.calories || 0;
     const pro = lastVisionResult.protein || 0;
 
-    state.consumedCalories += cals;
-    state.consumedProtein += pro;
     state.dailyMeals += 1;
-    state.lastLog = { calories: cals, protein: pro, hydration: 0 };
-    
-    state.loggedFoods.push({
+    const logged = logFoodEntry({
       name: lastVisionResult.foodName,
       calories: cals,
-      protein: pro,
-      timestamp: Date.now()
+      protein: pro
+    }, {
+      activityLabel: `Meal logged: ${lastVisionResult.foodName}`,
+      points: 25,
+      toastMessage: `✅ Logged ${lastVisionResult.foodName} (+${cals} kcal, +${pro}g Pro)!`
     });
 
-    saveState();
-    renderDashboard();
-    recordActivity(`Meal logged: ${lastVisionResult.foodName}`, 25);
+    if (!logged) {
+      state.dailyMeals = Math.max(0, state.dailyMeals - 1);
+      saveState();
+    }
     renderMealCounter();
-    
-    showToast(`✅ Logged ${lastVisionResult.foodName} (+${cals} kcal, +${pro}g Pro)!`);
     
     const logBtn = document.getElementById('log-meal-btn');
     if (logBtn) logBtn.style.display = 'none';
@@ -3598,7 +3755,7 @@ function enableNotifications() {
   initializeReminderSystem();
   closeNotificationPrompt();
   updateActionButtons();
-  subscribeToPushNotifications();
+  if (shouldAutoSyncPush()) subscribeToPushNotifications();
   showToast('Notifications enabled.');
   showNotification('Notifications Started', 'You will now receive check-ins here.', 'welcome');
 }
@@ -3611,13 +3768,25 @@ function isStandalonePWA() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
+function shouldAutoSyncPush() {
+  return !(window.location.hostname === 'localhost' && window.location.port === '8000');
+}
+
 function urlBase64ToUint8Array(base64String) {
+  if (!base64String || typeof base64String !== 'string') {
+    return new Uint8Array();
+  }
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
-  return outputArray;
+  try {
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+    return outputArray;
+  } catch (err) {
+    console.warn('Invalid VAPID key format. Skipping push subscription sync.');
+    return new Uint8Array();
+  }
 }
 
 // Compares an existing PushSubscription's key against the key the backend is
@@ -3666,6 +3835,10 @@ async function subscribeToPushNotifications(debug = false) {
     if (!vapidRes.ok) throw new Error('Could not reach backend for VAPID key.');
     const vapidPublicKey = (await vapidRes.text()).trim();
     const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+    if (!vapidPublicKey || !applicationServerKey.length) {
+      console.warn('Skipping push subscription sync because the backend VAPID key is missing or invalid.');
+      return;
+    }
 
     if (debug) showToast('Checking existing subscription...');
     let subscription = await reg.pushManager.getSubscription();
@@ -3789,7 +3962,7 @@ function registerNotifications() {
   updateActionButtons();
   if (state.notifications && Notification.permission === 'granted') {
     initializeReminderSystem();
-    subscribeToPushNotifications(); // ALWAYS sync with backend on boot
+    if (shouldAutoSyncPush()) subscribeToPushNotifications(); // sync with backend when not running the local smoke host
   } else if (state.notifications && Notification.permission === 'default') {
     showNotificationPrompt();
   }
@@ -4296,7 +4469,7 @@ function restoreStreak() {
   }
 }
 
-function recalculateDeservedXP() {
+function recalculateDeservedXP(baseOnly = false) {
   let totalXP = 0;
   
   // Base XP from current streak:
@@ -4337,7 +4510,9 @@ function recalculateDeservedXP() {
   const waterXP = Math.floor(Math.min(state.consumedHydration || 0, state.targetHydration || 3500) / 250) * 10;
   totalXP += waterXP;
   
-  state.xp = totalXP;
+  if (baseOnly) return totalXP;
+
+  state.xp = totalXP + Number(state.xpManualDelta || 0);
   state.level = 1 + Math.floor(state.xp / 250);
   state.weekly = Math.min(100, Math.round(20 + state.xp / 10 + (state.streak || 0) * 2));
   state.dailyScore = Math.min(100, Math.round(40 + doneHabitsCount * 8 + doneQuickChecksCount * 5 + Math.min(5, state.dailyMeals || 0) * 5 + (state.streak || 0) * 3));
@@ -4375,6 +4550,7 @@ function saveState() {
   localStorage.setItem('relix-last-activity', state.lastActivityDate);
   localStorage.setItem('relix-activity-log', JSON.stringify(state.recentActivity));
   localStorage.setItem('relix-routine-progress', String(state.routineProgress));
+  localStorage.setItem('relix-xp-delta', String(state.xpManualDelta || 0));
   localStorage.setItem('relix-daily-meals', String(state.dailyMeals));
   localStorage.setItem('relix-completed', JSON.stringify(state.completedTasks));
   localStorage.setItem('relix-day-start', String(state.dayStartTime));
@@ -4418,6 +4594,7 @@ function recordActivity(label, points = 10) {
   state.recentActivity = state.recentActivity.slice(0, 5);
   saveState();
   renderDashboard();
+  renderRoutine();
   renderProfile();
 }
 
