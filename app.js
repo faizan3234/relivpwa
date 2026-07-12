@@ -253,6 +253,7 @@ const state = {
   profileName: localStorage.getItem('relix-profile-name') || 'Your Name',
   gender: localStorage.getItem('relix-gender') || 'female',
   groqKey: localStorage.getItem('relix-groq-key') || '',
+  geminiKey: localStorage.getItem('relix-gemini-key') || '',
   setupComplete: localStorage.getItem('relix-setup') === 'true',
   goalType: localStorage.getItem('relix-goal') || 'muscle',
   age: Number(localStorage.getItem('relix-age') || 22),
@@ -386,7 +387,9 @@ const els = {
   proBar: document.getElementById('pro-bar'),
   proText: document.getElementById('pro-text'),
   groqInput: document.getElementById('groq-input'),
-  saveGroq: document.getElementById('save-groq')
+  saveGroq: document.getElementById('save-groq'),
+  geminiKeyInput: document.getElementById('gemini-key-input'),
+  saveGeminiKey: document.getElementById('save-gemini-key')
 };
 
 function init() {
@@ -495,6 +498,7 @@ function syncProfileMeta() {
   document.getElementById('referral-code').textContent = `RELIX-${state.profileName.replace(/\s+/g, '').slice(0, 6).toUpperCase()}`;
   if (els.nameInput) els.nameInput.value = state.profileName;
   if (els.groqInput) els.groqInput.value = state.groqKey;
+  if (els.geminiKeyInput) els.geminiKeyInput.value = state.geminiKey || '';
 }
 
 function bindEvents() {
@@ -928,6 +932,14 @@ function parseLocalFoodIntake(text) {
       state.groqKey = els.groqInput.value.trim();
       saveState();
       showToast('Groq API Key saved.');
+    });
+  }
+
+  if (els.saveGeminiKey) {
+    els.saveGeminiKey.addEventListener('click', () => {
+      state.geminiKey = els.geminiKeyInput.value.trim();
+      saveState();
+      showToast('Gemini API Key saved.');
     });
   }
 
@@ -3059,7 +3071,7 @@ async function getCoachReply(message) {
       applyCoachReply(result);
       return result;
     } else {
-      const GEMINI_API_KEY = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+      const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
       const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         systemInstruction: {
@@ -3378,7 +3390,7 @@ async function analyzeMeal() {
         base64Data = parts[1];
       }
 
-      const GEMINI_API_KEY = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+      const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
       const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         contents: [
@@ -4288,6 +4300,7 @@ function saveState() {
   localStorage.setItem('relix-setup', String(state.setupComplete));
   localStorage.setItem('relix-gender', state.gender || 'female');
   localStorage.setItem('relix-groq-key', state.groqKey);
+  localStorage.setItem('relix-gemini-key', state.geminiKey || '');
   localStorage.setItem('relix-goal', state.goalType);
   localStorage.setItem('relix-age', String(state.age));
   localStorage.setItem('relix-height', state.height);
