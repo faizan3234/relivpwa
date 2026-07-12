@@ -15,6 +15,7 @@ const brand = {
 const shakeIngredients = [
   { id: 'curd', name: '🥛 Curd (100g)', protein: 10, calories: 98 },
   { id: 'milk', name: '🥛 Milk (250ml)', protein: 8, calories: 150 },
+  { id: 'whey', name: '🥤 Whey Protein (1 scoop)', protein: 24, calories: 120 },
   { id: 'biscuit', name: '🍪 Biscuit (4 pcs)', protein: 2, calories: 120 },
   { id: 'oats', name: '🥣 Oats (40g)', protein: 5, calories: 152 },
   { id: 'banana', name: '🍌 Banana (1 large)', protein: 1.3, calories: 105 },
@@ -22,8 +23,10 @@ const shakeIngredients = [
   { id: 'coffee', name: '☕ Coffee (1 tsp)', protein: 0.2, calories: 5 },
   { id: 'pb', name: '🥜 Peanut Butter (1 tbsp)', protein: 4, calories: 94 },
   { id: 'almond', name: '🥜 Almonds (10 pcs)', protein: 2.5, calories: 70 },
+  { id: 'chia', name: '🌱 Chia Seeds (1 tbsp)', protein: 2.0, calories: 60 },
   { id: 'dates', name: '🌴 Dates (3 pcs)', protein: 0.6, calories: 60 },
-  { id: 'honey', name: '🍯 Honey (1 tbsp)', protein: 0, calories: 64 }
+  { id: 'honey', name: '🍯 Honey (1 tbsp)', protein: 0, calories: 64 },
+  { id: 'mango', name: '🥭 Mango (1 cup)', protein: 1.0, calories: 99 }
 ];
 
 const skincareConcerns = [
@@ -2133,6 +2136,33 @@ function renderNaturalCare() {
           </label>
         `;
       }).join('');
+
+      // Calculate dynamic recipe formula name & guide instructions
+      let shakeFormulaName = 'Custom Anabolic Shake';
+      let shakeBlendGuide = 'Blend selected ingredients with ice for a high-calorie booster.';
+      
+      if (currentSelected.includes('banana') && currentSelected.includes('pb') && currentSelected.includes('milk')) {
+        shakeFormulaName = '🍌 PB Banana Power Shake';
+        shakeBlendGuide = 'High-calorie bulking classic. Blend banana, milk, and peanut butter until smooth.';
+      } else if (currentSelected.includes('oats') && currentSelected.includes('milk') && currentSelected.includes('honey')) {
+        shakeFormulaName = '🥣 Honey-Oat Carb Booster';
+        shakeBlendGuide = 'Complex carbs for steady energy. Blend oats, milk, and honey. Let sit 2 mins.';
+      } else if (currentSelected.includes('chocolate') && currentSelected.includes('coffee') && currentSelected.includes('milk')) {
+        shakeFormulaName = '☕ Mocha Choco Bulking Blend';
+        shakeBlendGuide = 'Pre-workout energy booster. Blend cocoa, coffee, and milk with ice.';
+      } else if (currentSelected.includes('curd') && currentSelected.includes('honey') && currentSelected.includes('almond')) {
+        shakeFormulaName = '🥛 Sweet Almond Lassi';
+        shakeBlendGuide = 'Probiotic protein pack. Blend curd, honey, and crushed almonds with water/ice.';
+      } else if (currentSelected.includes('whey') && currentSelected.includes('milk') && currentSelected.includes('chia')) {
+        shakeFormulaName = '🥤 Pro-Whey Super-Seed Blend';
+        shakeBlendGuide = 'Maximum protein recovery. Blend whey, milk, and chia seeds. Hydrate for 5 mins.';
+      } else if (currentSelected.includes('mango') && currentSelected.includes('milk')) {
+        shakeFormulaName = '🥭 Tropical Mango Creamsicle';
+        shakeBlendGuide = 'Vitamin-rich summer energy. Blend mango chunks with chilled milk.';
+      } else if (currentSelected.length === 0) {
+        shakeFormulaName = 'No Ingredients Selected';
+        shakeBlendGuide = 'Select items above to formulate your custom anabolic shake recipe.';
+      }
       
       builderContainer.innerHTML = `
         <div class="card" style="padding: 20px;">
@@ -2142,8 +2172,16 @@ function renderNaturalCare() {
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px 12px; margin-bottom: 14px;">
             ${checkboxesHTML}
           </div>
+
+          <div style="background:rgba(255,122,0,0.04); border:1px solid var(--border); border-radius:14px; padding:10px 12px; margin-bottom:12px; font-size:0.82rem; line-height:1.35;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <strong style="color:var(--text);">${shakeFormulaName}</strong>
+              <button id="ai-shake-recipe-btn" class="link-btn" type="button" style="color:var(--primary); font-weight:700; font-size:0.75rem; cursor:pointer;" ${currentSelected.length === 0 ? 'disabled' : ''}>✨ AI Recipe</button>
+            </div>
+            <span style="color:var(--muted);">${shakeBlendGuide}</span>
+          </div>
           
-          <div style="background:rgba(255,122,0,0.06); border:1px solid var(--border); border-radius:16px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="background:rgba(255,122,0,0.06); border:1px solid var(--border); border-radius:16px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
             <div>
               <span style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; display:block; font-weight:600;">Shake Macros</span>
               <strong style="font-size:0.95rem; color:var(--text);">${totalCal} kcal · ${totalPro.toFixed(1)}g protein</strong>
@@ -2161,6 +2199,17 @@ function renderNaturalCare() {
           renderNaturalCare();
         });
       });
+
+      const aiShakeBtn = document.getElementById('ai-shake-recipe-btn');
+      if (aiShakeBtn) {
+        aiShakeBtn.addEventListener('click', () => {
+          const names = currentSelected.map(id => {
+            const item = shakeIngredients.find(ing => ing.id === id);
+            return item ? item.name : id;
+          });
+          generateAICustomRecipe(names, 'shake');
+        });
+      }
       
       const logShakeBtn = document.getElementById('log-shake-btn');
       if (logShakeBtn) {
@@ -2183,7 +2232,11 @@ function renderNaturalCare() {
         { id: 'honey', name: '🍯 Honey', desc: 'Natural humectant' },
         { id: 'aloe', name: '🌱 Aloe Vera', desc: 'Cooling hydrator' },
         { id: 'oatmeal', name: '🥣 Oatmeal', desc: 'Barrier repair & calming' },
-        { id: 'cucumber', name: '🥒 Cucumber', desc: 'Depuffing & silica rich' }
+        { id: 'cucumber', name: '🥒 Cucumber', desc: 'Depuffing & silica rich' },
+        { id: 'besan', name: '🥣 Gram Flour (Besan)', desc: 'Cleansing base' },
+        { id: 'rose', name: '🌹 Rose Water', desc: 'Soothes & tones' },
+        { id: 'sandalwood', name: '🪵 Sandalwood Powder', desc: 'Cooling & anti-acne' },
+        { id: 'lemon', name: '🍋 Lemon Juice', desc: 'Astringent brightener' }
       ];
 
       // Calculate formula name
@@ -2199,6 +2252,12 @@ function renderNaturalCare() {
       } else if (currentSelected.includes('cucumber') && currentSelected.includes('aloe')) {
         formulaName = 'Cucumber & Aloe Hydro-Cooler';
         benefitText = 'Calms redness, reduces morning puffiness, and cools down pores.';
+      } else if (currentSelected.includes('besan') && currentSelected.includes('rose') && currentSelected.includes('turmeric')) {
+        formulaName = 'Traditional Ubtan Glow Pack';
+        benefitText = 'Exfoliates dead cells, controls excess oil, and leaves a golden glow.';
+      } else if (currentSelected.includes('sandalwood') && currentSelected.includes('rose')) {
+        formulaName = 'Cooling Sandalwood Toner Pack';
+        benefitText = 'Reduces skin temperature, calms active cystic breakouts, and controls sebum.';
       } else if (currentSelected.length === 0) {
         formulaName = 'No Ingredients Selected';
         benefitText = 'Select ingredients below to mix your custom home skincare paste.';
@@ -2225,7 +2284,10 @@ function renderNaturalCare() {
           
           <div style="background:rgba(255,122,0,0.06); border:1px solid var(--border); border-radius:16px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap: 8px;">
             <div style="flex:1;">
-              <span style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; display:block; font-weight:600;">Formula Output</span>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; font-weight:600;">Formula Output</span>
+                <button id="ai-paste-recipe-btn" class="link-btn" type="button" style="color:var(--primary); font-weight:700; font-size:0.75rem; cursor:pointer;" ${currentSelected.length === 0 ? 'disabled' : ''}>✨ AI Recipe</button>
+              </div>
               <strong style="font-size:0.9rem; color:var(--text); display:block; margin-bottom:2px;">${formulaName}</strong>
               <span style="font-size:0.78rem; color:var(--muted); line-height:1.2; display:block;">${benefitText}</span>
             </div>
@@ -2242,6 +2304,17 @@ function renderNaturalCare() {
           renderNaturalCare();
         });
       });
+
+      const aiPasteBtn = document.getElementById('ai-paste-recipe-btn');
+      if (aiPasteBtn) {
+        aiPasteBtn.addEventListener('click', () => {
+          const names = currentSelected.map(id => {
+            const item = pasteIngredientsList.find(ing => ing.id === id);
+            return item ? item.name : id;
+          });
+          generateAICustomRecipe(names, 'paste');
+        });
+      }
 
       const applyPasteBtn = document.getElementById('apply-paste-btn');
       if (applyPasteBtn) {
@@ -2812,36 +2885,51 @@ function scheduleCoachReminder(schedule) {
 
     showToast(`⏰ Setting reminder for ${schedule.time}...`);
 
-    fetch(`${BACKEND_URL}/api/push/schedule`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        key: schedule.key || 'coach-nag',
+    if (!BACKEND_URL) {
+      showToast(`✅ Scheduled local reminder!`);
+      state.reminders[schedule.key || 'coach-nag'] = {
         title: schedule.title || 'Relix Coach',
-        body: schedule.body || 'Time to complete your goal!',
-        dueAt: targetDate.getTime()
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.ok) {
-        showToast(`✅ Scheduled lockscreen reminder!`);
-        state.reminders[schedule.key || 'coach-nag'] = {
+        description: schedule.body || 'Scheduled reminder',
+        nextDue: targetDate.getTime(),
+        pending: false,
+        lastAction: '',
+        missedCount: 0,
+        followUp: 3600000
+      };
+      persistReminderState();
+      renderDashboard();
+    } else {
+      fetch(`${BACKEND_URL}/api/push/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: schedule.key || 'coach-nag',
           title: schedule.title || 'Relix Coach',
-          description: schedule.body || 'Scheduled reminder',
-          nextDue: targetDate.getTime(),
-          pending: false,
-          lastAction: '',
-          missedCount: 0,
-          followUp: 3600000
-        };
-        persistReminderState();
-        renderDashboard();
-      } else {
-        showToast('❌ Could not sync reminder to server.');
-      }
-    })
-    .catch(() => showToast('❌ Backend offline. Could not schedule push.'));
+          body: schedule.body || 'Time to complete your goal!',
+          dueAt: targetDate.getTime()
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          showToast(`✅ Scheduled lockscreen reminder!`);
+          state.reminders[schedule.key || 'coach-nag'] = {
+            title: schedule.title || 'Relix Coach',
+            description: schedule.body || 'Scheduled reminder',
+            nextDue: targetDate.getTime(),
+            pending: false,
+            lastAction: '',
+            missedCount: 0,
+            followUp: 3600000
+          };
+          persistReminderState();
+          renderDashboard();
+        } else {
+          showToast('❌ Could not sync reminder to server.');
+        }
+      })
+      .catch(() => showToast('❌ Backend offline. Could not schedule push.'));
+    }
   } catch (err) {
     console.error('[coach] Failed to schedule reminder:', err);
   }
@@ -2945,7 +3033,70 @@ async function getCoachReply(message) {
     }
   }
 
+  async function queryDirectClient() {
+    if (state.groqKey) {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.groqKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-70b-versatile',
+          messages: [
+            { role: 'system', content: systemInstruction },
+            ...lastFewMessages,
+            { role: 'user', content: message }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      let textRes = data.choices[0].message.content || '';
+      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = JSON.parse(textRes);
+      applyCoachReply(result);
+      return result;
+    } else {
+      const GEMINI_API_KEY = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const payload = {
+        systemInstruction: {
+          parts: [{ text: systemInstruction }]
+        },
+        contents: [
+          ...lastFewMessages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content || '' }]
+          })),
+          { role: 'user', parts: [{ text: message }] }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = JSON.parse(textRes);
+      applyCoachReply(result);
+      return result;
+    }
+  }
+
   try {
+    if (!BACKEND_URL) {
+      return await queryDirectClient();
+    }
+
     const response = await fetch(`${BACKEND_URL}/api/ai/chat`, {
       method: 'POST',
       headers: {
@@ -2971,62 +3122,7 @@ async function getCoachReply(message) {
   } catch (err) {
     console.warn('[coach] Backend failed. Falling back to direct client-side fetch...', err);
     try {
-      if (state.groqKey) {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${state.groqKey}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-70b-versatile',
-            messages: [
-              { role: 'system', content: systemInstruction },
-              ...lastFewMessages,
-              { role: 'user', content: message }
-            ],
-            response_format: { type: "json_object" }
-          })
-        });
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-        let textRes = data.choices[0].message.content || '';
-        textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
-        const result = JSON.parse(textRes);
-        applyCoachReply(result);
-        return result;
-      } else {
-        const GEMINI_API_KEY = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const payload = {
-          systemInstruction: {
-            parts: [{ text: systemInstruction }]
-          },
-          contents: [
-            ...lastFewMessages.map(m => ({
-              role: m.role === 'user' ? 'user' : 'model',
-              parts: [{ text: m.content || '' }]
-            })),
-            { role: 'user', parts: [{ text: message }] }
-          ],
-          generationConfig: {
-            responseMimeType: "application/json"
-          }
-        };
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-        let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
-        const result = JSON.parse(textRes);
-        applyCoachReply(result);
-        return result;
-      }
+      return await queryDirectClient();
     } catch (fallbackErr) {
       console.error('[coach] Both backend and fallback failed:', fallbackErr);
       return {
@@ -3283,7 +3379,7 @@ async function analyzeMeal() {
       }
 
       const GEMINI_API_KEY = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         contents: [
           {
@@ -3497,6 +3593,11 @@ async function subscribeToPushNotifications(debug = false) {
     return;
   }
 
+  if (!BACKEND_URL) {
+    console.info('PWA Push Notifications: Local static domain, bypassing server-side VAPID/push registration.');
+    return;
+  }
+
   try {
     if (debug) showToast('Fetching VAPID key...');
     const reg = await navigator.serviceWorker.register('./service-worker.js');
@@ -3540,6 +3641,11 @@ async function subscribeToPushNotifications(debug = false) {
 }
 
 async function performHardRefresh() {
+  if (!BACKEND_URL) {
+    showToast('🔄 Local reload complete!');
+    initializeReminderSystem();
+    return;
+  }
   showToast('🔄 Refreshing: Waking backend & Resubscribing...');
   try {
     await fetch(`${BACKEND_URL}/api/push/debug`);
@@ -3665,7 +3771,7 @@ function scheduleReminder(key, delay) {
   // just REPLACES the pending schedule instead of stacking duplicate pushes)
   // so a real push still arrives on the lock screen even if the phone is
   // locked or the app is fully closed.
-  if (state.notifications && !state.remindersPaused) {
+  if (BACKEND_URL && state.notifications && !state.remindersPaused) {
     fetch(`${BACKEND_URL}/api/push/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3680,6 +3786,7 @@ function scheduleReminder(key, delay) {
 }
 
 function cancelServerReminders() {
+  if (!BACKEND_URL) return;
   Object.keys(defaultReminders).forEach((key) => {
     fetch(`${BACKEND_URL}/api/push/cancel`, {
       method: 'POST',
@@ -4089,7 +4196,7 @@ function checkDailyReset(force = false) {
 }
 
 function scheduleResetWarningNotification(dueTime) {
-  if (state.notifications && !state.remindersPaused) {
+  if (BACKEND_URL && state.notifications && !state.remindersPaused) {
     fetch(`${BACKEND_URL}/api/push/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4733,6 +4840,28 @@ function renderLessons() {
       renderLessons();
     });
   });
+}
+
+function generateAICustomRecipe(ingredientsList, type) {
+  // Switch to coach tab
+  const coachTabBtn = document.querySelector('.nav-pill[data-tab="coach"]');
+  if (coachTabBtn) coachTabBtn.click();
+  
+  const ingNames = ingredientsList.join(', ');
+  const promptText = type === 'shake' 
+    ? `I have selected these ingredients: ${ingNames}. Please formulate a detailed step-by-step recipe, preparation instructions, and estimated nutritional value for my custom anabolic bulk shake.`
+    : `I have selected these ingredients: ${ingNames}. Please formulate a detailed step-by-step custom skincare mask recipe, mixing instructions, application guidelines, and benefits for my skin.`;
+  
+  const coachInput = document.getElementById('coach-input');
+  if (coachInput) {
+    coachInput.value = promptText;
+    const coachForm = document.getElementById('coach-form');
+    if (coachForm) {
+      setTimeout(() => {
+        coachForm.dispatchEvent(new Event('submit'));
+      }, 300);
+    }
+  }
 }
 
 function showWelcome() {
