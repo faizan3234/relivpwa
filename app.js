@@ -2984,7 +2984,11 @@ async function getCoachReply(message) {
   Today's logged foods so far:
   ${loggedFoodsStr}
   
-  CRITICAL LOGGING & CLARIFICATION RULE:
+  CRITICAL LOGGING, CLARIFICATION & TRACKER TARGET ADJUSTMENT RULE:
+  - If the user asks to update their tracking targets (e.g. "change my tracker to 3030 kcal", "set my protein goal to 150g", "I need a change of 0.4kg/week instead of 0.2kg"):
+    1. Calculate if the requested goal or rate change is safe and realistic (e.g., losing/gaining >1kg/week is unsafe; calorie targets below 1200 kcal are generally unsafe).
+    2. If NOT safe (e.g. "change my rate to 1kg per day"), warn the user in the "reply" property and do NOT update the goals.
+    3. If safe, specify the new target values in "updateTargetCalories" and/or "updateTargetProtein".
   - If the user logs a food without details, you MUST NOT guess or assume generic values. Clarify:
     1. BRAND: Check if it was from a specific brand/bakery (e.g., Mio Amore, Tasty Bites) or homemade.
     2. PORTION: Ask how much they had using easy, physical visual parameters (e.g., small katori/bowl, standard plate, fist-sized portion, palm size, pocket/puff size).
@@ -3001,6 +3005,8 @@ async function getCoachReply(message) {
     "protein": Number,   // protein to add (positive) or subtract (negative), or 0
     "logFood": "Name of food being added" or null,
     "removeFood": "Name of food being removed" or null,
+    "updateTargetCalories": Number or null, // set new calorie target if requested & safe
+    "updateTargetProtein": Number or null,  // set new protein target if requested & safe
     "schedule": null
   }`;
 
@@ -3010,6 +3016,20 @@ async function getCoachReply(message) {
   }));
 
   function applyCoachReply(result) {
+    if (result.logFood && (result.calories > 0 || result.protein > 0)) {
+      const isDuplicate = state.loggedFoods.some(f => 
+        f.name.toLowerCase() === result.logFood.toLowerCase() &&
+        (f.calories || 0) === (result.calories || 0) &&
+        (Date.now() - f.timestamp) < 15 * 60 * 1000
+      );
+      if (isDuplicate) {
+        if (!confirm(`⚠️ Duplicate Log Warning:\n\nYou already logged "${result.logFood}" (${result.calories} kcal) recently. Do you want to log it again?`)) {
+          showToast('Cancelled duplicate food log.');
+          return;
+        }
+      }
+    }
+
     if (result.calories || result.protein) {
       state.consumedCalories = Math.max(0, state.consumedCalories + (result.calories || 0));
       state.consumedProtein = Math.max(0, state.consumedProtein + (result.protein || 0));
@@ -3035,6 +3055,15 @@ async function getCoachReply(message) {
         timestamp: Date.now()
       });
       hasLoggedFood = true;
+    }
+
+    if (result.updateTargetCalories !== undefined && result.updateTargetCalories !== null && result.updateTargetCalories > 0) {
+      state.targetCalories = Number(result.updateTargetCalories);
+      showToast(`🎯 Calorie goal updated to ${state.targetCalories} kcal!`);
+    }
+    if (result.updateTargetProtein !== undefined && result.updateTargetProtein !== null && result.updateTargetProtein > 0) {
+      state.targetProtein = Number(result.updateTargetProtein);
+      showToast(`🎯 Protein goal updated to ${state.targetProtein}g!`);
     }
 
     if (hasLoggedFood) {
@@ -3350,6 +3379,67 @@ async function analyzeMeal() {
     showToast('✅ Analysis finished successfully!');
   }
 
+  async function performDirectClientScan() {
+    let base64Data = state.pendingMealImageBase64;
+    let mimeType = 'image/jpeg';
+    if (base64Data.includes(',')) {
+      const parts = base64Data.split(',');
+      mimeType = parts[0].match(/:(.*?);/)[1];
+      base64Data = parts[1];
+    }
+
+    const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+    if (GEMINI_API_KEY === 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8') {
+      throw new Error('Please enter a valid Gemini API Key in Settings to run vision scans.');
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const payload = {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+
+    let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+    const result = JSON.parse(textRes);
+
+    handleVisionSuccess(result);
+  }
+
+  if (!BACKEND_URL) {
+    try {
+      await performDirectClientScan();
+      return;
+    } catch (fallbackErr) {
+      console.error('[vision] Client scan failed:', fallbackErr);
+      els.mealStatus.textContent = fallbackErr.message || 'Analysis failed. Please check network/backend.';
+      showToast('❌ Analysis failed.');
+      return;
+    }
+  }
+
   try {
     let base64Data = state.pendingMealImageBase64;
     let mimeType = 'image/jpeg';
@@ -3382,51 +3472,10 @@ async function analyzeMeal() {
   } catch (err) {
     console.warn('[vision] Backend failed. Falling back to direct client-side scan...', err);
     try {
-      let base64Data = state.pendingMealImageBase64;
-      let mimeType = 'image/jpeg';
-      if (base64Data.includes(',')) {
-        const parts = base64Data.split(',');
-        mimeType = parts[0].match(/:(.*?);/)[1];
-        base64Data = parts[1];
-      }
-
-      const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-      const payload = {
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Data
-                }
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      };
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-
-      let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
-      const result = JSON.parse(textRes);
-
-      handleVisionSuccess(result);
+      await performDirectClientScan();
     } catch (fallbackErr) {
       console.error('[vision] Both backend and fallback failed:', fallbackErr);
-      els.mealStatus.textContent = 'Analysis failed. Please check network/backend.';
+      els.mealStatus.textContent = fallbackErr.message || 'Analysis failed. Please check network/backend.';
       showToast('❌ Analysis failed.');
     }
   } finally {
