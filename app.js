@@ -3054,7 +3054,7 @@ async function getCoachReply(message) {
           'Authorization': `Bearer ${state.groqKey}`
         },
         body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemInstruction },
             ...lastFewMessages,
@@ -3072,7 +3072,7 @@ async function getCoachReply(message) {
       return result;
     } else {
       const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         systemInstruction: {
           parts: [{ text: systemInstruction }]
@@ -3391,7 +3391,7 @@ async function analyzeMeal() {
       }
 
       const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
       const payload = {
         contents: [
           {
