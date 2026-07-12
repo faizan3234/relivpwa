@@ -399,6 +399,17 @@ const FOOD_NAME_STOP_WORDS = new Set([
   'for', 'glass', 'large', 'log', 'logged', 'meal', 'medium', 'of', 'one', 'portion', 'portions', 'plate',
   'plates', 'piece', 'pieces', 'serving', 'servings', 'small', 'snack', 'snacks', 'the', 'to', 'with', 'without'
 ]);
+const FOOD_LOG_INTENT_PATTERNS = [
+  /\b(log|logged|logging|add|added|track|tracked|record|recorded|save|saved|note|noted)\b/i,
+  /\b(please\s+)?(?:log|add|record|track|save)\s+(?:my\s+)?(?:food|meal|breakfast|lunch|dinner|snack|intake)\b/i,
+  /\b(?:khana|khane|khaya|khayi|piya|pi liya|kha liya|le liya|liya)\s*(?:ko|to)?\s*(?:log|record|add|track|save)?\b/i,
+  /\b(?:दर्ज|लॉग|जोड़ो|जोड़ें|नोट|सहेज|रजिस्टर)\b/i,
+  /\b(?:খাবার|খেয়েছি|খাইছি|যোগ|লগ|রেকর্ড|সংরক্ষণ)\b/i
+];
+
+let voiceRecorder = null;
+let voiceChunks = [];
+let voiceTranscribing = false;
 
 function normalizeFoodName(name) {
   return String(name || '')
@@ -578,6 +589,104 @@ function applyQuickCoachCommand(message) {
   return updates.join(' · ');
 }
 
+function hasExplicitFoodLogIntent(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) return false;
+  if (/(change|update|set|adjust)\s+(?:my\s+)?(?:calories?|calorie|protein|streak|xp|goal|target)/i.test(normalized)) return false;
+  if (/(just\s+)?(?:talking|chatting|mentioning|discussing|speaking about)/i.test(normalized)) return false;
+  return FOOD_LOG_INTENT_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function updateVoiceUi(message, isRecording = false) {
+  if (els.coachVoiceBtn) {
+    els.coachVoiceBtn.textContent = isRecording ? '⏹ Stop' : '🎙️ Voice';
+    els.coachVoiceBtn.classList.toggle('recording', isRecording);
+  }
+  if (els.coachVoiceStatus) {
+    els.coachVoiceStatus.textContent = message || '';
+  }
+}
+
+async function transcribeGroqVoiceNote(blob) {
+  const apiKey = (state.groqKey || window.RELIX_GROQ_API_KEY || '').trim();
+  if (!apiKey) {
+    throw new Error('Add your Groq API key in settings to use voice notes.');
+  }
+
+  const formData = new FormData();
+  formData.append('file', blob, 'voice-note.webm');
+  formData.append('model', 'whisper-large-v3');
+  formData.append('response_format', 'json');
+  formData.append('temperature', '0');
+
+  const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || data.error || 'Voice transcription failed.');
+  }
+
+  return (data.text || '').trim();
+}
+
+async function startVoiceNoteCapture() {
+  if (voiceRecorder && voiceRecorder.state === 'recording') return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    updateVoiceUi('Microphone capture is not supported here.');
+    return;
+  }
+
+  try {
+    updateVoiceUi('Listening... tap stop when done.', true);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    voiceChunks = [];
+    voiceRecorder = new MediaRecorder(stream);
+
+    voiceRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) voiceChunks.push(event.data);
+    };
+
+    voiceRecorder.onstop = async () => {
+      stream.getTracks().forEach((track) => track.stop());
+      try {
+        voiceTranscribing = true;
+        updateVoiceUi('Transcribing voice note with Groq...');
+        const blob = new Blob(voiceChunks, { type: 'audio/webm' });
+        const transcript = await transcribeGroqVoiceNote(blob);
+        if (!transcript) {
+          updateVoiceUi('No speech detected. Try again.');
+          return;
+        }
+        if (els.coachInput) els.coachInput.value = transcript;
+        updateVoiceUi('Voice note ready.');
+        sendCoachMessage(transcript);
+      } catch (err) {
+        console.error('[voice] transcription failed:', err);
+        updateVoiceUi(err.message || 'Voice note failed.');
+        showToast(err.message || 'Voice transcription failed.');
+      } finally {
+        voiceTranscribing = false;
+      }
+    };
+
+    voiceRecorder.start();
+  } catch (err) {
+    updateVoiceUi(err.message || 'Could not access microphone.');
+    showToast(err.message || 'Could not access microphone.');
+  }
+}
+
+function stopVoiceNoteCapture() {
+  if (voiceRecorder && voiceRecorder.state === 'recording') {
+    voiceRecorder.stop();
+    updateVoiceUi('Processing voice note...');
+  }
+}
+
 function init() {
   applyTheme();
   syncProfileMeta();
@@ -725,6 +834,17 @@ function bindEvents() {
     sendCoachMessage(message);
     els.chatInput.value = '';
   });
+
+  if (els.coachVoiceBtn) {
+    els.coachVoiceBtn.addEventListener('click', () => {
+      if (voiceRecorder && voiceRecorder.state === 'recording') {
+        stopVoiceNoteCapture();
+        return;
+      }
+      if (voiceTranscribing) return;
+      startVoiceNoteCapture();
+    });
+  }
 
   els.mealInput.addEventListener('change', previewMeal);
   els.mealButton.addEventListener('click', analyzeMeal);
@@ -3178,6 +3298,7 @@ async function getCoachReply(message) {
     1. BRAND: Check if it was from a specific brand/bakery (e.g., Mio Amore, Tasty Bites) or homemade.
     2. PORTION: Ask how much they had using easy, physical visual parameters (e.g., small katori/bowl, standard plate, fist-sized portion, palm size, pocket/puff size).
     If these details are missing, return 0 for "calories" and "protein" in the JSON properties, and ask them in the reply.
+  - Never auto-log from casual conversation. Only return a food log when the user explicitly asks to log/add/track/record their intake or clearly gives a logging command. If they are just talking about food, do not set "logFood".
   - If they provide details, calculate exact calories/protein.
   - If they ask to remove/cancel a food, set negative values in "calories" and "protein" and set "removeFood" in JSON.
   - Every recommendation must explain WHY it is given.
@@ -3205,6 +3326,8 @@ async function getCoachReply(message) {
   }));
 
   function applyCoachReply(result) {
+    const allowFoodLog = hasExplicitFoodLogIntent(message);
+
     if (result.removeFood) {
       const targetName = result.removeFood.toLowerCase();
       const idx = state.loggedFoods.findIndex(f => f.name.toLowerCase().includes(targetName));
@@ -3215,7 +3338,7 @@ async function getCoachReply(message) {
           state.consumedProtein = Math.max(0, state.consumedProtein - (removed.protein || 0));
         }
       }
-    } else if (result.logFood && (result.calories > 0 || result.protein > 0)) {
+    } else if (allowFoodLog && result.logFood && (result.calories > 0 || result.protein > 0)) {
       logFoodEntry({
         name: result.logFood,
         calories: result.calories || 0,

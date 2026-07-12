@@ -12,6 +12,8 @@ Date: 2026-07-12
 - Updated the AI progress planner text so it reflects the current calorie and protein targets in the UI.
 - Hardened push-notification bootstrap so local smoke tests do not throw runtime errors when VAPID keys or Push API support are unavailable.
 - Updated `push_to_git.bat` so it runs from the repo folder, detects the current branch, skips empty commits, and pushes the active branch with upstream tracking.
+- Added a Groq-only voice-note button in the coach composer that transcribes speech and sends the text into the same coach flow.
+- Added a strict food-log intent gate so casual food chat does not auto-log meals unless the user explicitly asks to log/add/track/record the intake.
 
 ## Validation
 
@@ -22,4 +24,5 @@ Date: 2026-07-12
 
 - The main behavior changes live in `app.js`.
 - The push script change is in `push_to_git.bat`.
+- The coach voice UI lives in `index.html` and the recording state styles live in `style.css`.
 - Local backend smoke testing required installing backend dependencies once, but the temporary lockfile was removed afterward so the repo diff stays focused.
