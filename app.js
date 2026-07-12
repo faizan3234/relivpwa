@@ -2909,28 +2909,7 @@ async function getCoachReply(message) {
     content: m.text
   }));
 
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/ai/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        systemInstruction,
-        messages: lastFewMessages,
-        message,
-        customGroqKey: state.groqKey || ''
-      })
-    });
-    
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
-
-    let textRes = data.text || '';
-    textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
-    const result = JSON.parse(textRes);
-
-    // Apply macro updates based on LLM JSON output
+  function applyCoachReply(result) {
     if (result.calories || result.protein) {
       state.consumedCalories = Math.max(0, state.consumedCalories + (result.calories || 0));
       state.consumedProtein = Math.max(0, state.consumedProtein + (result.protein || 0));
@@ -2964,18 +2943,101 @@ async function getCoachReply(message) {
       saveState();
       renderDashboard();
     }
+  }
 
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        systemInstruction,
+        messages: lastFewMessages,
+        message,
+        customGroqKey: state.groqKey || ''
+      })
+    });
+    
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    let textRes = data.text || '';
+    textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+    const result = JSON.parse(textRes);
+
+    applyCoachReply(result);
     return result;
   } catch (err) {
-    console.error('Failed to get coach reply:', err);
-    return {
-      reply: "I am having trouble connecting to my brain right now. Make sure the backend server is running.",
-      calories: 0,
-      protein: 0,
-      logFood: null,
-      removeFood: null,
-      schedule: null
-    };
+    console.warn('[coach] Backend failed. Falling back to direct client-side fetch...', err);
+    try {
+      if (state.groqKey) {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.groqKey}`
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-70b-versatile',
+            messages: [
+              { role: 'system', content: systemInstruction },
+              ...lastFewMessages,
+              { role: 'user', content: message }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+        let textRes = data.choices[0].message.content || '';
+        textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+        const result = JSON.parse(textRes);
+        applyCoachReply(result);
+        return result;
+      } else {
+        const GEMINI_API_KEY = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        const payload = {
+          systemInstruction: {
+            parts: [{ text: systemInstruction }]
+          },
+          contents: [
+            ...lastFewMessages.map(m => ({
+              role: m.role === 'user' ? 'user' : 'model',
+              parts: [{ text: m.content || '' }]
+            })),
+            { role: 'user', parts: [{ text: message }] }
+          ],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message);
+        let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+        const result = JSON.parse(textRes);
+        applyCoachReply(result);
+        return result;
+      }
+    } catch (fallbackErr) {
+      console.error('[coach] Both backend and fallback failed:', fallbackErr);
+      return {
+        reply: "I am having trouble connecting to my brain right now. Please make sure you have entered a valid API Key in settings, or check your internet connection.",
+        calories: 0,
+        protein: 0,
+        logFood: null,
+        removeFood: null,
+        schedule: null
+      };
+    }
   }
 }
 
@@ -3153,6 +3215,33 @@ async function analyzeMeal() {
 
   const prompt = isSkin ? skinPrompt : mealPrompt;
 
+  function handleVisionSuccess(result) {
+    if (isSkin && result.type === 'skin') {
+      const prevScan = localStorage.getItem('relix-last-skin-scan');
+      if (prevScan) {
+        try {
+          const parsedPrev = JSON.parse(prevScan);
+          let diffText = "Hydration levels are stable. Uneven texture shows minor improvement from home remedies.";
+          if (result.overallScores.hydration > parsedPrev.overallScores.hydration) {
+            diffText = `Hydration score improved from ${parsedPrev.overallScores.hydration} to ${result.overallScores.hydration}! Texture clarity is progressing nicely.`;
+          }
+          result.progressText = diffText;
+        } catch (e) {}
+      } else {
+        result.progressText = "This is your first baseline scan. Future scans will display texture and pigmentation trends.";
+      }
+      localStorage.setItem('relix-last-skin-scan', JSON.stringify(result));
+    }
+
+    lastVisionResult = result;
+    localStorage.setItem('relix-last-vision-result', JSON.stringify(result));
+    saveState();
+
+    renderMealCamState();
+    els.mealStatus.textContent = 'Analysis complete.';
+    showToast('✅ Analysis finished successfully!');
+  }
+
   try {
     let base64Data = state.pendingMealImageBase64;
     let mimeType = 'image/jpeg';
@@ -3181,34 +3270,57 @@ async function analyzeMeal() {
     textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
     const result = JSON.parse(textRes);
 
-    if (isSkin && result.type === 'skin') {
-      const prevScan = localStorage.getItem('relix-last-skin-scan');
-      if (prevScan) {
-        try {
-          const parsedPrev = JSON.parse(prevScan);
-          let diffText = "Hydration levels are stable. Uneven texture shows minor improvement from home remedies.";
-          if (result.overallScores.hydration > parsedPrev.overallScores.hydration) {
-            diffText = `Hydration score improved from ${parsedPrev.overallScores.hydration} to ${result.overallScores.hydration}! Texture clarity is progressing nicely.`;
-          }
-          result.progressText = diffText;
-        } catch (e) {}
-      } else {
-        result.progressText = "This is your first baseline scan. Future scans will display texture and pigmentation trends.";
-      }
-      localStorage.setItem('relix-last-skin-scan', JSON.stringify(result));
-    }
-
-    lastVisionResult = result;
-    localStorage.setItem('relix-last-vision-result', JSON.stringify(result));
-    saveState();
-
-    renderMealCamState();
-    els.mealStatus.textContent = 'Analysis complete.';
-    showToast('✅ Analysis finished successfully!');
+    handleVisionSuccess(result);
   } catch (err) {
-    console.error('AI Scan Error:', err);
-    els.mealStatus.textContent = 'Analysis failed. Please check network/backend.';
-    showToast('❌ Analysis failed.');
+    console.warn('[vision] Backend failed. Falling back to direct client-side scan...', err);
+    try {
+      let base64Data = state.pendingMealImageBase64;
+      let mimeType = 'image/jpeg';
+      if (base64Data.includes(',')) {
+        const parts = base64Data.split(',');
+        mimeType = parts[0].match(/:(.*?);/)[1];
+        base64Data = parts[1];
+      }
+
+      const GEMINI_API_KEY = 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const payload = {
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+
+      let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = JSON.parse(textRes);
+
+      handleVisionSuccess(result);
+    } catch (fallbackErr) {
+      console.error('[vision] Both backend and fallback failed:', fallbackErr);
+      els.mealStatus.textContent = 'Analysis failed. Please check network/backend.';
+      showToast('❌ Analysis failed.');
+    }
   } finally {
     els.mealButton.disabled = false;
   }
