@@ -167,3 +167,33 @@ img { max-width: 100%; display: block; }
 @keyframes fall { to { transform: translateY(90vh) rotate(540deg); opacity: 0; } }
 @media (max-width: 780px) { .rings-row, .grid-2, .profile-grid { grid-template-columns: 1fr; } .hero-stats { grid-template-columns: 1fr; } .coach-form { flex-direction: column; } .top-bar { padding: 14px; } }
 
+/* Sleek PDF Academy Phone View Upgrades */
+.academy-tab-bar {
+  display: flex;
+  overflow-x: auto;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 12px;
+  scrollbar-width: none; /* Hide scrollbar for Firefox */
+  -ms-overflow-style: none;  /* Hide scrollbar for IE/Edge */
+}
+.academy-tab-bar::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for Chrome/Safari */
+}
+.academy-tab-btn {
+  flex: 1;
+  text-align: center;
+  padding: 8px 14px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+

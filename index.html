@@ -297,12 +297,12 @@
             <div id="academy-subtabs" style="display:none; flex-direction:column; gap:14px; border-top:1px solid var(--border); padding-top:14px;">
               
               <!-- Tab Bar selector -->
-              <div style="display:flex; overflow-x:auto; gap:6px; padding-bottom:6px;">
-                <button class="academy-tab-btn active-subtab" data-subtab="search" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:var(--primary); color:white; white-space:nowrap;">🔍 Search</button>
-                <button class="academy-tab-btn" data-subtab="summary" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">📝 Summary</button>
-                <button class="academy-tab-btn" data-subtab="flashcards" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">📇 Flashcards</button>
-                <button class="academy-tab-btn" data-subtab="quiz" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">✏️ Quiz</button>
-                <button class="academy-tab-btn" data-subtab="lessons" type="button" style="padding:6px 12px; font-size:0.82rem; font-weight:700; border-radius:10px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">📖 Lessons</button>
+              <div class="academy-tab-bar">
+                <button class="academy-tab-btn" data-subtab="search" type="button" style="background:var(--primary); color:white;">🔍 Search</button>
+                <button class="academy-tab-btn" data-subtab="summary" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📝 Summary</button>
+                <button class="academy-tab-btn" data-subtab="flashcards" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📇 Cards</button>
+                <button class="academy-tab-btn" data-subtab="quiz" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">✏️ Quiz</button>
+                <button class="academy-tab-btn" data-subtab="lessons" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📖 Lessons</button>
               </div>
 
               <!-- Academy panels -->
@@ -333,7 +333,7 @@
                       <span id="flashcard-question-text" style="font-size:0.9rem; font-weight:600; color:var(--text);">What is a calorie deficit?</span>
                       <small style="color:var(--muted); font-size:0.7rem;">(Tap to Reveal Answer)</small>
                     </div>
-                    <div id="flashcard-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; transform: rotateY(180deg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:var(--border);">
+                    <div id="flashcard-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; transform: rotateY(180deg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02)); border:1px solid rgba(34,197,94,0.15); border-radius:18px; padding:20px;">
                       <strong style="color:#22c55e; font-size:0.8rem; text-transform:uppercase;">Answer</strong>
                       <span id="flashcard-answer-text" style="font-size:0.85rem; color:var(--text); line-height:1.4;">Consuming fewer calories than your body burns, forcing it to utilize stored fat for energy.</span>
                       <small style="color:var(--muted); font-size:0.7rem;">(Tap to Flip Back)</small>
