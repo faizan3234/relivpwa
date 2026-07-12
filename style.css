@@ -130,6 +130,7 @@ img { max-width: 100%; display: block; }
 .coach-form input { flex: 1; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
 .voice-btn { min-width: 92px; }
 .voice-btn.recording { background: rgba(239, 68, 68, 0.14); color: #ef4444; box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.25); }
+.voice-status-live { color: var(--primary); font-weight: 600; }
 .camera-card { display: grid; gap: 14px; }
 .meal-preview { min-height: 220px; border-radius: 24px; background: linear-gradient(135deg, rgba(255,122,0,0.12), rgba(255,179,71,0.12)); display: grid; place-items: center; overflow: hidden; }
 .meal-preview img { width: 100%; height: 100%; object-fit: cover; }

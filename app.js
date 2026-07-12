@@ -339,6 +339,8 @@ const els = {
   chatMessages: document.getElementById('chat-messages'),
   chatInput: document.getElementById('coach-input'),
   coachForm: document.getElementById('coach-form'),
+  coachVoiceBtn: document.getElementById('coach-voice-btn'),
+  coachVoiceStatus: document.getElementById('coach-voice-status'),
   suggestions: document.querySelectorAll('.suggestion-pill'),
   mealPreview: document.getElementById('meal-preview'),
   mealStatus: document.getElementById('meal-status'),
@@ -410,6 +412,8 @@ const FOOD_LOG_INTENT_PATTERNS = [
 let voiceRecorder = null;
 let voiceChunks = [];
 let voiceTranscribing = false;
+let speechRecognition = null;
+let backendReachable = null;
 
 function normalizeFoodName(name) {
   return String(name || '')
@@ -604,6 +608,28 @@ function updateVoiceUi(message, isRecording = false) {
   }
   if (els.coachVoiceStatus) {
     els.coachVoiceStatus.textContent = message || '';
+    els.coachVoiceStatus.classList.toggle('voice-status-live', Boolean(message));
+  }
+}
+
+async function ensureBackendReachable() {
+  if (!BACKEND_URL) {
+    backendReachable = false;
+    return false;
+  }
+  if (backendReachable === true) return true;
+  if (backendReachable === false) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 1200);
+    const response = await fetch(`${BACKEND_URL}/api/ping`, { signal: controller.signal });
+    window.clearTimeout(timeout);
+    backendReachable = response.ok;
+    return backendReachable;
+  } catch (err) {
+    backendReachable = false;
+    return false;
   }
 }
 
@@ -635,8 +661,68 @@ async function transcribeGroqVoiceNote(blob) {
 
 async function startVoiceNoteCapture() {
   if (voiceRecorder && voiceRecorder.state === 'recording') return;
+
   if (!navigator.mediaDevices?.getUserMedia) {
+    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognitionImpl) {
+      try {
+        const recognition = new SpeechRecognitionImpl();
+        speechRecognition = recognition;
+        recognition.lang = 'en-US';
+        recognition.interimResults = true;
+        recognition.continuous = true;
+        let finalTranscript = '';
+
+        updateVoiceUi('Listening... speak naturally, then wait or tap stop.', true);
+
+        recognition.onresult = (event) => {
+          let interimTranscript = '';
+          for (let index = event.resultIndex; index < event.results.length; index += 1) {
+            const transcriptPart = event.results[index][0]?.transcript || '';
+            if (event.results[index].isFinal) {
+              finalTranscript += `${transcriptPart} `;
+            } else {
+              interimTranscript += transcriptPart;
+            }
+          }
+          const preview = `${finalTranscript}${interimTranscript}`.trim();
+          if (preview) updateVoiceUi(`Heard: ${preview}`);
+        };
+
+        recognition.onerror = (event) => {
+          speechRecognition = null;
+          voiceTranscribing = false;
+          updateVoiceUi(event.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice listening failed.');
+          showToast(event.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice listening failed.');
+        };
+
+        recognition.onend = () => {
+          const transcript = finalTranscript.trim();
+          speechRecognition = null;
+          voiceTranscribing = false;
+          if (!transcript) {
+            updateVoiceUi('No speech detected. Try again.');
+            return;
+          }
+          if (els.coachInput) els.coachInput.value = transcript;
+          updateVoiceUi('Speech captured. Answering now...');
+          sendCoachMessage(transcript);
+        };
+
+        recognition.start();
+        voiceTranscribing = true;
+        return;
+      } catch (err) {
+        speechRecognition = null;
+        voiceTranscribing = false;
+        updateVoiceUi('Microphone capture is not supported here.');
+        showToast('Microphone capture is not supported here.');
+        return;
+      }
+    }
+
     updateVoiceUi('Microphone capture is not supported here.');
+    showToast('Microphone capture is not supported here.');
     return;
   }
 
@@ -681,6 +767,14 @@ async function startVoiceNoteCapture() {
 }
 
 function stopVoiceNoteCapture() {
+  if (speechRecognition) {
+    try {
+      speechRecognition.stop();
+    } catch (err) { }
+    speechRecognition = null;
+    updateVoiceUi('Processing voice note...');
+    return;
+  }
   if (voiceRecorder && voiceRecorder.state === 'recording') {
     voiceRecorder.stop();
     updateVoiceUi('Processing voice note...');
@@ -3416,6 +3510,10 @@ async function getCoachReply(message) {
   }
 
   try {
+    if (state.groqKey) {
+      return await queryDirectClient();
+    }
+
     if (!BACKEND_URL) {
       return await queryDirectClient();
     }
@@ -4128,7 +4226,7 @@ function scheduleReminder(key, delay) {
   // just REPLACES the pending schedule instead of stacking duplicate pushes)
   // so a real push still arrives on the lock screen even if the phone is
   // locked or the app is fully closed.
-  if (BACKEND_URL && state.notifications && !state.remindersPaused) {
+  if (BACKEND_URL && state.notifications && !state.remindersPaused && backendReachable === true) {
     fetch(`${BACKEND_URL}/api/push/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4361,7 +4459,6 @@ function showNotification(title, body, tag) {
 }
 function registerInstallPrompt() {
   window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault();
     installPrompt = event;
     els.installButton.classList.add('visible');
     updateActionButtons();
@@ -4553,7 +4650,7 @@ function checkDailyReset(force = false) {
 }
 
 function scheduleResetWarningNotification(dueTime) {
-  if (BACKEND_URL && state.notifications && !state.remindersPaused) {
+  if (BACKEND_URL && state.notifications && !state.remindersPaused && backendReachable === true) {
     fetch(`${BACKEND_URL}/api/push/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
