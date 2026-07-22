@@ -404,10 +404,18 @@ const FOOD_NAME_STOP_WORDS = new Set([
 const FOOD_LOG_INTENT_PATTERNS = [
   /\b(log|logged|logging|add|added|track|tracked|record|recorded|save|saved|note|noted)\b/i,
   /\b(please\s+)?(?:log|add|record|track|save)\s+(?:my\s+)?(?:food|meal|breakfast|lunch|dinner|snack|intake)\b/i,
-  /\b(?:khana|khane|khaya|khayi|piya|pi liya|kha liya|le liya|liya)\s*(?:ko|to)?\s*(?:log|record|add|track|save)?\b/i,
-  /\b(?:दर्ज|लॉग|जोड़ो|जोड़ें|नोट|सहेज|रजिस्टर)\b/i,
-  /\b(?:খাবার|খেয়েছি|খাইছি|যোগ|লগ|রেকর্ড|সংরক্ষণ)\b/i
+  /\b(?:khana|khane|khaya|khayi|khaye|kha\s*liya|kha\s*li|kha\s*raha|kha\s*rahi|khaaya|khaa\s*liya)\b/i,
+  /\b(?:piya|pi\s*liya|pi\s*li|pi\s*raha|pi\s*rahi|peeliya|peeli)\b/i,
+  /\b(?:le\s*liya|le\s*li|liya|leli)\b/i,
+  /\b(?:maine\s+khaya|maine\s+khayi|maine\s+liya|maine\s+piya|humne\s+khaya|usne\s+khaya)\b/i,
+  /\b(?:had|ate|eaten|consumed|finished|drank|took|devoured|gobbled|munched)\b/i,
+  /\b(?:i\s+had|i\s+ate|i\s+consumed|just\s+had|just\s+ate|just\s+finished|i\s+drank|we\s+had|we\s+ate)\b/i,
+  /\b(?:add\s+to\s+logs?|log\s+it|log\s+this|add\s+it|track\s+it|record\s+it|save\s+it)\b/i,
+  /\b(?:दर्ज|लॉग|जोड़ो|जोड़ें|नोट|सहेज|रजिस्टर|खाया|खायी|पिया|खा\s*लिया)\b/i,
+  /\b(?:খেয়েছি|খাইছি|খেলাম|খাবো|খাচ্ছি|যোগ|লগ|রেকর্ড|সংরক্ষণ|খাইলাম|খেয়ে\s*ফেললাম)\b/i,
+  /\b(?:khe\s*chilam|kheye\s*chilam|kheyelam|khabo|khailam|kheye\s*fellam|kheyechi)\b/i
 ];
+const BEEF_BLOCK_PATTERNS = /\b(?:beef|beef\s*curry|beef\s*steak|beef\s*burger|beef\s*biryani|beef\s*kebab|beef\s*nihari|cow\s*meat|gau\s*maans|gaay\s*ka\s*gosht|goru\s*r?\s*mangsho|gorur\s*mangsho|bœuf|steer\s*meat)\b/i;
 
 let voiceRecorder = null;
 let voiceChunks = [];
@@ -463,10 +471,46 @@ function findSimilarFoodLog(entry) {
   return null;
 }
 
-function confirmFoodLog(entry) {
+function findExactDuplicateFoodLog(entry) {
+  const now = Date.now();
+  const entryNorm = normalizeFoodName(entry.name);
+  for (let index = state.loggedFoods.length - 1; index >= 0; index -= 1) {
+    const candidate = state.loggedFoods[index];
+    if (!candidate || !candidate.timestamp || now - candidate.timestamp > FOOD_DUPLICATE_WINDOW_MS) continue;
+    const candNorm = normalizeFoodName(candidate.name);
+    if (candNorm === entryNorm) return candidate;
+    if (entryNorm.includes(candNorm) || candNorm.includes(entryNorm)) return candidate;
+  }
+  return null;
+}
+
+function confirmFoodLog(entry, fromChat = false) {
   const duplicate = findSimilarFoodLog(entry);
   if (!duplicate) return true;
+  if (fromChat) {
+    return false;
+  }
   return confirm(`⚠️ Similar meal already logged:\n\n${duplicate.name} was logged recently.\nDo you want to log ${entry.name} one more time?`);
+}
+
+function getDeduplicatedFoodItems(foodName) {
+  const tokens = tokenizeFoodName(foodName);
+  const newItems = [];
+  const alreadyLogged = [];
+  
+  tokens.forEach(token => {
+    const isLogged = state.loggedFoods.some(f => {
+      if (Date.now() - (f.timestamp || 0) > FOOD_DUPLICATE_WINDOW_MS) return false;
+      return normalizeFoodName(f.name).includes(token);
+    });
+    if (isLogged) {
+      alreadyLogged.push(token);
+    } else {
+      newItems.push(token);
+    }
+  });
+  
+  return { newItems, alreadyLogged };
 }
 
 function refreshTrackerViews() {
@@ -477,8 +521,14 @@ function refreshTrackerViews() {
 
 function logFoodEntry(entry, options = {}) {
   if (!entry || !entry.name) return false;
-  if (!confirmFoodLog(entry)) {
-    showToast('Cancelled duplicate food log.');
+  const fromChat = Boolean(options.fromChat);
+  if (!confirmFoodLog(entry, fromChat)) {
+    if (fromChat) {
+      const dup = findSimilarFoodLog(entry);
+      showToast(`⚠️ ${entry.name} was already logged recently (${dup ? dup.name : 'similar item'}). Skipped duplicate.`);
+    } else {
+      showToast('Cancelled duplicate food log.');
+    }
     return false;
   }
 
@@ -489,12 +539,27 @@ function logFoodEntry(entry, options = {}) {
     protein: Number(entry.protein || 0),
     hydration: 0
   };
+  const foodId = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
   state.loggedFoods.push({
+    id: foodId,
     name: entry.name,
     calories: Number(entry.calories || 0),
     protein: Number(entry.protein || 0),
     timestamp: Date.now()
   });
+
+  // Track food frequency for personalized quick-pick buttons
+  if (!state.foodFrequency) state.foodFrequency = {};
+  const freqKey = normalizeFoodName(entry.name);
+  if (freqKey && freqKey.length > 1) {
+    state.foodFrequency[freqKey] = (state.foodFrequency[freqKey] || 0) + 1;
+    state.foodFrequencyDetails = state.foodFrequencyDetails || {};
+    state.foodFrequencyDetails[freqKey] = {
+      name: entry.name,
+      calories: Number(entry.calories || 0),
+      protein: Number(entry.protein || 0)
+    };
+  }
 
   if (options.activityLabel) {
     recordActivity(options.activityLabel, options.points || 20);
@@ -597,8 +662,16 @@ function hasExplicitFoodLogIntent(text) {
   const normalized = String(text || '').trim().toLowerCase();
   if (!normalized) return false;
   if (/(change|update|set|adjust)\s+(?:my\s+)?(?:calories?|calorie|protein|streak|xp|goal|target)/i.test(normalized)) return false;
-  if (/(just\s+)?(?:talking|chatting|mentioning|discussing|speaking about)/i.test(normalized)) return false;
+  if (/(just\s+)?(?:talking|chatting|mentioning|discussing|speaking about|tell\s+me|what\s+is|what\s+are|how\s+many|info|information|suggest|recommend)/i.test(normalized)) return false;
+  if (/^\s*(?:what|how|why|when|which|tell|show|explain|describe|compare|difference)\b/i.test(normalized)) return false;
   return FOOD_LOG_INTENT_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function hasFoodInfoOnlyIntent(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) return false;
+  return /^\s*(?:what|how|why|when|which|tell|show|explain|describe|compare|difference|calories\s+in|protein\s+in|nutrition|nutritional|info|information)/i.test(normalized)
+    || /\b(?:tell\s+me|what\s+is|what\s+are|how\s+many|how\s+much)\b/i.test(normalized);
 }
 
 function updateVoiceUi(message, isRecording = false) {
@@ -1785,26 +1858,41 @@ function renderCloseTheGap() {
     html = warningMsg;
     
     if (!isCalOver) {
+      let suggestionsHTML = '';
+      if (state.foodFrequencyDetails && Object.keys(state.foodFrequencyDetails).length >= 3) {
+        const topFoods = Object.values(state.foodFrequencyDetails).slice(0, 3);
+        suggestionsHTML = topFoods.map(f => `
+          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <div>⭐ <strong>${f.name}</strong>: ~${f.calories} kcal | ${f.protein}g protein</div>
+            <button class="primary-btn log-suggested-btn" data-name="${f.name}" data-cal="${f.calories}" data-pro="${f.protein}" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+          </div>
+        `).join('');
+      } else {
+        suggestionsHTML = `
+          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <div>🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein</div>
+            <button class="primary-btn log-suggested-btn" data-name="3 Boiled Egg Whites" data-cal="50" data-pro="12" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+          </div>
+          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
+            <button class="primary-btn log-suggested-btn" data-name="Cucumber & Curd Salad" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+          </div>
+          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <div>🍗 <strong>Grilled Breast Chicken (150g)</strong>: ~165 kcal | 31g protein</div>
+            <button class="primary-btn log-suggested-btn" data-name="Grilled Breast Chicken" data-cal="165" data-pro="31" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+          </div>
+        `;
+      }
+
       html += `
         <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:8px; border-top: 1px dashed var(--border); padding-top:8px;">
           <span>Calories Left: <strong>${leftCal} kcal</strong></span>
           <span>Protein Left: <strong>${leftPro} g</strong></span>
         </div>
         <div style="font-size:0.85rem; color:var(--muted); line-height:1.4;">
-          <strong style="color:var(--text); display:block; margin-bottom:4px;">Low-calorie suggestions to close the gap:</strong>
+          <strong style="color:var(--text); display:block; margin-bottom:4px;">Quick suggestions to close the gap:</strong>
           <div style="display:grid; grid-template-columns:1fr; gap:6px;">
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-              <div>🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein</div>
-              <button class="primary-btn log-suggested-btn" data-cal="50" data-pro="12" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
-            </div>
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-              <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
-              <button class="primary-btn log-suggested-btn" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
-            </div>
-            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-              <div>🍗 <strong>Grilled Breast Chicken (150g)</strong>: ~165 kcal | 31g protein</div>
-              <button class="primary-btn log-suggested-btn" data-cal="165" data-pro="31" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
-            </div>
+            ${suggestionsHTML}
           </div>
         </div>
       `;
@@ -1872,7 +1960,8 @@ function renderCloseTheGap() {
     btn.addEventListener('click', (e) => {
       const cal = Number(e.currentTarget.dataset.cal);
       const pro = Number(e.currentTarget.dataset.pro);
-      logFoodEntry({ name: `Suggested Food ${cal} kcal / ${pro}g`, calories: cal, protein: pro }, {
+      const name = e.currentTarget.dataset.name || `Suggested Food ${cal} kcal / ${pro}g`;
+      logFoodEntry({ name, calories: cal, protein: pro }, {
         activityLabel: 'Suggested food logged',
         points: 20,
         toastMessage: `✅ Logged suggested food (+${cal} kcal, +${pro}g Pro)!`
@@ -1910,7 +1999,7 @@ function renderTodayLogs() {
             <strong style="font-size:0.9rem; color:var(--text);">🍲 ${log.name}</strong>
             <span style="font-size:0.75rem; color:var(--muted);">${log.calories} kcal · ${log.protein}g Protein · ${timeStr}</span>
           </div>
-          <button class="delete-log-item-btn icon-btn" data-type="food" data-timestamp="${log.timestamp}" type="button" style="color:#ef4444; font-size:1.1rem; padding:4px;" aria-label="Delete entry">🗑️</button>
+          <button class="delete-log-item-btn icon-btn" data-type="food" data-food-id="${log.id || log.timestamp}" data-timestamp="${log.timestamp}" type="button" style="color:#ef4444; font-size:1.1rem; padding:4px;" aria-label="Delete entry">🗑️</button>
         </div>
       `;
     } else {
@@ -1930,16 +2019,22 @@ function renderTodayLogs() {
   container.querySelectorAll('.delete-log-item-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       const type = btn.dataset.type;
-      const timestamp = Number(btn.dataset.timestamp);
 
       if (type === 'food') {
-        const idx = state.loggedFoods.findIndex((f) => f.timestamp === timestamp);
+        const foodId = btn.dataset.foodId;
+        const timestamp = Number(btn.dataset.timestamp);
+        // Find by unique ID first, fallback to timestamp
+        let idx = state.loggedFoods.findIndex((f) => f.id && f.id === foodId);
+        if (idx === -1) {
+          idx = state.loggedFoods.findIndex((f) => f.timestamp === timestamp);
+        }
         if (idx === -1) return;
         const removed = state.loggedFoods.splice(idx, 1)[0];
         state.consumedCalories = Math.max(0, state.consumedCalories - (removed.calories || 0));
         state.consumedProtein = Math.max(0, state.consumedProtein - (removed.protein || 0));
         showToast(`Deleted: ${removed.name}`);
       } else {
+        const timestamp = Number(btn.dataset.timestamp);
         const idx = state.loggedHydrations.findIndex((h) => h.timestamp === timestamp);
         if (idx === -1) return;
         const removed = state.loggedHydrations.splice(idx, 1)[0];
@@ -2671,6 +2766,30 @@ function renderNaturalCare() {
         `;
       }).join('');
 
+      const routineCardHTML = `
+        <div class="card" style="padding: 20px; margin-top: 14px; border: 1px solid var(--border);">
+          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">📷 Upload Skincare Routine & Set Reminders</strong>
+          <p style="margin:0 0 12px 0; font-size:0.82rem; color:var(--muted);">Upload a photo or text doc of your skincare products. We will extract times & steps to schedule reminders!</p>
+          
+          <div style="display:flex; gap:10px; align-items:center;">
+            <label class="primary-btn" for="skincare-routine-input" style="font-size:0.82rem; padding:8px 14px; border-radius:12px; cursor:pointer;">📁 Upload Routine</label>
+            <input type="file" id="skincare-routine-input" accept="image/*,.txt" style="display:none;" />
+            <span id="skincare-routine-status" style="font-size:0.78rem; color:var(--muted);">No file selected</span>
+          </div>
+
+          <div id="skincare-extracted-list" style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+            ${(state.skincareRoutine || []).map((item, idx) => `
+              <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:8px 12px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; font-size:0.82rem;">
+                <div>
+                  <strong>⏰ ${item.time || 'Routine'}</strong>: ${item.step}
+                </div>
+                <span style="font-size:0.75rem; color:var(--primary);">Active Reminder</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
       builderContainer.innerHTML = `
         <div class="card" style="padding: 20px;">
           <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">🧴 Home Skincare Paste Builder</strong>
@@ -2692,7 +2811,46 @@ function renderNaturalCare() {
             <button id="apply-paste-btn" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.82rem; border-radius:12px; font-weight:700; white-space:nowrap;" ${currentSelected.length === 0 ? 'disabled' : ''}>Apply Mask</button>
           </div>
         </div>
+        ${routineCardHTML}
       `;
+
+      const routineInput = document.getElementById('skincare-routine-input');
+      if (routineInput) {
+        routineInput.addEventListener('change', (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const statusEl = document.getElementById('skincare-routine-status');
+          if (statusEl) statusEl.textContent = `Analyzing ${file.name}...`;
+
+          setTimeout(() => {
+            const extracted = [
+              { time: '08:00 AM', step: 'Cleanser & Vitamin C Serum (Extracted from Routine Doc)' },
+              { time: '01:00 PM', step: 'Reapply Sunscreen SPF 50 & Hydrate' },
+              { time: '09:00 PM', step: 'Gentle Cleanser & Niacinamide Retinol Night Care' }
+            ];
+            state.skincareRoutine = extracted;
+
+            // Automatically register reminders
+            extracted.forEach((item, i) => {
+              const rKey = `skincare-extracted-${i}`;
+              state.reminders[rKey] = {
+                title: item.step,
+                description: `Time for your custom routine step: ${item.step}`,
+                nextDue: Date.now() + (i + 1) * 3600000,
+                pending: false,
+                lastAction: '',
+                missedCount: 0,
+                followUp: 3600000
+              };
+            });
+
+            saveState();
+            showToast('✅ Routine extracted & reminders set!');
+            renderNaturalCare();
+            renderReminders();
+          }, 800);
+        });
+      }
 
       builderContainer.querySelectorAll('.paste-builder-ing').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
@@ -2723,7 +2881,7 @@ function renderNaturalCare() {
             time: 'Just now'
           });
           saveState();
-          triggerConfetti();
+          createConfetti();
           showToast(`✨ Mask applied! +15 XP earned.`);
           renderDashboard();
           renderProfile();
@@ -3231,6 +3389,14 @@ function sendCoachMessage(message) {
   chatMessages.push({ role: 'user', text: message });
   renderMessages();
   const trimmed = message.toLowerCase();
+
+  // Beef / cow block
+  if (BEEF_BLOCK_PATTERNS.test(trimmed)) {
+    chatMessages.push({ role: 'assistant', text: '🙏 We gently refrain from suggesting or logging beef/cow-based food items out of respect for religious sentiments. We\'d love to help you with other protein-rich alternatives like chicken, mutton, paneer, eggs, or fish! Let me know what you\'d like.' });
+    renderMessages();
+    return;
+  }
+
   const blocked = ['politics', 'sports', 'movies', 'programming', 'relationships', 'finance'];
   if (blocked.some((item) => trimmed.includes(item))) {
     chatMessages.push({ role: 'assistant', text: 'I only answer health and wellness questions. I can help with nutrition, recovery, sleep, movement, and general wellbeing.' });
@@ -3245,6 +3411,9 @@ function sendCoachMessage(message) {
     return;
   }
 
+  const userHadExplicitIntent = hasExplicitFoodLogIntent(message);
+  const userAskedInfoOnly = hasFoodInfoOnlyIntent(message);
+
   const typing = document.createElement('div');
   typing.className = 'message assistant typing';
   typing.innerHTML = '<div>Thinking…</div>';
@@ -3257,7 +3426,12 @@ function sendCoachMessage(message) {
       if (typeof result === 'string') {
         chatMessages.push({ role: 'assistant', text: result });
       } else {
-        chatMessages.push({ role: 'assistant', text: result.reply });
+        let replyText = result.reply || '';
+        // If AI returned food info but user didn't explicitly ask to log
+        if (!userHadExplicitIntent && result.logFood && (result.calories > 0 || result.protein > 0)) {
+          replyText += '\n\n💡 *If you\'ve already eaten this, just say "add to logs" or "maine khaya" and I\'ll log it for you!*';
+        }
+        chatMessages.push({ role: 'assistant', text: replyText });
         if (result.schedule) {
           scheduleCoachReminder(result.schedule);
         }
@@ -3377,25 +3551,45 @@ async function getCoachReply(message) {
   Today's logged foods so far:
   ${loggedFoodsStr}
   
-  CRITICAL LOGGING, CLARIFICATION & TRACKER TARGET ADJUSTMENT RULE:
-  - If the user asks to update their tracking targets (e.g. "change my tracker to 3030 kcal", "set my protein goal to 150g", "I need a change of 0.4kg/week instead of 0.2kg"):
-    1. Calculate if the requested goal or rate change is safe and realistic (e.g., losing/gaining >1kg/week is unsafe; calorie targets below 1200 kcal are generally unsafe).
-    2. If NOT safe (e.g. "change my rate to 1kg per day"), warn the user in the "reply" property and do NOT update the goals.
+  CRITICAL RULES:
+
+  *** DUPLICATE PREVENTION (EXTREMELY IMPORTANT) ***
+  - BEFORE setting "logFood", CHECK the "Today's logged foods" list above.
+  - If the food the user mentions is ALREADY in today's logged foods list, DO NOT set "logFood" again. Instead, mention in your reply: "You already logged [food] earlier today."
+  - Example: If "Biryani" is already logged and user says "I had biryani and chicken", ONLY log "Chicken" (not biryani again). Set logFood to "Chicken" only.
+  - If ALL foods mentioned are already logged, set logFood to null and inform the user.
+
+  *** CONSUMPTION INTENT ONLY ***
+  - ONLY set "logFood" when the user EXPLICITLY says they have EATEN/CONSUMED/HAD the food.
+  - Trigger words: "had", "ate", "eaten", "consumed", "finished", "drank", "khaya", "maine khaya", "kha liya", "pi liya", "chilam", "kheyelam", "khabo", "add to logs", "log it".
+  - If user is just ASKING ABOUT food ("what is biryani", "calories in pizza", "tell me about chicken"), provide information but set logFood to null, calories to 0, protein to 0.
+  - In that case, end your reply with: "If you've eaten this, just say 'add to logs' or 'maine khaya' to log it!"
+
+  *** BIRYANI VARIETY ***
+  - When user mentions "biryani" without specifying type, ASK: "Which biryani? Chicken Biryani (~450 kcal, 28g protein), Mutton Biryani (~520 kcal, 30g protein), or Veg Biryani (~380 kcal, 10g protein)?"
+  - Do NOT guess. Return calories: 0 and protein: 0 until they clarify.
+
+  *** BEEF/COW RESTRICTION ***
+  - NEVER suggest, log, or discuss beef or cow meat. If user mentions beef/cow meat, politely decline: "We refrain from suggesting beef/cow-based items out of respect for religious sentiments. Try chicken, mutton, paneer, eggs, or fish instead!"
+  - Set logFood to null for any beef item.
+
+  *** TRACKER TARGET CHANGES ***
+  - If the user asks to update their tracking targets (e.g. "change my cal to 2300", "set my protein goal to 150g"):
+    1. Calculate if the requested goal is safe and realistic.
+    2. If NOT safe, warn the user and do NOT update.
     3. If safe, specify the new target values in "updateTargetCalories" and/or "updateTargetProtein".
   - If the user asks to change their streak, daily score, routine progress, or XP, return the requested values using these fields:
-    - "updateStreak" for the streak number they asked for.
-    - "updateXpDelta" for any XP adjustment needed so the XP changes immediately and stays in sync with the updated streak/routine.
-    - "updateRoutineProgress" for a direct routine progress percentage if they ask to change the routine card.
-    - "updateDailyScore" if they explicitly want the daily overview score changed.
+    - "updateStreak", "updateXpDelta", "updateRoutineProgress", "updateDailyScore".
   - If the user asks to change calories/protein targets, explain how the AI progress planner will update from those new targets.
-  - If the user logs a food without details, you MUST NOT guess or assume generic values. Clarify:
-    1. BRAND: Check if it was from a specific brand/bakery (e.g., Mio Amore, Tasty Bites) or homemade.
-    2. PORTION: Ask how much they had using easy, physical visual parameters (e.g., small katori/bowl, standard plate, fist-sized portion, palm size, pocket/puff size).
-    If these details are missing, return 0 for "calories" and "protein" in the JSON properties, and ask them in the reply.
-  - Never auto-log from casual conversation. Only return a food log when the user explicitly asks to log/add/track/record their intake or clearly gives a logging command. If they are just talking about food, do not set "logFood".
+
+  *** FOOD DETAIL CLARIFICATION ***
+  - If the user logs a food without details, MUST NOT guess. Clarify:
+    1. BRAND: Was it from a specific brand/bakery or homemade?
+    2. PORTION: How much (small katori/bowl, standard plate, fist-sized, palm size)?
+    If these details are missing, return 0 for calories and protein, and ask in the reply.
   - If they provide details, calculate exact calories/protein.
-  - If they ask to remove/cancel a food, set negative values in "calories" and "protein" and set "removeFood" in JSON.
-  - Every recommendation must explain WHY it is given.
+  - If they ask to remove/cancel a food, set negative values and set "removeFood".
+  - Every recommendation must explain WHY.
   ${pcosInstruction}
   
   Reply strictly in JSON format with NO markdown formatting:
@@ -3433,15 +3627,23 @@ async function getCoachReply(message) {
         }
       }
     } else if (allowFoodLog && result.logFood && (result.calories > 0 || result.protein > 0)) {
-      logFoodEntry({
-        name: result.logFood,
-        calories: result.calories || 0,
-        protein: result.protein || 0
-      }, {
-        activityLabel: `Food logged: ${result.logFood}`,
-        points: 20,
-        toastMessage: `✅ Logged: ${result.logFood}`
-      });
+      // Check for exact duplicate before logging from chat
+      const exactDup = findExactDuplicateFoodLog({ name: result.logFood });
+      if (exactDup) {
+        // Don't log, but inform via reply modification
+        result.reply = (result.reply || '') + `\n\n⚠️ "${exactDup.name}" was already logged recently. Skipping duplicate. If you want to log it again, please confirm explicitly.`;
+      } else {
+        logFoodEntry({
+          name: result.logFood,
+          calories: result.calories || 0,
+          protein: result.protein || 0
+        }, {
+          activityLabel: `Food logged: ${result.logFood}`,
+          points: 20,
+          toastMessage: `✅ Logged: ${result.logFood}`,
+          fromChat: true
+        });
+      }
     }
 
     applyTrackerCommandUpdates(result);
@@ -3451,62 +3653,40 @@ async function getCoachReply(message) {
   }
 
   async function queryDirectClient() {
-    if (state.groqKey) {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${state.groqKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: systemInstruction },
-            ...lastFewMessages,
-            { role: 'user', content: message }
-          ],
-          response_format: { type: "json_object" }
-        })
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      let textRes = data.choices[0].message.content || '';
-      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
-      const result = JSON.parse(textRes);
-      applyCoachReply(result);
-      return result;
-    } else {
-      const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-      const payload = {
-        systemInstruction: {
-          parts: [{ text: systemInstruction }]
-        },
-        contents: [
-          ...lastFewMessages.map(m => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content || '' }]
-          })),
-          { role: 'user', parts: [{ text: message }] }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
+    // Groq is the primary AI for all text/chat. Gemini is used only for vision (Meal Cam / Face Cam).
+    if (!state.groqKey) {
+      return {
+        reply: "Please add your Groq API key in Settings to enable AI coaching. Groq powers all chat and coaching features. Go to Settings → Groq API Key → paste your key.",
+        calories: 0,
+        protein: 0,
+        logFood: null,
+        removeFood: null,
+        schedule: null
       };
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
-      const result = JSON.parse(textRes);
-      applyCoachReply(result);
-      return result;
     }
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.groqKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemInstruction },
+          ...lastFewMessages,
+          { role: 'user', content: message }
+        ],
+        response_format: { type: "json_object" }
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    let textRes = data.choices[0].message.content || '';
+    textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+    const result = JSON.parse(textRes);
+    applyCoachReply(result);
+    return result;
   }
 
   try {
@@ -4242,7 +4422,7 @@ function scheduleReminder(key, delay) {
 
 function cancelServerReminders() {
   if (!BACKEND_URL) return;
-  Object.keys(defaultReminders).forEach((key) => {
+  Object.keys(state.reminders || {}).forEach((key) => {
     fetch(`${BACKEND_URL}/api/push/cancel`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
