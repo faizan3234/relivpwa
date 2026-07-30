@@ -5335,8 +5335,8 @@ function initPDFAcademy() {
             return;
           }
           try {
-            const prompt = "Analyze this routine/schedule image. Extract any health, diet, skincare, or wellness tasks mentioned. Format the output as a JSON array of objects with keys 'task' (string) and 'frequency' (number, how many times a day). Return ONLY the raw JSON array. Example: [{\"task\": \"Drink coconut water\", \"frequency\": 3}]";
-            const response = await fetch(`${BACKEND_URL}/api/ai/analyze-image`, {
+            const prompt = "Analyze this routine/schedule image. Extract any health, diet, skincare, or wellness tasks mentioned. Recommend the best times of day to execute them based on general human behavior. Format the output as a strict JSON array of objects with keys 'task' (string), 'frequency' (number), and 'times' (array of strings in HH:MM format). Return ONLY the raw JSON array. Example: [{\"task\": \"Drink coconut water\", \"frequency\": 3, \"times\": [\"08:00\", \"14:00\", \"19:00\"]}]";
+            const response = await fetch(`${BACKEND_URL}/api/ai/analyze-image-groq`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ prompt, mimeType: file.type, base64Data })
@@ -5348,16 +5348,48 @@ function initPDFAcademy() {
               let cleanText = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
               tasks = JSON.parse(cleanText);
             } catch(e) {
-              console.error('Failed to parse AI routine json', data.text);
+              console.error('Failed to parse Groq AI routine json', data.text);
             }
             
             if (tasks.length > 0) {
-              const addTasks = confirm(`Relix found ${tasks.length} tasks (e.g. ${tasks[0].task}). Do you want to add these to your custom daily overview?`);
+              const addTasks = confirm(`Relix AI (Groq) found ${tasks.length} tasks and generated smart schedules. Do you want to add these to your custom daily overview and set background alarms?`);
               if (addTasks) {
                 const existing = JSON.parse(localStorage.getItem('relix-custom-habits') || '[]');
-                const newHabits = tasks.map(t => ({ id: 'habit_'+Date.now()+Math.random(), task: t.task, target: t.frequency, current: 0 }));
+                const newHabits = [];
+                let alarmsCreated = 0;
+                
+                tasks.forEach(t => {
+                  const habitId = 'habit_'+Date.now()+Math.random();
+                  newHabits.push({ id: habitId, task: t.task, target: t.frequency, current: 0 });
+                  
+                  // Auto schedule alarms for times
+                  if (t.times && t.times.length > 0) {
+                    t.times.forEach((timeStr, idx) => {
+                      const [hh, mm] = timeStr.split(':');
+                      if (hh && mm) {
+                        const now = new Date();
+                        now.setHours(Number(hh), Number(mm), 0, 0);
+                        if (now.getTime() < Date.now()) {
+                          now.setDate(now.getDate() + 1);
+                        }
+                        
+                        const remKey = `auto_${habitId}_${idx}`;
+                        state.reminders[remKey] = {
+                          title: t.task,
+                          description: `AI Scheduled Routine: ${t.task}`,
+                          nextDue: now.getTime(),
+                          repeat: true
+                        };
+                        alarmsCreated++;
+                      }
+                    });
+                  }
+                });
+                
                 localStorage.setItem('relix-custom-habits', JSON.stringify([...existing, ...newHabits]));
-                showToast('✅ Custom habits added to Daily Overview!');
+                showToast(`✅ Added ${newHabits.length} habits and scheduled ${alarmsCreated} smart alarms!`);
+                saveState();
+                if (typeof bootstrapReminders === 'function') bootstrapReminders();
                 if (typeof renderRoutine === 'function') renderRoutine();
                 if (typeof renderDashboard === 'function') renderDashboard();
               }

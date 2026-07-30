@@ -443,6 +443,52 @@ app.post('/api/ai/analyze-image', async (req, res) => {
   }
 });
 
+app.post('/api/ai/analyze-image-groq', async (req, res) => {
+  const { prompt, mimeType, base64Data } = req.body || {};
+  if (!prompt || !base64Data) {
+    return res.status(400).json({ error: 'Missing prompt or base64Data' });
+  }
+
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    return res.status(500).json({ error: 'GROQ_API_KEY is not set in backend .env' });
+  }
+
+  try {
+    const payload = {
+      model: "llama-3.2-11b-vision-preview",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${base64Data}` } }
+          ]
+        }
+      ],
+      response_format: { type: "json_object" }
+    };
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || 'Groq API error');
+    
+    const text = data.choices?.[0]?.message?.content || '';
+    return res.json({ text });
+  } catch (err) {
+    console.error('[Groq Analyze Image Error]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Reliv backend running on port ${PORT}`);
