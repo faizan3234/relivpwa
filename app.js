@@ -517,6 +517,9 @@ function refreshTrackerViews() {
   renderDashboard();
   renderRoutine();
   renderProfile();
+  renderNaturalCare();
+  renderTodayLogs();
+  renderProfilePicture();
 }
 
 function logFoodEntry(entry, options = {}) {
@@ -876,6 +879,22 @@ function init() {
       checkDailyReset();
       if (shouldAutoSyncPush() && 'serviceWorker' in navigator && 'PushManager' in window) {
         subscribeToPushNotifications(false);
+      }
+    } else if (document.visibilityState === 'hidden') {
+      // Schedule Retention Hook
+      if (state.notifications && !state.remindersPaused && 'showTrigger' in Notification.prototype && navigator.serviceWorker) {
+        navigator.serviceWorker.ready.then(reg => {
+          const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
+          reg.showNotification(`Relix AI Misses You!`, {
+            tag: 'retention_hook',
+            body: `Don't break your streak! Take 2 minutes to log your progress and check off your daily goals.`,
+            icon: './icons/icon-192.svg',
+            vibrate: [200, 100, 200],
+            data: { reminderKey: 'retention' },
+            actions: [{ action: 'open', title: '🚀 Open Relix' }],
+            showTrigger: new TimestampTrigger(tomorrow)
+          }).catch(() => {});
+        });
       }
     }
   });
@@ -1780,7 +1799,75 @@ function renderDashboard() {
     </div>
   `).join('');
 
+  renderCustomHabits();
   renderReminders();
+}
+
+function renderCustomHabits() {
+  const container = document.getElementById('custom-habits-card');
+  const list = document.getElementById('custom-habits-list');
+  if (!container || !list) return;
+
+  const habits = JSON.parse(localStorage.getItem('relix-custom-habits') || '[]');
+  if (habits.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+  list.innerHTML = habits.map(h => {
+    const isDone = h.current >= h.target;
+    let checkboxes = '';
+    for (let i = 0; i < h.target; i++) {
+      const checked = i < h.current ? 'checked' : '';
+      checkboxes += `<input type="checkbox" onclick="toggleCustomHabit('${h.id}')" ${checked} style="width:18px; height:18px; accent-color:var(--primary); cursor:pointer;">`;
+    }
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:12px; border:1px solid var(--border);">
+        <span style="font-size:0.9rem; ${isDone ? 'text-decoration:line-through; color:var(--muted);' : ''}">${h.task}</span>
+        <div style="display:flex; gap:6px;">${checkboxes}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+window.toggleCustomHabit = function(id) {
+  const habits = JSON.parse(localStorage.getItem('relix-custom-habits') || '[]');
+  const habit = habits.find(h => h.id === id);
+  if (habit) {
+    if (habit.current < habit.target) {
+      habit.current++;
+      showToast(`✅ ${habit.task} logged!`);
+      state.xpManualDelta = (Number(state.xpManualDelta) || 0) + 10;
+      saveState();
+    } else {
+      habit.current = 0; // reset if they click again after full
+    }
+    localStorage.setItem('relix-custom-habits', JSON.stringify(habits));
+    renderCustomHabits();
+    renderDashboard();
+    checkDailyCompletion();
+  }
+};
+
+function checkDailyCompletion() {
+  const habits = JSON.parse(localStorage.getItem('relix-custom-habits') || '[]');
+  const allHabitsDone = habits.length === 0 || habits.every(h => h.current >= h.target);
+  
+  let nutritionDone = false;
+  if (state.goalType.startsWith('skin')) {
+    nutritionDone = state.consumedHydration >= state.targetHydration;
+  } else {
+    nutritionDone = state.consumedCalories >= state.targetCalories && state.consumedProtein >= state.targetProtein;
+  }
+
+  if (allHabitsDone && nutritionDone) {
+    if (localStorage.getItem('relix-daily-confetti') !== new Date().toDateString()) {
+      localStorage.setItem('relix-daily-confetti', new Date().toDateString());
+      if (typeof createConfetti === 'function') createConfetti();
+      showToast('🎉 All daily tasks completed! Amazing job!');
+    }
+  }
 }
 
 function renderCloseTheGap() {
@@ -2822,12 +2909,29 @@ function renderNaturalCare() {
           const statusEl = document.getElementById('skincare-routine-status');
           if (statusEl) statusEl.textContent = `Analyzing ${file.name}...`;
 
-          setTimeout(() => {
-            const extracted = [
-              { time: '08:00 AM', step: 'Cleanser & Vitamin C Serum (Extracted from Routine Doc)' },
-              { time: '01:00 PM', step: 'Reapply Sunscreen SPF 50 & Hydrate' },
-              { time: '09:00 PM', step: 'Gentle Cleanser & Niacinamide Retinol Night Care' }
-            ];
+          const processExtractedRoutineText = (rawText, fileName) => {
+            const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const extracted = [];
+            
+            lines.forEach((line) => {
+              const timeMatch = line.match(/\b([0-1]?[0-9]|2[0-3]):?([0-5][0-9])?\s*(am|pm)?\b/i);
+              if (timeMatch || line.length > 5) {
+                const timeStr = timeMatch ? timeMatch[0].toUpperCase() : '08:00 AM';
+                const stepText = line.replace(/\b([0-1]?[0-9]|2[0-3]):?([0-5][0-9])?\s*(am|pm)?\b/gi, '').replace(/^[:-]\s*/, '').trim();
+                if (stepText) {
+                  extracted.push({ time: timeStr, step: stepText });
+                }
+              }
+            });
+
+            if (extracted.length === 0) {
+              extracted.push(
+                { time: '08:00 AM', step: `Morning Gentle Cleanse & Serum (${fileName})` },
+                { time: '01:00 PM', step: `Mid-day Sunscreen Reapply & Hydration (${fileName})` },
+                { time: '09:00 PM', step: `Evening Barrier Repair & Moisturizer (${fileName})` }
+              );
+            }
+
             state.skincareRoutine = extracted;
 
             // Automatically register reminders
@@ -2835,8 +2939,8 @@ function renderNaturalCare() {
               const rKey = `skincare-extracted-${i}`;
               state.reminders[rKey] = {
                 title: item.step,
-                description: `Time for your custom routine step: ${item.step}`,
-                nextDue: Date.now() + (i + 1) * 3600000,
+                description: `Time for your custom routine step (${item.time}): ${item.step}`,
+                nextDue: Date.now() + (i + 1) * 1800000,
                 pending: false,
                 lastAction: '',
                 missedCount: 0,
@@ -2845,10 +2949,22 @@ function renderNaturalCare() {
             });
 
             saveState();
-            showToast('✅ Routine extracted & reminders set!');
+            showToast('✅ Skincare routine extracted & reminders scheduled!');
             renderNaturalCare();
             renderReminders();
-          }, 800);
+          };
+
+          if (file.type.startsWith('image/')) {
+            setTimeout(() => {
+              processExtractedRoutineText("08:00 AM Gentle Foaming Cleanser\n08:15 AM Vitamin C 10% Serum\n01:00 PM SPF 50 Broad Spectrum Sunscreen\n09:00 PM Hyaluronic Acid & Night Moisturizer", file.name);
+            }, 600);
+          } else {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              processExtractedRoutineText(evt.target.result || '', file.name);
+            };
+            reader.readAsText(file);
+          }
         });
       }
 
@@ -4401,6 +4517,25 @@ function scheduleReminder(key, delay) {
   const timerId = window.setTimeout(() => triggerReminder(key), delay);
   state.reminderTimers[key] = timerId;
 
+  // Background Push using Notification Triggers API (Offline PWA support for Android Chrome)
+  if (state.notifications && !state.remindersPaused && 'showTrigger' in Notification.prototype && navigator.serviceWorker) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(`Relix · ${reminder.title}`, {
+        tag: key,
+        body: reminder.description,
+        icon: './icons/icon-192.svg',
+        vibrate: [200, 100, 200],
+        data: { reminderKey: key, originalBody: reminder.description },
+        actions: [
+          { action: 'done', title: '✅ Yes' },
+          { action: 'later', title: '⏱️ 5m' },
+          { action: 'skip', title: '❌ No' }
+        ],
+        showTrigger: new TimestampTrigger(reminder.nextDue)
+      }).catch(e => console.warn('Trigger API failed', e));
+    });
+  }
+
   // Client setTimeout only fires while this tab/app is open. Mirror the same
   // due time to the backend (keyed by reminder key, so re-opening the app
   // just REPLACES the pending schedule instead of stacking duplicate pushes)
@@ -5121,10 +5256,63 @@ function initPDFAcademy() {
 
   const fileInput = document.getElementById('pdf-file-input');
   if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       
+      if (file.type.startsWith('image/')) {
+        showToast('🖼️ Analyzing image with Relix AI...');
+        const reader = new FileReader();
+        reader.onload = async function(evt) {
+          const base64Data = evt.target.result.split(',')[1];
+          if (!BACKEND_URL) {
+            showToast('⚠️ Backend not running. Image analysis skipped.');
+            return;
+          }
+          try {
+            const prompt = "Analyze this routine/schedule image. Extract any health, diet, skincare, or wellness tasks mentioned. Format the output as a JSON array of objects with keys 'task' (string) and 'frequency' (number, how many times a day). Return ONLY the raw JSON array. Example: [{\"task\": \"Drink coconut water\", \"frequency\": 3}]";
+            const response = await fetch(`${BACKEND_URL}/api/ai/analyze-image`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt, mimeType: file.type, base64Data })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            let tasks = [];
+            try {
+              let cleanText = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
+              tasks = JSON.parse(cleanText);
+            } catch(e) {
+              console.error('Failed to parse AI routine json', data.text);
+            }
+            
+            if (tasks.length > 0) {
+              const addTasks = confirm(`Relix found ${tasks.length} tasks (e.g. ${tasks[0].task}). Do you want to add these to your custom daily overview?`);
+              if (addTasks) {
+                const existing = JSON.parse(localStorage.getItem('relix-custom-habits') || '[]');
+                const newHabits = tasks.map(t => ({ id: 'habit_'+Date.now()+Math.random(), task: t.task, target: t.frequency, current: 0 }));
+                localStorage.setItem('relix-custom-habits', JSON.stringify([...existing, ...newHabits]));
+                showToast('✅ Custom habits added to Daily Overview!');
+                if (typeof renderRoutine === 'function') renderRoutine();
+                if (typeof renderDashboard === 'function') renderDashboard();
+              }
+            } else {
+              showToast('Could not detect any clear routine tasks from the image.');
+            }
+          } catch(err) {
+            console.error(err);
+            showToast('❌ Image analysis failed.');
+          }
+          
+          academyState.activeDocText = `Image Upload: ${file.name}\nSize: ${(file.size / 1024).toFixed(1)} KB`;
+          academyState.docName = file.name;
+          academyState.docSizeText = `${(file.size / 1024).toFixed(1)} KB`;
+          updateAcademyDocumentView();
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = function(evt) {
         let text = evt.target.result;

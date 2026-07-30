@@ -199,4 +199,14 @@ img { max-width: 100%; display: block; }
   white-space: nowrap;
 }
 
+@media (max-width: 480px) {
+  .academy-tab-bar {
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  .academy-tab-btn {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+}
 
