@@ -39,12 +39,23 @@
         </div>
       </header>
 
-      <div class="inline-banner" id="install-banner">
-        <div>
-          <strong>Install Relix</strong>
-          <p>Keep reminders, routines, and progress on your home screen.</p>
+      <div id="offline-banner" style="position: fixed; top: -100px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 440px; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); color: white; padding: 12px 16px; border-radius: 16px; display: flex; align-items: center; gap: 12px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.1);">
+        <span style="font-size: 1.5rem;">📡</span>
+        <div style="flex: 1;">
+          <strong style="display: block; font-size: 0.95rem;">You're Offline</strong>
+          <span style="font-size: 0.8rem; opacity: 0.8;">Actions will save locally and sync later.</span>
         </div>
-        <button id="install-cta" class="primary-btn" type="button">Add to Home Screen</button>
+      </div>
+
+      <div id="install-banner">
+        <div>
+          <strong style="margin-bottom: 4px;">📱 Install Relix</strong>
+          <p style="font-size:0.85rem; line-height: 1.4;">Enjoy offline support, faster loads, and a full-screen experience.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button id="install-cta" class="primary-btn" type="button" style="padding: 8px 12px; font-size: 0.85rem;">Install</button>
+          <button id="install-later-btn" class="ghost-btn" type="button" style="padding: 6px; font-size: 0.8rem; color: rgba(255,255,255,0.6); background: transparent;">Later</button>
+        </div>
       </div>
 
       <section class="view-section active" data-view="dashboard">

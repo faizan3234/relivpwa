@@ -42,16 +42,27 @@ img { max-width: 100%; display: block; }
 .top-bar .brand span { color: var(--muted); font-size: 0.9rem; }
 .top-bar-actions { display: flex; gap: 10px; align-items: center; }
 .top-bar-badge { min-width: 34px; height: 34px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,122,0,0.14); color: var(--primary); font-weight: 800; }
-.icon-btn, .ghost-btn, .primary-btn, .why-btn { border: 0; cursor: pointer; transition: transform 220ms ease, box-shadow 220ms ease; }
+.icon-btn, .ghost-btn, .primary-btn, .why-btn { border: 0; cursor: pointer; transition: transform 220ms ease, box-shadow 220ms ease, opacity 220ms ease; }
 .icon-btn:hover, .ghost-btn:hover, .primary-btn:hover, .why-btn:hover { transform: translateY(-2px); }
+.icon-btn:active, .ghost-btn:active, .primary-btn:active, .why-btn:active, .card:active { transform: scale(0.97) translateY(0); opacity: 0.9; }
 .icon-btn { width: 44px; height: 44px; border-radius: 14px; background: var(--card); color: var(--text); box-shadow: var(--shadow); }
 .primary-btn { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; padding: 11px 16px; border-radius: 16px; box-shadow: 0 12px 30px rgba(255, 122, 0, 0.32); }
 .ghost-btn { padding: 10px 14px; border-radius: 16px; background: rgba(255,255,255,0.6); color: var(--text); }
 .install-action-btn { display: none; }
 .install-action-btn.visible { display: inline-flex; }
 .ghost-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-.view-section { display: none; animation: fadeUp 360ms cubic-bezier(.2,.8,.2,1); }
-.view-section.active { display: block; }
+.view-section { display: none; }
+.view-section.active { display: block; animation: viewFadeIn 150ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.view-section.fade-out { display: block; animation: viewFadeOut 150ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+@keyframes viewFadeIn {
+  0% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes viewFadeOut {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.98); }
+}
 .hero-card, .card, .routine-card, .coach-shell, .profile-card, .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 28px; box-shadow: var(--shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .hero-card { padding: 24px; position: relative; overflow: hidden; }
 .hero-card::after { content: ''; position: absolute; inset: auto -10% -60px auto; width: 220px; height: 220px; background: radial-gradient(circle, rgba(255, 179, 71, 0.24), transparent 70%); filter: blur(18px); }
@@ -82,6 +93,19 @@ img { max-width: 100%; display: block; }
 .inline-banner { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; margin: 0 0 16px; border-radius: 22px; background: rgba(255,122,0,0.12); border: 1px solid rgba(255,122,0,0.18); }
 .inline-banner strong { display: block; }
 .inline-banner p { margin: 4px 0 0; color: var(--muted); }
+
+#install-banner {
+  position: fixed; bottom: -150px; left: 50%; transform: translateX(-50%);
+  width: min(92vw, 448px); padding: 16px 20px;
+  background: rgba(30,30,30,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 24px;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.4); z-index: 90;
+  transition: bottom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+#install-banner.show-smart { bottom: 90px; }
+#install-banner strong { color: white; }
+#install-banner p { color: rgba(255,255,255,0.7); }
 .reminder-panel { padding: 20px; margin-top: 18px; }
 .reminder-list { display: grid; gap: 10px; margin-top: 12px; }
 .reminder-section-title { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px; }
@@ -151,7 +175,8 @@ img { max-width: 100%; display: block; }
 .switch input:checked + span { background: var(--primary); }
 .switch input:checked + span::after { transform: translateX(20px); }
 .bottom-nav { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(92vw, 448px); padding: 10px; border-radius: 999px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.4); z-index: 20; }
-.nav-pill { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 10px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; transition: background 180ms ease, color 180ms ease, transform 180ms ease; }
+.nav-pill { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 10px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; transition: background 180ms ease, color 180ms ease, transform 180ms cubic-bezier(0.4, 0, 0.2, 1); }
+.nav-pill:active { transform: scale(0.92); }
 .nav-pill.active { background: linear-gradient(135deg, rgba(255,122,0,0.16), rgba(255,179,71,0.18)); color: var(--primary); transform: translateY(-2px); }
 .install-button { display: none; }
 .install-button.visible { display: inline-flex; }
@@ -159,7 +184,17 @@ img { max-width: 100%; display: block; }
 .modal-overlay.open { display: flex; }
 .modal-card { width: min(520px, 100%); padding: 22px; border-radius: 24px; background: var(--card); box-shadow: var(--shadow); }
 .modal-card h3 { margin-top: 0; }
-.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); padding: 10px 14px; border-radius: 999px; background: rgba(17,17,17,0.9); color: white; z-index: 60; animation: pop 220ms ease; }
+.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(0); padding: 12px 18px; border-radius: 999px; background: rgba(20,20,20,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 30px rgba(0,0,0,0.3); color: white; z-index: 120; animation: toastIn 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; font-weight: 500; font-size: 0.9rem; }
+.toast.hide { animation: toastOut 200ms ease forwards; }
+
+@keyframes toastIn {
+  0% { transform: translateX(-50%) translateY(30px); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+@keyframes toastOut {
+  0% { transform: translateX(-50%) translateY(0); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(10px); opacity: 0; }
+}
 .confetti-burst { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 .confetti-piece { position: absolute; top: -20px; width: 8px; height: 16px; border-radius: 999px; animation: fall 1.2s ease forwards; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }

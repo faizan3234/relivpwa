@@ -1,6 +1,25 @@
 window.RELIX_GROQ_API_KEY = '';
 const BACKEND_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') || window.location.origin.startsWith('file://') ? 'http://localhost:4000' : '';
 
+window.haptic = {
+  light: () => { if(navigator.vibrate) navigator.vibrate(25); },
+  medium: () => { if(navigator.vibrate) navigator.vibrate(50); },
+  heavy: () => { if(navigator.vibrate) navigator.vibrate(90); }
+};
+
+// Global Haptic Interceptor
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button, .nav-pill, .hero-btn, .academy-tab-btn');
+  if (btn) {
+    if (btn.classList.contains('primary-btn') || btn.classList.contains('log-hydration-btn') || btn.classList.contains('quick-pick-btn')) {
+      window.haptic.medium();
+    } else {
+      window.haptic.light();
+    }
+  } else if (e.target.tagName && e.target.tagName.toLowerCase() === 'input' && e.target.type === 'checkbox') {
+    window.haptic.medium();
+  }
+});
 const brand = {
   name: 'Relix Companion',
   user: 'Ava Chen',
@@ -3460,9 +3479,23 @@ function renderMessages() {
 }
 
 function switchView(target) {
-  state.activeTab = target;
-  els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
+  if (state.activeTab === target) return;
+  
   els.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === target));
+  
+  const currentSection = Array.from(els.sections).find(s => s.classList.contains('active'));
+  if (currentSection) {
+    currentSection.classList.remove('active');
+    currentSection.classList.add('fade-out');
+    setTimeout(() => {
+      currentSection.classList.remove('fade-out');
+      els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
+      state.activeTab = target;
+    }, 140);
+  } else {
+    els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
+    state.activeTab = target;
+  }
 }
 
 function toggleHabit(event) {
@@ -4785,7 +4818,25 @@ function registerInstallPrompt() {
     showToast('Installed to your device.');
   });
 
-  // Removed auto-showing install prompt instructions as requested
+  // Smart Add to Home Screen (Phase 6)
+  setTimeout(() => {
+    if (!window.matchMedia('(display-mode: standalone)').matches) {
+      const banner = document.getElementById('install-banner');
+      if (banner && !localStorage.getItem('relix-hide-install')) {
+        banner.classList.add('show-smart');
+        window.haptic.light();
+      }
+    }
+  }, 30000);
+  
+  // Close banner logic
+  const laterBtn = document.getElementById('install-later-btn');
+  if (laterBtn) {
+    laterBtn.addEventListener('click', () => {
+      document.getElementById('install-banner').classList.remove('show-smart');
+      localStorage.setItem('relix-hide-install', 'true');
+    });
+  }
 }
 
 function showInstallPrompt() {
@@ -4880,17 +4931,28 @@ function deleteData() {
 
 function updateConnectionStatus() {
   const statusEl = document.getElementById('connection-status');
-  if (!statusEl) return;
+  const bannerEl = document.getElementById('offline-banner');
   if (navigator.onLine) {
-    statusEl.className = 'status-badge online';
-    statusEl.style.background = 'rgba(34,197,94,0.1)';
-    statusEl.style.color = '#22c55e';
-    statusEl.innerHTML = `<span class="dot" style="width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block;"></span>Online`;
+    if (statusEl) {
+      statusEl.className = 'status-badge online';
+      statusEl.style.background = 'rgba(34,197,94,0.1)';
+      statusEl.style.color = '#22c55e';
+      statusEl.innerHTML = `<span class="dot" style="width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block;"></span>Online`;
+    }
+    if (bannerEl) {
+      bannerEl.style.top = '-100px';
+    }
   } else {
-    statusEl.className = 'status-badge offline';
-    statusEl.style.background = 'rgba(239,68,68,0.1)';
-    statusEl.style.color = '#ef4444';
-    statusEl.innerHTML = `<span class="dot" style="width:8px; height:8px; border-radius:50%; background:#ef4444; display:inline-block;"></span>Offline`;
+    if (statusEl) {
+      statusEl.className = 'status-badge offline';
+      statusEl.style.background = 'rgba(239,68,68,0.1)';
+      statusEl.style.color = '#ef4444';
+      statusEl.innerHTML = `<span class="dot" style="width:8px; height:8px; border-radius:50%; background:#ef4444; display:inline-block;"></span>Offline`;
+    }
+    if (bannerEl) {
+      bannerEl.style.top = '16px';
+      window.haptic.light();
+    }
   }
 }
 
@@ -5149,13 +5211,16 @@ function createConfetti() {
 }
 
 function showToast(message) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
   const toast = document.createElement('div');
   toast.className = 'toast';
   toast.textContent = message;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 1800);
+  setTimeout(() => {
+    toast.classList.add('hide');
+    setTimeout(() => toast.remove(), 250);
+  }, 2500);
 }
-
 // --- INTERACTIVE PDF ACADEMY GLOBAL STATE ---
 let academyState = {
   activeDocText: `Chapter 1: Metabolic Rate & Energy Deficit. The basal metabolic rate (BMR) is the number of calories your body burns to maintain basic life functions. A sustainable calorie deficit is 300 to 500 calories below your Total Daily Energy Expenditure (TDEE). This forces the body to convert adipocytes (fat cells) into usable energy, primarily exhaled as carbon dioxide (84%) and excreted as water (16%). Consuming under 1200 calories for women or 1500 for men triggers a starvation defense mechanism, down-regulating thyroid output.
