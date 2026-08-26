@@ -5196,8 +5196,12 @@ function checkDailyReset(force = false) {
 
   renderStreakBanner();
 
-  // If elapsed time is >= 24 hours, or if forced, trigger daily reset
-  if (force || elapsed >= resetInterval) {
+  // How many whole days have rolled over since the window opened. This is
+  // usually 1, but is larger whenever the app was not opened for a while - and
+  // every one of those days has to be judged, not just the first.
+  const daysElapsed = Math.max(force ? 1 : 0, Math.floor(elapsed / resetInterval));
+
+  if (daysElapsed >= 1) {
     let progress = 0;
     if (state.goalType.startsWith('skin')) {
       progress = state.targetHydration > 0 ? (state.consumedHydration / state.targetHydration) : 1;
@@ -5207,35 +5211,58 @@ function checkDailyReset(force = false) {
       progress = (calProg + proProg) / 2;
     }
 
-    if (progress < streakBenchmark()) {
+    const hitTarget = progress >= streakBenchmark();
+
+    // Days 2..N passed with the app closed and nothing logged, so they are
+    // misses by definition. Without this, someone who hit their target and then
+    // vanished for a week came back to a HIGHER streak than they left with -
+    // the app rewarded them for disappearing.
+    const missedWhileAway = daysElapsed > 1;
+
+    if (!hitTarget || missedWhileAway) {
       // Only overwrite the restorable value when there is actually a streak to
       // bank. Without this guard, a second missed day (when streak is already
       // 0) wrote 0 over the real number and the streak became unrecoverable at
       // any price - including for someone who had already paid.
-      if (state.streak > 0) state.restorableStreak = state.streak;
+      const bankable = hitTarget ? state.streak + 1 : state.streak;
+      if (bankable > 0) state.restorableStreak = bankable;
       state.streak = 0;
-      showToast('⚠️ Benchmark missed. Streak reset to 0!');
+      showToast(missedWhileAway
+        ? `⚠️ ${daysElapsed} days without logging. Streak reset.`
+        : '⚠️ Benchmark missed. Streak reset to 0!');
     } else {
       state.streak += 1;
       state.restorableStreak = -1;
       showToast('🎉 Day target complete! Streak incremented!');
     }
 
-    // Archive yesterday's logs
-    const yesterdayDate = new Date(state.dayStartTime).toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
-    const logSummary = {
-      date: yesterdayDate,
+    // Archive the day that just closed.
+    const dayLabel = (ts) => new Date(ts).toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
+    if (!state.historicalLogs) state.historicalLogs = [];
+    state.historicalLogs.push({
+      date: dayLabel(state.dayStartTime),
       calories: state.consumedCalories,
       protein: state.consumedProtein,
       hydration: state.consumedHydration,
       foods: state.loggedFoods.map(f => `${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join(', ')
-    };
-    if (!state.historicalLogs) state.historicalLogs = [];
-    state.historicalLogs.push(logSummary);
+    });
+
+    // Backfill the skipped days so history shows the gap honestly rather than
+    // jumping silently from one date to another. Capped so a long absence
+    // cannot balloon the log.
+    const skipped = Math.min(daysElapsed - 1, 90);
+    for (let i = 1; i <= skipped; i++) {
+      state.historicalLogs.push({
+        date: dayLabel(state.dayStartTime + i * resetInterval),
+        calories: 0, protein: 0, hydration: 0,
+        foods: 'Not logged'
+      });
+    }
+
     // 90 days, not 14. Month three is exactly when someone most wants proof
     // the thing is working, and a two-week window cannot show it.
     if (state.historicalLogs.length > 90) {
-      state.historicalLogs.shift();
+      state.historicalLogs = state.historicalLogs.slice(-90);
     }
 
     state.consumedCalories = 0;
@@ -5245,7 +5272,12 @@ function checkDailyReset(force = false) {
     state.completedTasks = [];
     state.loggedFoods = [];
     state.loggedHydrations = [];
-    state.dayStartTime = now;
+    // Advance by whole days rather than snapping to `now`, so the user's day
+    // boundary keeps its original time of day instead of drifting later every
+    // time they happen to open the app.
+    state.dayStartTime = force
+      ? now
+      : state.dayStartTime + daysElapsed * resetInterval;
     saveState();
 
     // Reset warning schedule to 23 hours from now

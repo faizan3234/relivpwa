@@ -133,6 +133,54 @@ Date: 2026-08-26
 - Offline restore attempt: streak stayed 0 and the restorable value was kept -
   no free restore.
 
+## Fourth pass - full feature test sweep
+
+### Bug found and fixed: absence INCREASED the streak
+
+`checkDailyReset` only ever processed ONE day-rollover no matter how much time
+had passed. Someone who hit their target and then did not open the app for five
+days came back to a streak of 11 instead of 10 - the app rewarded them for
+disappearing, and silently swallowed the four missing days.
+
+Now it counts `daysElapsed` and treats days 2..N as the misses they are. Also:
+
+- The day boundary no longer drifts. `dayStartTime` advances by whole 24h
+  intervals instead of snapping to `now`, so someone whose day started at 06:00
+  keeps a 06:00 boundary rather than pushing it later every time they open the
+  app.
+- Skipped days are backfilled into history as "Not logged" (capped at 90) so a
+  gap is visible rather than the log jumping between dates.
+- If the last logged day DID hit target, that day still counts toward the
+  restorable value, so the user can buy back the streak they actually earned.
+
+### Verified
+
+- Streak increments correctly day by day: 14 consecutive good days give
+  1,2,3...14, with 14 history entries.
+- Break and rebuild: 5 good days -> miss -> 0 (restorable 5) -> 1,2,3.
+- Away 5 days having hit target: streak 0, restorable 11, 5 history rows.
+  (Previously streak 11.)
+- Away 5 days having missed: streak 0, restorable 10.
+- Day boundary held at 06:00 across a rollover.
+- Skin goals judged on hydration: good day increments, bad day resets.
+- Zero targets do not produce NaN.
+- All 17 render functions and all 6 tabs execute with no console errors.
+- Food logging, duplicate detection, saveState, and reminder generation for all
+  7 goals all work.
+- XSS: a message containing `<img onerror=...>` does not execute, creates no
+  element, and renders escaped.
+- Comeback copy fires at 3 days and 20 days, stays silent under 2.
+- Copy-button indexes stay aligned to message indexes after re-render.
+
+### Service worker registration - environment, not a bug
+
+Both `sw.js` and `service-worker.js` fetch with status 200 and the correct MIME
+type, and BOTH fail to register in the preview browser - including plain
+`sw.js`, which has no `importScripts`. Identical failure on a file with no
+dependencies means the harness blocks service worker registration outright.
+Both files parse cleanly under `node --check`. Still needs confirming on a real
+phone, but there is no evidence of a code fault.
+
 ## Known gaps for the next AI
 
 - **The payment ledger is on ephemeral disk.** `restores.json`,
