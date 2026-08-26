@@ -7,11 +7,50 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import http from 'http';
 import https from 'https';
+import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '12mb' })); // meal photos arrive as base64
+
+// ---------------------------------------------------------------------------
+// CRASH-SAFE JSON WRITES
+// ---------------------------------------------------------------------------
+// A plain writeFileSync truncates the target before it writes. If the process
+// dies in that window - OOM, redeploy, power cut - the file is left empty or
+// half-written and EVERY push subscription (or payment record) is gone.
+// Writing to a temp file and renaming makes the swap atomic: readers see either
+// the old file or the new one, never a truncated one.
+function writeJsonAtomic(filePath, value, label) {
+  const tmp = `${filePath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(value, null, 2));
+    fs.renameSync(tmp, filePath);
+    return true;
+  } catch (err) {
+    console.log(`[${label}] WARNING: could not persist ${path.basename(filePath)}: ${err.message}`);
+    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (cleanupErr) { }
+    return false;
+  }
+}
+
+// A JSON file that was corrupted by an old non-atomic write should not take the
+// whole server down on boot - fall back to the default and keep the bad file
+// around for inspection.
+function readJsonSafe(filePath, fallback, label) {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (err) {
+    console.log(`[${label}] WARNING: ${path.basename(filePath)} was unreadable (${err.message}).`);
+    try {
+      fs.renameSync(filePath, `${filePath}.corrupt.${Date.now()}`);
+      console.log(`[${label}] Moved the bad file aside; starting from empty.`);
+    } catch (renameErr) { }
+    return fallback;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // VAPID KEYS
@@ -53,7 +92,7 @@ function loadOrCreateVapidKeys() {
 
   const fresh = webpush.generateVAPIDKeys();
   try {
-    fs.writeFileSync(KEYS_FILE, JSON.stringify(fresh, null, 2));
+    writeJsonAtomic(KEYS_FILE, fresh, 'vapid');
   } catch (err) {
     console.log('[vapid] WARNING: could not write vapid-keys.json (read-only filesystem?).');
     console.log('[vapid] Your keys WILL change on next restart until you set env vars below.');
@@ -78,43 +117,81 @@ webpush.setVapidDetails('mailto:admin@relivpwa.onrender.com', vapidKeys.publicKe
 // had nobody to actually push to, even though the app looked "subscribed").
 // ---------------------------------------------------------------------------
 const SUBS_FILE = path.join(__dirname, 'subscriptions.json');
+const LEGACY_BUCKET = '_legacy';
 
+// userId -> Set(subscription JSON string).
+//
+// This used to be one flat Set with no user identity, which meant every
+// reminder went to EVERY device on the server. With more than one user that is
+// not "a reminder", it's a broadcast: person A's 8am protein nudge lands on
+// person B's phone. Keying by user is what makes per-user scheduling possible.
+//
+// One user intentionally maps to a SET of subscriptions, not a single one, so
+// the same account can be installed on a phone, a tablet and a desktop and get
+// the reminder on all of them.
 function loadSubscriptions() {
-  try {
-    if (fs.existsSync(SUBS_FILE)) {
-      const arr = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf8'));
-      return new Set(arr);
-    }
-  } catch (err) { }
-  return new Set();
+  const raw = readJsonSafe(SUBS_FILE, null, 'subs');
+  if (!raw) return new Map();
+  // Legacy on-disk format was a flat array with no userId. Park those in a
+  // shared bucket so already-installed devices keep receiving until they
+  // next open the app and re-subscribe with a real userId.
+  if (Array.isArray(raw)) {
+    return raw.length ? new Map([[LEGACY_BUCKET, new Set(raw)]]) : new Map();
+  }
+  return new Map(Object.entries(raw).map(([uid, arr]) => [uid, new Set(arr)]));
 }
 
 function saveSubscriptions() {
-  try {
-    fs.writeFileSync(SUBS_FILE, JSON.stringify([...subscriptions], null, 2));
-  } catch (err) {
-    console.log('[subs] WARNING: could not persist subscriptions.json.');
-  }
+  const plain = {};
+  for (const [uid, set] of subscriptions) plain[uid] = [...set];
+  writeJsonAtomic(SUBS_FILE, plain, 'subs');
 }
 
 const subscriptions = loadSubscriptions();
-console.log(`[subs] Loaded ${subscriptions.size} saved subscription(s).`);
 
-async function broadcast(payloadObj) {
+function deviceCount() {
+  let n = 0;
+  for (const set of subscriptions.values()) n += set.size;
+  return n;
+}
+
+console.log(`[subs] Loaded ${deviceCount()} device(s) across ${subscriptions.size} user(s).`);
+
+// Push to every device belonging to ONE user. Dead subscriptions (uninstalled
+// app, revoked permission) are pruned as we discover them.
+async function sendToUser(userId, payloadObj) {
+  const devices = subscriptions.get(userId);
+  if (!devices || devices.size === 0) return 0;
+
   const payload = JSON.stringify(payloadObj);
+  let sent = 0;
   let removed = 0;
-  for (const subStr of [...subscriptions]) {
+
+  for (const subStr of [...devices]) {
     try {
       await webpush.sendNotification(JSON.parse(subStr), payload, { TTL: 86400, urgency: 'high' });
+      sent++;
     } catch (err) {
-      // 404/410 = the subscription is dead (user uninstalled, permission revoked, etc).
       if (err.statusCode === 404 || err.statusCode === 410) {
-        subscriptions.delete(subStr);
+        devices.delete(subStr);
         removed++;
       }
     }
   }
+
+  if (devices.size === 0) subscriptions.delete(userId);
   if (removed) saveSubscriptions();
+  return sent;
+}
+
+// Genuine every-user announcement. Kept for admin/test endpoints only - normal
+// reminders must go through sendToUser.
+async function broadcast(payloadObj) {
+  let sent = 0;
+  for (const userId of [...subscriptions.keys()]) {
+    sent += await sendToUser(userId, payloadObj);
+  }
+  return sent;
 }
 
 const SERVER_START = Date.now();
@@ -126,8 +203,9 @@ app.get('/api/ping', (req, res) => {
   res.json({
     status: 'awake',
     uptime: `${mins}m ${secs}s`,
-    subscribers: subscriptions.size,
-    waterLoopActive: waterInterval !== null
+    users: subscriptions.size,
+    devices: deviceCount(),
+    waterLoopsActive: waterIntervals.size
   });
 });
 
@@ -136,55 +214,68 @@ app.get('/api/push/vapid-public-key', (req, res) => {
 });
 
 app.post('/api/push/subscribe', (req, res) => {
-  const { subscription } = req.body;
-  if (!subscription) return res.status(400).json({ ok: false });
-  subscriptions.add(JSON.stringify(subscription));
+  const { subscription, userId } = req.body;
+  if (!subscription || !userId) return res.status(400).json({ ok: false, error: 'subscription and userId are required' });
+
+  const subStr = JSON.stringify(subscription);
+
+  // This device may have been sitting in the legacy no-identity bucket, or
+  // registered under a previous userId. Drop those copies so the user does not
+  // receive the same reminder two or three times on one phone.
+  for (const [uid, set] of subscriptions) {
+    if (uid !== userId && set.delete(subStr) && set.size === 0) subscriptions.delete(uid);
+  }
+
+  if (!subscriptions.has(userId)) subscriptions.set(userId, new Set());
+  subscriptions.get(userId).add(subStr);
   saveSubscriptions();
-  res.json({ ok: true });
+  res.json({ ok: true, devices: subscriptions.get(userId).size });
 });
 
 app.post('/api/push/unsubscribe', (req, res) => {
-  const { subscription } = req.body;
+  const { subscription, userId } = req.body;
   if (subscription) {
-    subscriptions.delete(JSON.stringify(subscription));
+    const subStr = JSON.stringify(subscription);
+    if (userId && subscriptions.has(userId)) {
+      const set = subscriptions.get(userId);
+      set.delete(subStr);
+      if (set.size === 0) subscriptions.delete(userId);
+    } else {
+      for (const [uid, set] of subscriptions) {
+        if (set.delete(subStr) && set.size === 0) subscriptions.delete(uid);
+      }
+    }
     saveSubscriptions();
   }
   res.json({ ok: true });
 });
 
 app.get('/api/push/debug', (req, res) => {
+  const { userId } = req.query;
   res.json({
-    subscriberCount: subscriptions.size,
+    userCount: subscriptions.size,
+    deviceCount: deviceCount(),
+    yourDevices: userId ? (subscriptions.get(userId)?.size || 0) : null,
+    yourScheduled: userId ? Object.keys(schedules).filter((k) => k.startsWith(`${userId}::`)).length : null,
     hasEnvVapidKeys: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
     vapidPublicKey: vapidKeys.publicKey
   });
 });
 
+// Test push. With a userId it hits only that user's devices, which is what you
+// want when debugging one phone on a server that has other people on it.
 app.get('/api/push/test-now', async (req, res) => {
-  const results = [];
-  for (const subStr of [...subscriptions]) {
-    try {
-      await webpush.sendNotification(
-        JSON.parse(subStr),
-        JSON.stringify({ title: '🔔 Test Push', body: 'This push was sent RIGHT NOW. If you see this, it works!', reminderKey: 'test' }),
-        { TTL: 86400, urgency: 'high' }
-      );
-      results.push({ status: 'SUCCESS' });
-    } catch (err) {
-      results.push({ status: 'FAILED', code: err.statusCode, message: err.body || err.message });
-      if (err.statusCode === 404 || err.statusCode === 410) {
-        subscriptions.delete(subStr);
-      }
-    }
-  }
-  saveSubscriptions();
-  res.json({ sent: results.length, results });
+  const { userId } = req.query;
+  const payload = { title: '🔔 Test Push', body: 'This push was sent RIGHT NOW. If you see this, it works!', reminderKey: 'test' };
+  const sent = userId ? await sendToUser(userId, payload) : await broadcast(payload);
+  res.json({ sent, scope: userId ? 'user' : 'all' });
 });
 
 app.post('/api/push/remind', (req, res) => {
-  const { message = "💧 Reminding you: Time to check in!", delayMs = 300000 } = req.body || {};
+  const { message = "💧 Reminding you: Time to check in!", delayMs = 300000, userId } = req.body || {};
+  if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
   setTimeout(() => {
-    broadcast({ title: 'Reliv Reminder', body: message });
+    sendToUser(userId, { title: 'Reliv Reminder', body: message });
   }, delayMs);
   res.json({ ok: true });
 });
@@ -206,18 +297,11 @@ const SCHEDULE_FILE = path.join(__dirname, 'schedules.json');
 const scheduledTimers = {}; // key -> Node timeout handle (in-memory, not persisted)
 
 function loadSchedules() {
-  try {
-    if (fs.existsSync(SCHEDULE_FILE)) return JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
-  } catch (err) { }
-  return {};
+  return readJsonSafe(SCHEDULE_FILE, {}, 'schedule');
 }
 
 function saveSchedules() {
-  try {
-    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(schedules, null, 2));
-  } catch (err) {
-    console.log('[schedule] WARNING: could not persist schedules.json.');
-  }
+  writeJsonAtomic(SCHEDULE_FILE, schedules, 'schedule');
 }
 
 const schedules = loadSchedules();
@@ -263,25 +347,42 @@ function startSelfPing(url) {
   }, 10 * 60 * 1000); // every 10 minutes
 }
 
-function armSchedule(key, title, body, dueAt) {
-  if (scheduledTimers[key]) clearTimeout(scheduledTimers[key]);
-  const delay = Math.max(0, dueAt - Date.now());
-  scheduledTimers[key] = setTimeout(() => {
-    broadcast({ title, body, reminderKey: key });
-    delete scheduledTimers[key];
-    delete schedules[key];
+// setTimeout stores its delay in a signed 32-bit int. Anything longer than
+// ~24.8 days silently wraps and fires IMMEDIATELY, so long-dated reminders get
+// re-armed in chunks instead.
+const MAX_TIMEOUT = 2147483647;
+
+function armSchedule(scheduleId, job) {
+  if (scheduledTimers[scheduleId]) clearTimeout(scheduledTimers[scheduleId]);
+  const delay = Math.max(0, job.dueAt - Date.now());
+
+  if (delay > MAX_TIMEOUT) {
+    scheduledTimers[scheduleId] = setTimeout(() => armSchedule(scheduleId, job), MAX_TIMEOUT);
+    return;
+  }
+
+  scheduledTimers[scheduleId] = setTimeout(() => {
+    sendToUser(job.userId, { title: job.title, body: job.body, reminderKey: job.key });
+    delete scheduledTimers[scheduleId];
+    delete schedules[scheduleId];
     saveSchedules();
   }, delay);
 }
 
 // Recover anything that was still pending when the server last stopped.
-const recoveredKeys = Object.keys(schedules);
-recoveredKeys.forEach((key) => {
-  if (key === '_serverPublicUrl') return;
-  const job = schedules[key];
-  if (job && job.dueAt) armSchedule(key, job.title, job.body, job.dueAt);
+let recovered = 0;
+let droppedLegacy = 0;
+Object.keys(schedules).forEach((scheduleId) => {
+  if (scheduleId === '_serverPublicUrl') return;
+  const job = schedules[scheduleId];
+  if (!job || !job.dueAt) return;
+  // Pre-userId jobs have no owner, and firing them would broadcast to everyone.
+  if (!job.userId) { delete schedules[scheduleId]; droppedLegacy++; return; }
+  armSchedule(scheduleId, job);
+  recovered++;
 });
-if (recoveredKeys.length) console.log(`[schedule] Recovered pending reminder(s) after restart.`);
+if (droppedLegacy) { saveSchedules(); console.log(`[schedule] Dropped ${droppedLegacy} ownerless legacy reminder(s).`); }
+if (recovered) console.log(`[schedule] Recovered ${recovered} pending reminder(s) after restart.`);
 
 const savedUrl = schedules['_serverPublicUrl'];
 if (savedUrl && Object.keys(schedules).filter(k => k !== '_serverPublicUrl').length > 0) {
@@ -289,11 +390,17 @@ if (savedUrl && Object.keys(schedules).filter(k => k !== '_serverPublicUrl').len
 }
 
 app.post('/api/push/schedule', (req, res) => {
-  const { key, title = 'Reliv Reminder', body, dueAt } = req.body || {};
-  if (!key || !body || !dueAt) return res.status(400).json({ ok: false });
-  schedules[key] = { title, body, dueAt };
+  const { key, title = 'Reliv Reminder', body, dueAt, userId } = req.body || {};
+  if (!key || !body || !dueAt || !userId) {
+    return res.status(400).json({ ok: false, error: 'userId, key, body and dueAt are required' });
+  }
+
+  // Namespacing by user is what stops one person's "daily-reset-warning" from
+  // overwriting everyone else's - they all used to collide on the same key.
+  const scheduleId = `${userId}::${key}`;
+  schedules[scheduleId] = { userId, key, title, body, dueAt };
   saveSchedules();
-  armSchedule(key, title, body, dueAt);
+  armSchedule(scheduleId, schedules[scheduleId]);
 
   // Self-ping to keep Render container awake during pending reminders
   const selfUrl = `${req.protocol}://${req.get('host')}`;
@@ -303,46 +410,114 @@ app.post('/api/push/schedule', (req, res) => {
 });
 
 app.post('/api/push/cancel', (req, res) => {
-  const { key } = req.body || {};
-  if (key) {
-    if (scheduledTimers[key]) { clearTimeout(scheduledTimers[key]); delete scheduledTimers[key]; }
-    if (schedules[key]) { delete schedules[key]; saveSchedules(); }
+  const { key, userId } = req.body || {};
+  if (key && userId) {
+    const scheduleId = `${userId}::${key}`;
+    if (scheduledTimers[scheduleId]) { clearTimeout(scheduledTimers[scheduleId]); delete scheduledTimers[scheduleId]; }
+    if (schedules[scheduleId]) { delete schedules[scheduleId]; saveSchedules(); }
   }
   res.json({ ok: true });
 });
 
-// Dynamic Background Timers
-let waterInterval = null;
+// Recurring water nudge, one independent loop per user.
+const waterIntervals = new Map(); // userId -> interval handle
 
 app.post('/api/push/water/start', (req, res) => {
-  if (waterInterval) clearInterval(waterInterval);
-  broadcast({ title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.' });
-  waterInterval = setInterval(() => {
-    broadcast({ title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.' });
-  }, 45 * 60 * 1000); // 45 minutes
+  const { userId } = req.body || {};
+  if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
+
+  if (waterIntervals.has(userId)) clearInterval(waterIntervals.get(userId));
+  const nudge = () => sendToUser(userId, { title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.', reminderKey: 'water' });
+  nudge();
+  waterIntervals.set(userId, setInterval(nudge, 45 * 60 * 1000));
   res.json({ ok: true, status: 'started' });
 });
 
 app.post('/api/push/water/stop', (req, res) => {
-  if (waterInterval) clearInterval(waterInterval);
-  waterInterval = null;
+  const { userId } = req.body || {};
+  if (userId && waterIntervals.has(userId)) {
+    clearInterval(waterIntervals.get(userId));
+    waterIntervals.delete(userId);
+  }
   res.json({ ok: true, status: 'stopped' });
 });
 
 app.get('/api/push/status', (req, res) => {
+  const { userId } = req.query;
   res.json({
-    subscriptions: subscriptions.size,
-    waterLoopActive: Boolean(waterInterval),
-    scheduledReminders: Object.keys(schedules).length
+    users: subscriptions.size,
+    devices: deviceCount(),
+    yourWaterLoopActive: userId ? waterIntervals.has(userId) : null,
+    yourScheduledReminders: userId ? Object.keys(schedules).filter((k) => k.startsWith(`${userId}::`)).length : null
   });
 });
 
 // ---------------------------------------------------------------------------
 // AI PROXY ENDPOINTS (Secure from Client Inspection)
 // ---------------------------------------------------------------------------
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
+// Keys come from the environment ONLY. They used to have hardcoded fallbacks
+// committed into this file, which published them to anyone who read the repo.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
-app.post('/api/ai/chat', async (req, res) => {
+// Model IDs live here so a provider deprecation is a one-line change.
+// ---------------------------------------------------------------------------
+// RATE LIMITING
+// ---------------------------------------------------------------------------
+// The AI routes proxy paid third-party APIs with no authentication in front of
+// them. Unmetered, one script pointed at this host spends the entire Gemini and
+// Groq budget. This is a per-IP token bucket - crude, in-memory, and vastly
+// better than nothing. Anything serious needs real accounts and a shared store.
+const RATE_LIMITS = {
+  chat: { windowMs: 60_000, max: Number(process.env.RATE_LIMIT_CHAT || 20) },
+  vision: { windowMs: 60_000, max: Number(process.env.RATE_LIMIT_VISION || 6) }
+};
+
+const rateBuckets = new Map(); // `${bucket}:${ip}` -> { count, resetAt }
+
+// Without this the map grows forever - a slow memory leak on a long-lived box.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateBuckets) {
+    if (entry.resetAt <= now) rateBuckets.delete(key);
+  }
+}, 5 * 60_000).unref();
+
+function rateLimit(bucket) {
+  const { windowMs, max } = RATE_LIMITS[bucket];
+  return (req, res, next) => {
+    // Behind a reverse proxy, req.ip is the proxy. Trust the first hop of
+    // X-Forwarded-For when one is present.
+    const fwd = req.headers['x-forwarded-for'];
+    const ip = (typeof fwd === 'string' && fwd.split(',')[0].trim()) || req.ip || 'unknown';
+    const key = `${bucket}:${ip}`;
+    const now = Date.now();
+
+    let entry = rateBuckets.get(key);
+    if (!entry || entry.resetAt <= now) {
+      entry = { count: 0, resetAt: now + windowMs };
+      rateBuckets.set(key, entry);
+    }
+
+    entry.count++;
+    if (entry.count > max) {
+      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({ error: `Too many requests. Try again in ${retryAfter}s.` });
+    }
+    next();
+  };
+}
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const GROQ_TEXT_MODEL = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+function geminiUrl() {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+}
+
+app.post('/api/ai/chat', rateLimit('chat'), async (req, res) => {
   const { systemInstruction, messages = [], message, customGroqKey } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
@@ -355,7 +530,7 @@ app.post('/api/ai/chat', async (req, res) => {
           'Authorization': `Bearer ${customGroqKey}`
         },
         body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
+          model: GROQ_TEXT_MODEL,
           messages: [
             { role: 'system', content: systemInstruction },
             ...messages,
@@ -368,7 +543,7 @@ app.post('/api/ai/chat', async (req, res) => {
       if (data.error) throw new Error(data.error.message);
       return res.json({ text: data.choices[0].message.content });
     } else {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const url = geminiUrl();
       const payload = {
         systemInstruction: {
           parts: [{ text: systemInstruction }]
@@ -401,14 +576,14 @@ app.post('/api/ai/chat', async (req, res) => {
   }
 });
 
-app.post('/api/ai/analyze-image', async (req, res) => {
+app.post('/api/ai/analyze-image', rateLimit('vision'), async (req, res) => {
   const { prompt, mimeType, base64Data } = req.body || {};
   if (!prompt || !base64Data) {
     return res.status(400).json({ error: 'Missing prompt or base64Data' });
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = geminiUrl();
     const payload = {
       contents: [
         {
@@ -443,20 +618,20 @@ app.post('/api/ai/analyze-image', async (req, res) => {
   }
 });
 
-app.post('/api/ai/analyze-image-groq', async (req, res) => {
+app.post('/api/ai/analyze-image-groq', rateLimit('vision'), async (req, res) => {
   const { prompt, mimeType, base64Data } = req.body || {};
   if (!prompt || !base64Data) {
     return res.status(400).json({ error: 'Missing prompt or base64Data' });
   }
 
-  const groqKey = process.env.GROQ_API_KEY;
+  const groqKey = GROQ_API_KEY;
   if (!groqKey) {
-    return res.status(500).json({ error: 'GROQ_API_KEY is not set in backend .env' });
+    return res.status(500).json({ error: 'GROQ_API_KEY is not set on the server' });
   }
 
   try {
     const payload = {
-      model: "llama-3.2-11b-vision-preview",
+      model: GROQ_VISION_MODEL,
       messages: [
         {
           role: "user",
@@ -487,6 +662,159 @@ app.post('/api/ai/analyze-image-groq', async (req, res) => {
     console.error('[Groq Analyze Image Error]:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ---------------------------------------------------------------------------
+// STREAK RESTORE PAYMENTS (Razorpay)
+// ---------------------------------------------------------------------------
+// Model: the user LOSES a streak, then chooses to pay to restore it - the same
+// shape as a Snapchat streak restore. It is always a deliberate, user-initiated
+// checkout with the price shown up front. There is no stored card and nothing
+// is ever auto-debited, which is both what Razorpay's plain Orders API supports
+// and what keeps this on the right side of RBI's recurring-payment rules.
+//
+// The PRICE IS DECIDED HERE, never by the browser - otherwise anyone could
+// restore a 60-day streak for 1 paisa by editing the request.
+// ---------------------------------------------------------------------------
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
+const RESTORE_MIN_RUPEES = Number(process.env.RESTORE_MIN_RUPEES || 5);
+const RESTORE_MAX_RUPEES = Number(process.env.RESTORE_MAX_RUPEES || 25);
+
+// A 5-day streak costs Rs.5 to restore, a 12-day streak Rs.12, and so on -
+// the longer the run you are buying back, the more it costs, capped so it never
+// becomes a genuinely painful amount.
+function restorePriceRupees(lostStreak) {
+  const n = Number(lostStreak);
+  if (!Number.isFinite(n)) return RESTORE_MIN_RUPEES;
+  return Math.min(RESTORE_MAX_RUPEES, Math.max(RESTORE_MIN_RUPEES, Math.floor(n)));
+}
+
+const RESTORES_FILE = path.join(__dirname, 'restores.json');
+
+function loadRestores() {
+  const raw = readJsonSafe(RESTORES_FILE, null, 'restore');
+  if (!raw || typeof raw !== 'object') return { orders: {}, paid: [] };
+  return { orders: raw.orders || {}, paid: raw.paid || [] };
+}
+
+const restores = loadRestores();
+
+// This is a money ledger. If the write fails, say so loudly rather than letting
+// a paid restore disappear silently.
+function saveRestores() {
+  const ok = writeJsonAtomic(RESTORES_FILE, restores, 'restore');
+  if (!ok) console.error('[restore] CRITICAL: payment ledger was not persisted.');
+  return ok;
+}
+
+app.get('/api/streak/restore/price', (req, res) => {
+  const rupees = restorePriceRupees(req.query.lostStreak);
+  res.json({
+    rupees,
+    configured: Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET)
+  });
+});
+
+app.post('/api/streak/restore/order', async (req, res) => {
+  const { userId, lostStreak } = req.body || {};
+  if (!userId) return res.status(400).json({ error: 'userId is required' });
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    return res.status(503).json({ error: 'Payments are not configured on the server.' });
+  }
+
+  const rupees = restorePriceRupees(lostStreak);
+
+  try {
+    const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+    const response = await fetch('https://api.razorpay.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        amount: rupees * 100, // paise
+        currency: 'INR',
+        receipt: `streak_${Date.now()}`,
+        notes: { userId, lostStreak: String(lostStreak ?? '') }
+      })
+    });
+
+    const order = await response.json();
+    if (!response.ok || order.error) {
+      throw new Error(order.error?.description || 'Razorpay order creation failed');
+    }
+
+    // Remember what we quoted so verify cannot be tricked into restoring a
+    // different streak than the one that was actually paid for.
+    restores.orders[order.id] = { userId, lostStreak, rupees, createdAt: Date.now() };
+    saveRestores();
+
+    res.json({ orderId: order.id, amount: order.amount, currency: order.currency, keyId: RAZORPAY_KEY_ID, rupees });
+  } catch (err) {
+    console.error('[restore] order error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/streak/restore/verify', (req, res) => {
+  const { orderId, paymentId, signature } = req.body || {};
+  if (!orderId || !paymentId || !signature) {
+    return res.status(400).json({ ok: false, error: 'orderId, paymentId and signature are required' });
+  }
+
+  const record = restores.orders[orderId];
+  if (!record) return res.status(404).json({ ok: false, error: 'Unknown order' });
+  if (record.paidAt) return res.json({ ok: true, alreadyPaid: true, restoreStreak: record.lostStreak });
+
+  // Razorpay signs `${orderId}|${paymentId}` with the key secret. Verifying it
+  // here is the only thing that proves the payment is real - a client saying
+  // "trust me, I paid" is not evidence.
+  const expected = crypto
+    .createHmac('sha256', RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
+
+  const a = Buffer.from(expected);
+  const b = Buffer.from(String(signature));
+  const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
+
+  if (!valid) return res.status(400).json({ ok: false, error: 'Signature verification failed' });
+
+  record.paidAt = Date.now();
+  record.paymentId = paymentId;
+  restores.paid.push({ userId: record.userId, orderId, paymentId, rupees: record.rupees, at: record.paidAt });
+  saveRestores();
+
+  res.json({ ok: true, restoreStreak: record.lostStreak, rupees: record.rupees });
+});
+
+// Hands back any restore this user has PAID for but not yet had applied, and
+// marks it consumed. Two jobs:
+//   1. Recovery - if the app was killed between payment and the streak being
+//      written, the next launch picks it up. Nobody pays and gets nothing.
+//   2. Consumption - a claimed restore cannot be replayed for a second free
+//      streak later.
+app.post('/api/streak/restore/claim', (req, res) => {
+  const { userId } = req.body || {};
+  if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
+
+  const pending = Object.entries(restores.orders)
+    .filter(([, r]) => r.userId === userId && r.paidAt && !r.claimedAt)
+    .sort((a, b) => b[1].paidAt - a[1].paidAt);
+
+  if (pending.length === 0) return res.json({ ok: false, restoreStreak: 0 });
+
+  // Consume every outstanding one, but only restore the longest streak paid for.
+  let best = 0;
+  for (const [, record] of pending) {
+    record.claimedAt = Date.now();
+    best = Math.max(best, Number(record.lostStreak) || 0);
+  }
+  saveRestores();
+
+  res.json({ ok: true, restoreStreak: best });
 });
 
 const PORT = process.env.PORT || 4000;

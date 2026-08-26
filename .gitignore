@@ -1,0 +1,24 @@
+# Secrets - never commit these. The repo is public.
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Generated at runtime on the server. These hold real user data (push
+# subscriptions, payment records), so they do not belong in git.
+backend/vapid-keys.json
+backend/subscriptions.json
+backend/schedules.json
+backend/restores.json
+
+node_modules/
+npm-debug.log*
+package-lock.json
+
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

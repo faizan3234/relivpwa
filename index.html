@@ -15,13 +15,65 @@
     <title>Relix Companion</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="file.jpg" />
+    <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
+    <script>
+      // Runs before the body paints so a desktop visitor never sees a flash of
+      // the phone UI behind the gate. Kept inline and tiny on purpose.
+      (function () {
+        var ua = navigator.userAgent || '';
+        var params = new URLSearchParams(location.search);
+
+        // Escape hatch for development and for anyone debugging on a laptop:
+        //   ?desktop=1  -> allow this session, remembered until told otherwise
+        //   ?desktop=0  -> re-enable the gate
+        if (params.has('desktop')) {
+          try { localStorage.setItem('reliv-allow-desktop', params.get('desktop') === '1' ? '1' : '0'); } catch (e) {}
+        }
+        var bypass = false;
+        try { bypass = localStorage.getItem('reliv-allow-desktop') === '1'; } catch (e) {}
+
+        // Prefer the real signal where the browser exposes it (Chromium), and
+        // fall back to UA sniffing plus a touch check elsewhere. iPadOS Safari
+        // reports itself as a Mac, hence the maxTouchPoints test.
+        var isPhone;
+        if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
+          isPhone = navigator.userAgentData.mobile;
+        } else {
+          isPhone = /Android|iPhone|iPod|Windows Phone|webOS|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+        }
+        var isTouchIPad = /iPad|Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+        var allowed = bypass || isPhone || isTouchIPad;
+
+        window.RELIV_IS_PHONE = allowed;
+        if (!allowed) document.documentElement.classList.add('reliv-desktop');
+      })();
+    </script>
   </head>
   <body>
+    <!-- Boot loader. Removed by app.js once the first render is done. -->
+    <div id="reliv-loader" class="reliv-loader">
+      <div class="reliv-loader-ring"></div>
+      <div class="reliv-loader-text" id="reliv-loader-text">Warming up your day…</div>
+    </div>
+
+    <!-- Desktop gate. Hidden by default so the app still renders if scripting
+         is blocked; app.js reveals it when the device is not a phone. -->
+    <div id="desktop-gate" class="desktop-gate" hidden>
+      <div class="desktop-gate-card">
+        <img src="file.jpg" alt="" class="desktop-gate-logo" />
+        <h1>Reliv is a phone app</h1>
+        <p>Your routine happens away from a desk — meals, water, workouts, sleep. Reliv is built for the device that's actually with you.</p>
+        <p class="desktop-gate-hint">Open this link on your phone, then tap <strong>Add to Home Screen</strong>.</p>
+        <div class="desktop-gate-url" id="desktop-gate-url"></div>
+        <button type="button" class="desktop-gate-copy" id="desktop-gate-copy">Copy link</button>
+      </div>
+    </div>
+
     <div class="app-shell">
       <header class="top-bar">
         <div class="brand">

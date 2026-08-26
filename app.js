@@ -1,5 +1,122 @@
 window.RELIX_GROQ_API_KEY = '';
-const BACKEND_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') || window.location.origin.startsWith('file://') ? 'http://localhost:4000' : '';
+// ---------------------------------------------------------------------------
+// BACKEND
+// ---------------------------------------------------------------------------
+// CHANGE THIS ONE LINE when the API moves off Render to the Oracle box. It must
+// be https:// - a PWA on an https page cannot call an http API, the browser
+// blocks it as mixed content, and push registration fails silently.
+const PRODUCTION_API = 'https://relivpwa.onrender.com';
+
+const BACKEND_URL = (() => {
+  // Lets you point a phone at a laptop or a staging box without a rebuild:
+  //   localStorage.setItem('reliv-api-url', 'https://1.2.3.4')
+  try {
+    const override = localStorage.getItem('reliv-api-url');
+    if (override) return override.replace(/\/$/, '');
+  } catch (err) { }
+
+  const origin = window.location.origin;
+  const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.startsWith('file://');
+  return isLocal ? 'http://localhost:4000' : PRODUCTION_API;
+})();
+
+// ---------------------------------------------------------------------------
+// DEVICE / USER IDENTITY
+// ---------------------------------------------------------------------------
+// Every push the backend sends is addressed to a userId. Without one, the
+// server has no way to tell two people apart and every reminder goes to every
+// device. This is a local anonymous id - it is NOT an account, so it does not
+// follow the user to a new phone. Real cross-device sync needs real accounts.
+const RELIV_USER_ID = (() => {
+  let id = localStorage.getItem('reliv-user-id');
+  if (!id) {
+    id = (crypto.randomUUID && crypto.randomUUID()) ||
+      `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem('reliv-user-id', id);
+  }
+  return id;
+})();
+
+// ---------------------------------------------------------------------------
+// DESKTOP GATE
+// ---------------------------------------------------------------------------
+// The device decision was already made by the inline script in <head> (so the
+// phone UI never flashes). This only fills in the gate's content.
+(function setUpDesktopGate() {
+  if (window.RELIV_IS_PHONE) return;
+
+  const gate = document.getElementById('desktop-gate');
+  if (!gate) return;
+
+  gate.hidden = false;
+
+  const urlEl = document.getElementById('desktop-gate-url');
+  const shareUrl = window.location.origin + window.location.pathname;
+  if (urlEl) urlEl.textContent = shareUrl;
+
+  const copyBtn = document.getElementById('desktop-gate-copy');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        copyBtn.textContent = 'Copied ✓';
+      } catch (err) {
+        copyBtn.textContent = 'Press Ctrl+C to copy';
+      }
+      setTimeout(() => { copyBtn.textContent = 'Copy link'; }, 1800);
+    });
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// BOOT LOADER
+// ---------------------------------------------------------------------------
+// Blinkit/Zomato-style: the wait is unavoidable, so it carries a line of copy
+// instead of a bare spinner. Lines are about the user's own routine rather
+// than generic hype, and they rotate so a slow start never feels frozen.
+const RELIV_LOADING_LINES = [
+  'Warming up your day…',
+  'Small things, done daily. That’s the whole trick.',
+  'Counting what you actually ate, not what you meant to.',
+  'Your streak is waiting.',
+  'Discipline beats motivation. Motivation is late anyway.',
+  'One good day is a fluke. Two is a pattern.',
+  'Nobody regrets the workout they finished.',
+  'Progress is boring up close. Keep going.'
+];
+
+(function runBootLoader() {
+  const loader = document.getElementById('reliv-loader');
+  if (!loader) return;
+
+  if (!window.RELIV_IS_PHONE) { loader.remove(); return; }
+
+  const textEl = document.getElementById('reliv-loader-text');
+  let index = Math.floor(Math.random() * RELIV_LOADING_LINES.length);
+  if (textEl) textEl.textContent = RELIV_LOADING_LINES[index];
+
+  const rotate = setInterval(() => {
+    if (!textEl) return;
+    index = (index + 1) % RELIV_LOADING_LINES.length;
+    textEl.classList.add('swapping');
+    setTimeout(() => {
+      textEl.textContent = RELIV_LOADING_LINES[index];
+      textEl.classList.remove('swapping');
+    }, 240);
+  }, 2100);
+
+  const dismiss = () => {
+    clearInterval(rotate);
+    loader.classList.add('fading');
+    setTimeout(() => loader.remove(), 340);
+  };
+
+  // Hide once the page is genuinely ready, with a hard ceiling so a hung
+  // request can never leave someone staring at a spinner.
+  if (document.readyState === 'complete') setTimeout(dismiss, 450);
+  else window.addEventListener('load', () => setTimeout(dismiss, 450), { once: true });
+  setTimeout(dismiss, 6000);
+})();
 
 window.haptic = {
   light: () => { if(navigator.vibrate) navigator.vibrate(25); },
@@ -274,6 +391,7 @@ const state = {
   groqKey: localStorage.getItem('relix-groq-key') || '',
   geminiKey: localStorage.getItem('relix-gemini-key') || '',
   setupComplete: localStorage.getItem('relix-setup') === 'true',
+  setupAt: Number(localStorage.getItem('relix-setup-at') || 0),
   goalType: localStorage.getItem('relix-goal') || 'muscle',
   age: Number(localStorage.getItem('relix-age') || 22),
   height: localStorage.getItem('relix-height') || "6'1\"",
@@ -907,7 +1025,7 @@ function init() {
           reg.showNotification(`Relix AI Misses You!`, {
             tag: 'retention_hook',
             body: `Don't break your streak! Take 2 minutes to log your progress and check off your daily goals.`,
-            icon: './icons/icon-192.svg',
+            icon: './icons/icon-192.png',
             vibrate: [200, 100, 200],
             data: { reminderKey: 'retention' },
             actions: [{ action: 'open', title: '🚀 Open Relix' }],
@@ -939,6 +1057,8 @@ function init() {
   processMissedActions();
   checkDailyReset();
   setInterval(checkDailyReset, 60000);
+  reconcilePendingRestore();
+  showComebackIfReturning();
 
   if (shouldAutoSyncPush() && 'serviceWorker' in navigator && 'PushManager' in window) {
     subscribeToPushNotifications(false);
@@ -1054,14 +1174,10 @@ function bindEvents() {
   els.mealInput.addEventListener('change', previewMeal);
   els.mealButton.addEventListener('click', analyzeMeal);
 
-  els.installButton.addEventListener('click', async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    if (choice.outcome === 'accepted') {
-      showToast('Relix is ready to live on your home screen.');
-    }
-  });
+  // Route through showInstallPrompt so the button always does SOMETHING. It
+  // used to bail silently when `installPrompt` was null, which is exactly the
+  // state iOS is permanently in - so on iPhone the button looked broken.
+  els.installButton.addEventListener('click', () => showInstallPrompt());
 
   document.getElementById('theme-toggle-icon').addEventListener('click', () => {
     els.darkToggle.checked = !els.darkToggle.checked;
@@ -1189,6 +1305,9 @@ function bindEvents() {
       const customProVal = document.getElementById('setup-custom-pro')?.value;
       if (customCalVal) state.targetCalories = Number(customCalVal);
       if (customProVal) state.targetProtein = Number(customProVal);
+
+      // Marks the start of the onboarding ramp (see streakBenchmark).
+      if (!state.setupAt) state.setupAt = Date.now();
 
       // Re-populate goal specific default reminders
       state.reminders = getRemindersForGoal(goalVal, wakeUpTimeVal);
@@ -1458,8 +1577,13 @@ function parseLocalFoodIntake(text) {
   const testStart = document.getElementById('server-test-start');
   const testStop = document.getElementById('server-test-stop');
 
-  if (waterStart) waterStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/start`, { method: 'POST' }); showToast('45m water loop started!'); });
-  if (waterStop) waterStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/water/stop`, { method: 'POST' }); showToast('Water loop stopped.'); });
+  const userScoped = (path) => fetch(`${BACKEND_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: RELIV_USER_ID })
+  });
+  if (waterStart) waterStart.addEventListener('click', () => { userScoped('/api/push/water/start'); showToast('45m water loop started!'); });
+  if (waterStop) waterStop.addEventListener('click', () => { userScoped('/api/push/water/stop'); showToast('Water loop stopped.'); });
   if (testStart) testStart.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/start`, { method: 'POST' }); showToast('Vibe check loop started!'); });
   if (testStop) testStop.addEventListener('click', () => { fetch(`${BACKEND_URL}/api/push/test/stop`, { method: 'POST' }); showToast('Vibe check loop stopped.'); });
 
@@ -1576,6 +1700,15 @@ function parseLocalFoodIntake(text) {
   const restoreStreakBtn = document.getElementById('restore-streak-btn');
   if (restoreStreakBtn) {
     restoreStreakBtn.addEventListener('click', restoreStreak);
+  }
+
+  // Delegated so it keeps working after every re-render of the message list.
+  if (els.chatMessages) {
+    els.chatMessages.addEventListener('click', (event) => {
+      const btn = event.target.closest('.msg-copy-btn');
+      if (!btn) return;
+      copyMessageText(Number(btn.dataset.copyIndex), btn);
+    });
   }
 
   const logMealBtn = document.getElementById('log-meal-btn');
@@ -3468,10 +3601,64 @@ function renderChat() {
   renderChatSuggestions();
 }
 
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Copy one message's text. Selection is disabled app-wide (see .no-select in
+// style.css), so this button is the ONLY way to get text out - that makes it a
+// functional control, not a nicety.
+async function copyMessageText(index, btn) {
+  const message = chatMessages[index];
+  if (!message) return;
+
+  const text = message.text;
+  let copied = false;
+
+  try {
+    // Only available on HTTPS/localhost. Installed PWAs qualify.
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    }
+  } catch (err) {
+    copied = false;
+  }
+
+  if (!copied) {
+    // Fallback for insecure contexts and older WebViews.
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { copied = document.execCommand('copy'); } catch (err) { copied = false; }
+    document.body.removeChild(ta);
+  }
+
+  if (btn) {
+    btn.textContent = copied ? '✓' : '✕';
+    btn.classList.toggle('copied', copied);
+    setTimeout(() => {
+      btn.textContent = '⧉';
+      btn.classList.remove('copied');
+    }, 1400);
+  }
+  if (copied && window.haptic) window.haptic.light();
+}
+
 function renderMessages() {
-  els.chatMessages.innerHTML = chatMessages.map((message) => `
-    <div class="message ${message.role}">
-      <div>${message.text}</div>
+  els.chatMessages.innerHTML = chatMessages.map((message, index) => `
+    <div class="message ${escapeHtml(message.role)}">
+      <div class="message-text">${escapeHtml(message.text)}</div>
+      <button class="msg-copy-btn" type="button" data-copy-index="${index}" aria-label="Copy this message" title="Copy">⧉</button>
     </div>
   `).join('');
   els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
@@ -3631,10 +3818,11 @@ function scheduleCoachReminder(schedule) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId: RELIV_USER_ID,
           key: schedule.key || 'coach-nag',
           title: schedule.title || 'Relix Coach',
           body: schedule.body || 'Time to complete your goal!',
-          dueAt: targetDate.getTime()
+          dueAt: shiftOutOfQuietHours(targetDate.getTime())
         })
       })
       .then(res => res.json())
@@ -3730,6 +3918,12 @@ async function getCoachReply(message) {
   - If the user asks to change their streak, daily score, routine progress, or XP, return the requested values using these fields:
     - "updateStreak", "updateXpDelta", "updateRoutineProgress", "updateDailyScore".
   - If the user asks to change calories/protein targets, explain how the AI progress planner will update from those new targets.
+
+  *** TONE & FORMATTING ***
+  - Never use "---", "***", markdown headers, or other separator/filler characters in "reply". Write plain conversational sentences only.
+  - No generic filler ("Great question!", "I'm here to help!", "As your AI coach..."). Get straight to the point.
+  - Keep replies short by default (1-4 sentences) unless the user asks for a detailed plan.
+  - When relevant, add one short, specific line of encouragement tied to their actual data (e.g. streak, protein gap, consistency) instead of generic "never give up" talk.
 
   *** FOOD DETAIL CLARIFICATION ***
   - If the user logs a food without details, MUST NOT guess. Clarify:
@@ -4097,9 +4291,12 @@ async function analyzeMeal() {
       base64Data = parts[1];
     }
 
-    const GEMINI_API_KEY = state.geminiKey || 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8';
-    if (GEMINI_API_KEY === 'AIzaSyABZ2LS-R-sFwg4QK41AIixraTKmmH5ed8') {
-      throw new Error('Please enter a valid Gemini API Key in Settings to run vision scans.');
+    // Only a key the user supplied themselves. There used to be a real API key
+    // hardcoded here as the "unconfigured" sentinel - in a file the browser
+    // downloads, which published it to anyone who opened devtools.
+    const GEMINI_API_KEY = (state.geminiKey || '').trim();
+    if (!GEMINI_API_KEY) {
+      throw new Error('Scan needs the server. If it stays down, add your own Gemini API key in Settings.');
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -4412,7 +4609,7 @@ async function subscribeToPushNotifications(debug = false) {
     await fetch(`${BACKEND_URL}/api/push/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription })
+      body: JSON.stringify({ subscription, userId: RELIV_USER_ID })
     });
     console.log("Successfully subscribed to real Push Notifications!");
     if (debug) showToast('Backend saved subscription!');
@@ -4556,7 +4753,7 @@ function scheduleReminder(key, delay) {
       reg.showNotification(`Relix · ${reminder.title}`, {
         tag: key,
         body: reminder.description,
-        icon: './icons/icon-192.svg',
+        icon: './icons/icon-192.png',
         vibrate: [200, 100, 200],
         data: { reminderKey: key, originalBody: reminder.description },
         actions: [
@@ -4579,10 +4776,11 @@ function scheduleReminder(key, delay) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        userId: RELIV_USER_ID,
         key,
         title: `Relix · ${reminder.title}`,
         body: reminder.description,
-        dueAt: reminder.nextDue
+        dueAt: shiftOutOfQuietHours(reminder.nextDue)
       })
     }).catch(() => { });
   }
@@ -4594,7 +4792,7 @@ function cancelServerReminders() {
     fetch(`${BACKEND_URL}/api/push/cancel`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key })
+      body: JSON.stringify({ key, userId: RELIV_USER_ID })
     }).catch(() => { });
   });
 }
@@ -4779,8 +4977,8 @@ function showNotification(title, body, tag) {
   showToast(body);
   const options = {
     body,
-    icon: 'icons/icon-192.svg',
-    badge: 'icons/icon-192.svg',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
     tag,
     data: { reminderKey: tag },
     requireInteraction: true,
@@ -4806,16 +5004,32 @@ function showNotification(title, body, tag) {
   }
 }
 function registerInstallPrompt() {
+  // Already installed and running from the home screen - there is nothing to
+  // install, so don't advertise it.
+  if (isStandalonePWA()) {
+    if (els.installButton) els.installButton.style.display = 'none';
+    return;
+  }
+
   window.addEventListener('beforeinstallprompt', (event) => {
+    // Chrome fires this only when the app passes the installability checks
+    // (manifest, HTTPS, service worker, and real 192/512 raster icons). The
+    // icons were SVG plus a JPEG mislabelled as 512x512, so this never fired
+    // and the button had no prompt to show.
+    event.preventDefault();
     installPrompt = event;
-    els.installButton.classList.add('visible');
+    if (els.installButton) els.installButton.classList.add('visible');
     updateActionButtons();
     if (els.installCta) els.installCta.textContent = 'Install now';
   });
 
   window.addEventListener('appinstalled', () => {
+    installPrompt = null;
     closeInstallPrompt();
-    showToast('Installed to your device.');
+    if (els.installButton) els.installButton.style.display = 'none';
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.classList.remove('show-smart');
+    showToast('Installed. Open Reliv from your home screen from now on.');
   });
 
   // Smart Add to Home Screen (Phase 6)
@@ -4956,6 +5170,24 @@ function updateConnectionStatus() {
   }
 }
 
+// The share of the daily target that counts as "done".
+//
+// A flat 80% from day one means a brand new user, still learning to log, very
+// likely misses on their first day - and a day-one miss is one of the strongest
+// predictors that they never come back. So the bar starts at 55% and climbs to
+// the full 80% over the first week, by which point logging is a habit.
+const FULL_BENCHMARK = 0.8;
+const START_BENCHMARK = 0.55;
+const RAMP_DAYS = 7;
+
+function streakBenchmark() {
+  if (!state.setupAt) return FULL_BENCHMARK;
+  const daysIn = Math.floor((Date.now() - state.setupAt) / (24 * 60 * 60 * 1000));
+  if (daysIn >= RAMP_DAYS) return FULL_BENCHMARK;
+  const progress = Math.max(0, daysIn) / RAMP_DAYS;
+  return START_BENCHMARK + (FULL_BENCHMARK - START_BENCHMARK) * progress;
+}
+
 function checkDailyReset(force = false) {
   const resetInterval = 24 * 60 * 60 * 1000; // 24 hours
   const warningInterval = 23 * 60 * 60 * 1000; // 23 hours
@@ -4975,8 +5207,12 @@ function checkDailyReset(force = false) {
       progress = (calProg + proProg) / 2;
     }
 
-    if (progress < 0.8) {
-      state.restorableStreak = state.streak;
+    if (progress < streakBenchmark()) {
+      // Only overwrite the restorable value when there is actually a streak to
+      // bank. Without this guard, a second missed day (when streak is already
+      // 0) wrote 0 over the real number and the streak became unrecoverable at
+      // any price - including for someone who had already paid.
+      if (state.streak > 0) state.restorableStreak = state.streak;
       state.streak = 0;
       showToast('⚠️ Benchmark missed. Streak reset to 0!');
     } else {
@@ -4996,7 +5232,9 @@ function checkDailyReset(force = false) {
     };
     if (!state.historicalLogs) state.historicalLogs = [];
     state.historicalLogs.push(logSummary);
-    if (state.historicalLogs.length > 14) {
+    // 90 days, not 14. Month three is exactly when someone most wants proof
+    // the thing is working, and a two-week window cannot show it.
+    if (state.historicalLogs.length > 90) {
       state.historicalLogs.shift();
     }
 
@@ -5026,16 +5264,145 @@ function checkDailyReset(force = false) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// GOAL-AWARE NOTIFICATION COPY
+// ---------------------------------------------------------------------------
+// A reminder that says "complete your count" is ignorable because it is the
+// same sentence for everyone, every day. These are written per goal and filled
+// with the user's real remaining numbers, so the notification tells them what
+// to DO, not merely that time is running out.
+const GOAL_NUDGES = {
+  muscle: {
+    label: 'muscle gain',
+    short: (gap) => `${gap}g protein left today. A scoop or 3 eggs closes it.`,
+    generic: 'Muscle is built on the days you did not feel like it.',
+    win: 'Protein target hit. That is the day that actually counts.'
+  },
+  lose: {
+    label: 'fat loss',
+    short: (gap) => `${gap}g protein left. Protein is what stops the cravings.`,
+    generic: 'You cannot out-train a day you did not log. Two taps.',
+    win: 'Logged and on target. This is the boring part that works.'
+  },
+  'skin-korean': {
+    label: 'glass skin',
+    short: (gap) => `${gap}ml of water left. Glass skin is mostly hydration.`,
+    generic: 'Barrier repair happens overnight. Cleanse before bed.',
+    win: 'Hydration done. Your barrier does the rest while you sleep.'
+  },
+  'skin-acne': {
+    label: 'clear skin',
+    short: (gap) => `${gap}ml water left. Dehydrated skin overproduces oil.`,
+    generic: 'Do not skip tonight. Consistency clears skin, not intensity.',
+    win: 'Routine done. Skin turnover rewards streaks, not single days.'
+  },
+  'skin-hydration': {
+    label: 'hydration',
+    short: (gap) => `${gap}ml short. Finish the glass before the day resets.`,
+    generic: 'Moisture on damp skin holds far better. Do it now.',
+    win: 'Fully hydrated today. That is the whole assignment.'
+  },
+  'skin-aging': {
+    label: 'anti-aging',
+    short: (gap) => `${gap}ml water left. Plump skin starts from the inside.`,
+    generic: 'Collagen responds to routine, not to occasional effort.',
+    win: 'Done for today. Compounding is the entire anti-aging strategy.'
+  },
+  'skin-sensitive': {
+    label: 'calm skin',
+    short: (gap) => `${gap}ml water left. Gentle and consistent beats strong.`,
+    generic: 'Keep it simple tonight. Less is genuinely more for you.',
+    win: 'Calm routine complete. Your barrier thanks you.'
+  }
+};
+
+function goalNudges() {
+  return GOAL_NUDGES[state.goalType] || GOAL_NUDGES.muscle;
+}
+
+// Builds the end-of-day warning from whatever the user still has outstanding.
+function buildDayEndWarning() {
+  const nudge = goalNudges();
+  const isSkin = String(state.goalType || '').startsWith('skin');
+
+  if (isSkin) {
+    const gap = Math.max(0, (state.targetHydration || 0) - (state.consumedHydration || 0));
+    return {
+      title: 'Reliv · 1 hour left',
+      body: gap > 0 ? nudge.short(gap) : nudge.win
+    };
+  }
+
+  const proteinGap = Math.max(0, (state.targetProtein || 0) - (state.consumedProtein || 0));
+  const calorieGap = Math.max(0, (state.targetCalories || 0) - (state.consumedCalories || 0));
+
+  if (proteinGap > 0) {
+    return { title: 'Reliv · 1 hour left', body: nudge.short(proteinGap) };
+  }
+  if (calorieGap > 200) {
+    return { title: 'Reliv · 1 hour left', body: `${calorieGap} kcal left before your day resets. Do not undereat.` };
+  }
+  return { title: 'Reliv · 1 hour left', body: nudge.win };
+}
+
+// ---------------------------------------------------------------------------
+// QUIET HOURS
+// ---------------------------------------------------------------------------
+// One 3am buzz is all it takes for someone to revoke notification permission
+// forever, and permission is not something you get a second chance at. Any
+// reminder landing in the quiet window is pushed to the morning instead.
+const QUIET_START_HOUR = 22; // 10pm
+const QUIET_END_HOUR = 7;    // 7am
+
+function isQuietHour(date) {
+  const h = date.getHours();
+  return h >= QUIET_START_HOUR || h < QUIET_END_HOUR;
+}
+
+function shiftOutOfQuietHours(timestamp) {
+  const when = new Date(timestamp);
+  if (!isQuietHour(when)) return timestamp;
+
+  const shifted = new Date(when);
+  // Late evening rolls to the next morning; small hours stay on the same day.
+  if (when.getHours() >= QUIET_START_HOUR) shifted.setDate(shifted.getDate() + 1);
+  shifted.setHours(QUIET_END_HOUR, 15, 0, 0);
+  return shifted.getTime();
+}
+
+// ---------------------------------------------------------------------------
+// COMEBACK
+// ---------------------------------------------------------------------------
+// Someone returning after days away should not be met with a wall of misses.
+// Shame is the main reason a lapsed user does not open an app a second time.
+function showComebackIfReturning() {
+  const lastSeen = Number(localStorage.getItem('reliv-last-seen') || 0);
+  const now = Date.now();
+  localStorage.setItem('reliv-last-seen', String(now));
+
+  if (!lastSeen) return;
+  const daysAway = Math.floor((now - lastSeen) / (24 * 60 * 60 * 1000));
+  if (daysAway < 2) return;
+
+  const message = daysAway >= 14
+    ? `${daysAway} days away. Nothing to make up - today is day one and that is genuinely fine.`
+    : `Welcome back. ${daysAway} days off changes nothing about today - just log one thing.`;
+
+  setTimeout(() => showToast(message), 1200);
+}
+
 function scheduleResetWarningNotification(dueTime) {
   if (BACKEND_URL && state.notifications && !state.remindersPaused && backendReachable === true) {
+    const copy = buildDayEndWarning();
     fetch(`${BACKEND_URL}/api/push/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        userId: RELIV_USER_ID,
         key: 'daily-reset-warning',
-        title: 'Relix Companion',
-        body: 'Please complete your count before it resets!',
-        dueAt: dueTime
+        title: copy.title,
+        body: copy.body,
+        dueAt: shiftOutOfQuietHours(dueTime)
       })
     }).catch(() => { });
   }
@@ -5044,26 +5411,178 @@ function scheduleResetWarningNotification(dueTime) {
 function renderStreakBanner() {
   const banner = document.getElementById('streak-restore-banner');
   if (!banner) return;
+
+  const btn = document.getElementById('restore-streak-btn');
+
   if (state.restorableStreak > 0) {
     banner.style.display = 'flex';
     const textSpan = banner.querySelector('span');
-    if (textSpan) textSpan.textContent = `⚠️ Streak lost! benchmark not met. (Previous: ${state.restorableStreak})`;
+    if (textSpan) {
+      textSpan.textContent = `Your ${state.restorableStreak}-day streak broke. You can buy it back once.`;
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Restore';
+      // Ask the server what this restore costs. The price scales with the
+      // length of the streak, and the server is the only one allowed to decide
+      // it, so we display whatever it quotes rather than computing it here.
+      if (BACKEND_URL) {
+        fetch(`${BACKEND_URL}/api/streak/restore/price?lostStreak=${state.restorableStreak}`)
+          .then((r) => r.json())
+          .then((p) => {
+            if (p.configured && p.rupees && state.restorableStreak > 0) {
+              btn.textContent = `Restore ₹${p.rupees}`;
+            }
+          })
+          .catch(() => { });
+      }
+    }
   } else {
     banner.style.display = 'none';
   }
 }
 
-function restoreStreak() {
-  if (state.restorableStreak > 0) {
-    state.streak = state.restorableStreak;
-    state.restorableStreak = -1;
-    saveState();
-    renderDashboard();
-    renderProfile();
+function applyStreakRestore(streakValue) {
+  state.streak = streakValue;
+  state.restorableStreak = -1;
+  saveState();
+  renderDashboard();
+  renderProfile();
+  renderStreakBanner();
+  showToast('🔄 Streak restored!');
+  createConfetti();
+}
+
+function loadRazorpayCheckout() {
+  if (window.Razorpay) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+}
+
+// Paid streak restore, Snapchat-style: the streak is already lost, and the user
+// deliberately chooses to buy it back at a price shown before checkout.
+//
+// A restore ONLY ever happens after a payment this server has verified. There
+// is deliberately no free fallback path: if the backend is unreachable, the
+// order cannot be created, or checkout fails to load, the user is told and the
+// streak stays restorable so they can try again later. Silently granting the
+// restore on any error would make the whole thing trivially bypassable by
+// going offline at the right moment.
+async function restoreStreak() {
+  const lost = state.restorableStreak;
+  if (!(lost > 0)) return;
+
+  const btn = document.getElementById('restore-streak-btn');
+  const setBusy = (busy, label) => {
+    if (!btn) return;
+    btn.disabled = busy;
+    btn.textContent = label;
+  };
+  const fail = (message) => {
+    setBusy(false, 'Restore');
     renderStreakBanner();
-    showToast('🔄 Streak restored!');
-    createConfetti();
+    showToast(message);
+  };
+
+  if (!BACKEND_URL) {
+    fail('Restore needs a connection. Try again when you are back online.');
+    return;
   }
+
+  setBusy(true, 'Opening…');
+
+  let order;
+  try {
+    const orderRes = await fetch(`${BACKEND_URL}/api/streak/restore/order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: RELIV_USER_ID, lostStreak: lost })
+    });
+    order = await orderRes.json();
+    if (!orderRes.ok || !order.orderId) throw new Error(order.error || 'Could not start the payment');
+  } catch (err) {
+    console.error('[restore] order failed:', err);
+    fail('Could not start the payment. Your streak is still here - try again in a moment.');
+    return;
+  }
+
+  const checkoutReady = await loadRazorpayCheckout();
+  if (!checkoutReady) {
+    fail('Payment window could not load. Check your connection and try again.');
+    return;
+  }
+
+  setBusy(false, `Restore ₹${order.rupees}`);
+
+  const rzp = new window.Razorpay({
+    key: order.keyId,
+    amount: order.amount,
+    currency: order.currency,
+    order_id: order.orderId,
+    name: 'Reliv',
+    description: `Restore your ${lost}-day streak`,
+    theme: { color: '#ff7a00' },
+    handler: async (response) => {
+      setBusy(true, 'Verifying…');
+      try {
+        const verifyRes = await fetch(`${BACKEND_URL}/api/streak/restore/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature
+          })
+        });
+        const verified = await verifyRes.json();
+        if (verified.ok) {
+          applyStreakRestore(verified.restoreStreak || lost);
+          // Mark it consumed so this payment cannot be replayed on next launch.
+          fetch(`${BACKEND_URL}/api/streak/restore/claim`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: RELIV_USER_ID })
+          }).catch(() => { });
+        } else {
+          // Money may have left their account, so never imply it didn't.
+          fail('We could not verify that payment. Do not pay again - reopen the app shortly and it will restore itself.');
+        }
+      } catch (err) {
+        console.error('[restore] verify failed:', err);
+        fail('Payment received but verification did not complete. Do not pay again - reopen the app shortly.');
+      }
+    },
+    modal: {
+      ondismiss: () => {
+        setBusy(false, `Restore ₹${order.rupees}`);
+      }
+    }
+  });
+
+  rzp.open();
+}
+
+// If a payment was verified but the app closed before the streak was applied,
+// pick it up on next launch so nobody pays and gets nothing.
+async function reconcilePendingRestore() {
+  if (!BACKEND_URL || !(state.restorableStreak > 0)) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/streak/restore/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: RELIV_USER_ID })
+    });
+    const data = await res.json();
+    if (data.ok && data.restoreStreak > 0) {
+      applyStreakRestore(data.restoreStreak);
+      showToast('Your paid restore came through. Streak is back.');
+    }
+  } catch (err) { /* offline is fine, we retry next launch */ }
 }
 
 function recalculateDeservedXP(baseOnly = false) {
@@ -5119,6 +5638,7 @@ function saveState() {
   recalculateDeservedXP();
 
   localStorage.setItem('relix-setup', String(state.setupComplete));
+  localStorage.setItem('relix-setup-at', String(state.setupAt || 0));
   localStorage.setItem('relix-gender', state.gender || 'female');
   localStorage.setItem('relix-groq-key', state.groqKey);
   localStorage.setItem('relix-gemini-key', state.geminiKey || '');

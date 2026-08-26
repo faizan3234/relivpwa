@@ -1,5 +1,5 @@
-const CACHE_NAME = 'relix-v5';
-const CORE_ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './file.jpg', './icons/favicon.svg', './icons/icon-192.svg', './icons/icon-512.svg'];
+const CACHE_NAME = 'relix-v6';
+const CORE_ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './file.jpg', './icons/favicon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)));
@@ -29,8 +29,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: './icons/icon-192.svg',
-      badge: './icons/icon-192.svg',
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
       vibrate: [200, 100, 200],
       data: { reminderKey: data.reminderKey || 'push', originalBody: data.body },
       actions: [
