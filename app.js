@@ -43,9 +43,21 @@ const RELIV_USER_ID = (() => {
 // The device decision was already made by the inline script in <head> (so the
 // phone UI never flashes). This only fills in the gate's content.
 (function setUpDesktopGate() {
-  if (window.RELIV_IS_PHONE) return;
-
   const gate = document.getElementById('desktop-gate');
+  const phoneModeBtn = document.getElementById('desktop-phone-mode-btn');
+
+  if (phoneModeBtn) {
+    phoneModeBtn.addEventListener('click', () => {
+      document.documentElement.classList.remove('reliv-desktop');
+      document.documentElement.classList.add('strict-phone-frame');
+      document.body.classList.add('strict-phone-frame');
+      if (gate) gate.hidden = true;
+      window.RELIV_IS_PHONE = true;
+      showToast('📱 Phone Simulator Mode Active');
+    });
+  }
+
+  if (window.RELIV_IS_PHONE) return;
   if (!gate) return;
 
   gate.hidden = false;
@@ -76,13 +88,20 @@ const RELIV_USER_ID = (() => {
 // than generic hype, and they rotate so a slow start never feels frozen.
 const RELIV_LOADING_LINES = [
   'Warming up your day…',
-  'Small things, done daily. That’s the whole trick.',
+  'Small things, done daily. That\'s the whole trick.',
   'Counting what you actually ate, not what you meant to.',
   'Your streak is waiting.',
   'Discipline beats motivation. Motivation is late anyway.',
   'One good day is a fluke. Two is a pattern.',
   'Nobody regrets the workout they finished.',
-  'Progress is boring up close. Keep going.'
+  'Progress is boring up close. Keep going.',
+  'Your future self is watching. Make them proud.',
+  '2 minutes of logging = a lifetime of clarity.',
+  'Consistency is the only shortcut that works.',
+  'You\'re not starting over. You\'re starting from experience.',
+  'The best time was yesterday. The second best is right now.',
+  'Log one thing. Just one. That\'s the whole assignment.',
+  'Winners don\'t feel like it either. They just do it.'
 ];
 
 (function runBootLoader() {
@@ -657,6 +676,8 @@ function refreshTrackerViews() {
   renderNaturalCare();
   renderTodayLogs();
   renderProfilePicture();
+  if (typeof renderProgress === 'function') renderProgress();
+  if (typeof renderDailyMission === 'function') renderDailyMission();
 }
 
 function logFoodEntry(entry, options = {}) {
@@ -763,31 +784,71 @@ function applyQuickCoachCommand(message) {
   const lower = String(message || '').toLowerCase();
   const updates = [];
 
-  const streakMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?streak\s*(?:to|=)?\s*(\d+)/i);
+  // 1. Streak command
+  const streakMatch = lower.match(/(?:set|change|update|make)\s+(?:my\s+)?streak\s*(?:to|=)?\s*(\d+)/i);
   if (streakMatch) {
     state.streak = Math.max(0, Number(streakMatch[1]));
     state.restorableStreak = -1;
     updates.push(`Streak set to ${state.streak}`);
   }
 
-  const xpMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?xp\s*(?:to|=)?\s*(\d+)/i);
+  // 2. XP command: "make my xp 0", "make the xp 0", "make xp 0", "reset xp", "set xp to 0", "xp 0"
+  const xpMatch = lower.match(/(?:set|change|update|make|reset)\s+(?:the\s+|my\s+)?xp\s*(?:to|=|as)?\s*(\d+)/i)
+    || lower.match(/\b(?:reset|clear)\s+(?:my\s+)?xp\b/i)
+    || lower.match(/\b(?:make|set)\s+(?:the\s+|my\s+)?xp\s*0\b/i)
+    || lower.match(/\bxp\s*(?:to|=|:)?\s*(\d+)\b/i);
   if (xpMatch) {
-    const desiredXp = Math.max(0, Number(xpMatch[1]));
+    const desiredXp = xpMatch[1] !== undefined ? Math.max(0, Number(xpMatch[1])) : 0;
     const currentBaseXp = recalculateDeservedXP(true);
     state.xpManualDelta = desiredXp - currentBaseXp;
     updates.push(`XP set to ${desiredXp}`);
   }
 
-  const calorieMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?(?:calories?|calorie target|cal target|daily calories)\s*(?:to|=)?\s*(\d+)/i);
+  // 3. Calorie target command
+  const calorieMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:calories?|calorie target|cal target|daily calories)\s*(?:to|=|as)?\s*(\d+)/i);
   if (calorieMatch) {
     state.targetCalories = Math.max(1, Number(calorieMatch[1]));
-    updates.push(`Calories set to ${state.targetCalories}`);
+    updates.push(`Calorie target updated to ${state.targetCalories} kcal`);
   }
 
-  const proteinMatch = lower.match(/(?:set|change|update)\s+(?:my\s+)?(?:protein|protein target|pro target|daily protein)\s*(?:to|=)?\s*(\d+)/i);
+  // 4. Protein target command: "change my protein target to 120", "set protein 120", "make protein 120"
+  const proteinMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:protein|protein target|pro target|daily protein)\s*(?:to|=|as)?\s*(\d+)/i);
   if (proteinMatch) {
     state.targetProtein = Math.max(1, Number(proteinMatch[1]));
-    updates.push(`Protein set to ${state.targetProtein}`);
+    updates.push(`Protein target updated to ${state.targetProtein}g`);
+  }
+
+  // 5. Hydration / Water target command
+  const waterMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:water|hydration|water target|hydration target)\s*(?:to|=|as)?\s*(\d+)/i);
+  if (waterMatch) {
+    state.targetHydration = Math.max(500, Number(waterMatch[1]));
+    updates.push(`Hydration target set to ${state.targetHydration}ml`);
+  }
+
+  // 6. Weight update command: "my weight is 72kg", "update weight to 72", "set weight 72"
+  const weightMatch = lower.match(/(?:my\s+weight\s+is|set\s+weight\s+to?|update\s+weight\s+to?|weigh\s+in\s+at)\s*(\d+(?:\.\d+)?)/i);
+  if (weightMatch) {
+    state.weight = Number(weightMatch[1]);
+    if (!state.progressProfile) state.progressProfile = { weightLogs: [] };
+    if (!state.progressProfile.weightLogs) state.progressProfile.weightLogs = [];
+    state.progressProfile.weightLogs.push({ date: new Date().toISOString(), weight: state.weight });
+    updates.push(`Current weight updated to ${state.weight}kg`);
+  }
+
+  // 7. Student & Kiosk status command: "I'm a student with kiosk daily", "student with daily kiosk"
+  if (lower.includes('student') && lower.includes('kiosk')) {
+    if (!state.progressProfile) state.progressProfile = { weightLogs: [] };
+    state.progressProfile.isStudent = true;
+    state.progressProfile.kioskAccess = lower.includes('weekly') ? 'weekly' : 'daily';
+    state.progressProfile.configured = true;
+    updates.push(`Adaptive plan switched: Student with ${state.progressProfile.kioskAccess} Reliv Kiosk weigh-ins`);
+  }
+
+  // 8. Reminder command: "remind me at 9pm", "set reminder at 21:00"
+  const remindMatch = lower.match(/(?:remind\s+me|set\s+reminder)\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+  if (remindMatch) {
+    const timeStr = remindMatch[1].trim();
+    updates.push(`Reminder scheduled for ${timeStr}`);
   }
 
   if (!updates.length) return null;
@@ -795,6 +856,8 @@ function applyQuickCoachCommand(message) {
   saveState();
   refreshTrackerViews();
   renderWeightForecast();
+  if (typeof renderProgress === 'function') renderProgress();
+  if (typeof renderDailyMission === 'function') renderDailyMission();
   return updates.join(' · ');
 }
 
@@ -1059,6 +1122,9 @@ function init() {
   setInterval(checkDailyReset, 60000);
   reconcilePendingRestore();
   showComebackIfReturning();
+  if (typeof renderDailyMission === 'function') renderDailyMission();
+  if (typeof renderProgress === 'function') renderProgress();
+  if (typeof initWhatsAppChallenge === 'function') initWhatsAppChallenge();
 
   if (shouldAutoSyncPush() && 'serviceWorker' in navigator && 'PushManager' in window) {
     subscribeToPushNotifications(false);
@@ -1073,8 +1139,22 @@ function init() {
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js')
-      .then((reg) => console.log('Service Worker registered successfully.', reg))
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => {
+        console.log('Service Worker registered successfully.', reg);
+        // Update detection: when new SW available, notify user
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+              showToast('🔄 Update available! Tap to reload.');
+              // Auto-reload after brief delay so user sees the toast
+              setTimeout(() => window.location.reload(), 2500);
+            }
+          });
+        });
+      })
       .catch((err) => console.error('Service Worker registration failed:', err));
   }
 }
@@ -1953,6 +2033,7 @@ function renderDashboard() {
 
   renderCustomHabits();
   renderReminders();
+  if (typeof renderDailyMission === 'function') renderDailyMission();
 }
 
 function renderCustomHabits() {
@@ -3678,10 +3759,12 @@ function switchView(target) {
       currentSection.classList.remove('fade-out');
       els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
       state.activeTab = target;
+      if (target === 'progress' && typeof renderProgress === 'function') renderProgress();
     }, 140);
   } else {
     els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
     state.activeTab = target;
+    if (target === 'progress' && typeof renderProgress === 'function') renderProgress();
   }
 }
 
@@ -4291,47 +4374,79 @@ async function analyzeMeal() {
       base64Data = parts[1];
     }
 
-    // Only a key the user supplied themselves. There used to be a real API key
-    // hardcoded here as the "unconfigured" sentinel - in a file the browser
-    // downloads, which published it to anyone who opened devtools.
     const GEMINI_API_KEY = (state.geminiKey || '').trim();
-    if (!GEMINI_API_KEY) {
-      throw new Error('Scan needs the server. If it stays down, add your own Gemini API key in Settings.');
+    const GROQ_API_KEY = (state.groqKey || window.RELIX_GROQ_API_KEY || '').trim();
+
+    if (!GEMINI_API_KEY && !GROQ_API_KEY) {
+      throw new Error('Image scan requires a Gemini or Groq API key. Please add your key in Settings.');
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const payload = {
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
+    if (GEMINI_API_KEY) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const payload = {
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
               }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+
+      let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = JSON.parse(textRes);
+      handleVisionSuccess(result);
+      return;
+    }
+
+    // Groq Vision Fallback
+    if (GROQ_API_KEY) {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.2-11b-vision-preview',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: `${prompt}\nRespond ONLY in raw JSON with format: {"type":"food","foodName":"...","calories":0,"protein":0,"carbs":0,"fat":0,"healthScore":8,"analysis":"..."}` },
+                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Data}` } }
+              ]
             }
           ]
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    };
+        })
+      });
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-
-    let textRes = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
-    const result = JSON.parse(textRes);
-
-    handleVisionSuccess(result);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message || 'Groq vision error');
+      let textRes = data.choices?.[0]?.message?.content || '';
+      textRes = textRes.replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = JSON.parse(textRes);
+      handleVisionSuccess(result);
+      return;
+    }
   }
 
   if (!BACKEND_URL) {
@@ -4363,7 +4478,9 @@ async function analyzeMeal() {
       body: JSON.stringify({
         prompt,
         mimeType,
-        base64Data
+        base64Data,
+        customGroqKey: (state.groqKey || '').trim(),
+        customGeminiKey: (state.geminiKey || '').trim()
       })
     });
 
@@ -5416,9 +5533,18 @@ function showComebackIfReturning() {
   const daysAway = Math.floor((now - lastSeen) / (24 * 60 * 60 * 1000));
   if (daysAway < 2) return;
 
-  const message = daysAway >= 14
-    ? `${daysAway} days away. Nothing to make up - today is day one and that is genuinely fine.`
-    : `Welcome back. ${daysAway} days off changes nothing about today - just log one thing.`;
+  let message;
+  if (daysAway >= 20) {
+    message = `${daysAway} days away. You didn't fail — you paused. Hit one button and you're back. Today is day one and that is genuinely fine.`;
+  } else if (daysAway >= 14) {
+    message = `${daysAway} days off. Nothing to make up. Every champion has comeback chapters. This is yours.`;
+  } else if (daysAway >= 7) {
+    message = `A week off doesn't erase what came before. One log today and you're officially back. That's it.`;
+  } else if (daysAway >= 3) {
+    message = `Welcome back. ${daysAway} days off changes nothing about today — start again, not from zero, but from experience.`;
+  } else {
+    message = `Welcome back. ${daysAway} days off changes nothing about today — just log one thing.`;
+  }
 
   setTimeout(() => showToast(message), 1200);
 }
@@ -5442,6 +5568,7 @@ function scheduleResetWarningNotification(dueTime) {
 
 function renderStreakBanner() {
   const banner = document.getElementById('streak-restore-banner');
+  const modal = document.getElementById('streak-break-modal');
   if (!banner) return;
 
   const btn = document.getElementById('restore-streak-btn');
@@ -5455,9 +5582,6 @@ function renderStreakBanner() {
     if (btn) {
       btn.disabled = false;
       btn.textContent = 'Restore';
-      // Ask the server what this restore costs. The price scales with the
-      // length of the streak, and the server is the only one allowed to decide
-      // it, so we display whatever it quotes rather than computing it here.
       if (BACKEND_URL) {
         fetch(`${BACKEND_URL}/api/streak/restore/price?lostStreak=${state.restorableStreak}`)
           .then((r) => r.json())
@@ -5469,10 +5593,78 @@ function renderStreakBanner() {
           .catch(() => { });
       }
     }
+
+    // Show emotional modal for streaks >= 5 (first time only per session)
+    if (state.restorableStreak >= 5 && modal && !window._streakModalShown) {
+      window._streakModalShown = true;
+      showEmotionalStreakModal();
+    }
   } else {
     banner.style.display = 'none';
+    if (modal) modal.style.display = 'none';
   }
 }
+
+const STREAK_BREAK_QUOTES = [
+  { min: 5, max: 7, emoji: '💔', quote: '₹{price} is not the price of your streak. It\'s a deposit that says: I will return. This money comes back when you complete your target. Don\'t let {days} days of work die for ₹{price}.' },
+  { min: 8, max: 14, emoji: '🔥', quote: 'You built {days} days of discipline. That\'s not something that just happens. ₹{price} held safely until you finish your goal — a promise to yourself that those days meant something.' },
+  { min: 15, max: 30, emoji: '⚡', quote: '{days} consecutive days. Most people don\'t even start. ₹{price} isn\'t a punishment — it\'s fuel. The discomfort of this tiny deposit will push you harder than motivation ever could. Refunded on target completion.' },
+  { min: 31, max: 999, emoji: '👑', quote: '{days} days of showing up. That\'s character, not luck. ₹{price} is your skin in the game. We hold it. You hold the promise. When you hit your target, every rupee comes back.' }
+];
+
+function showEmotionalStreakModal() {
+  const modal = document.getElementById('streak-break-modal');
+  if (!modal || state.restorableStreak < 5) return;
+
+  const days = state.restorableStreak;
+  const price = Math.min(25, Math.max(5, days));
+  const entry = STREAK_BREAK_QUOTES.find(q => days >= q.min && days <= q.max) || STREAK_BREAK_QUOTES[0];
+
+  const titleEl = document.getElementById('streak-break-title');
+  const subtitleEl = document.getElementById('streak-break-subtitle');
+  const quoteEl = document.getElementById('streak-break-quote');
+  const priceEl = document.getElementById('streak-break-price');
+  const emojiEl = modal.querySelector('.streak-break-emoji');
+  const consentCb = document.getElementById('streak-break-consent');
+  const payBtn = document.getElementById('streak-break-pay-btn');
+  const dismissBtn = document.getElementById('streak-break-dismiss');
+
+  if (emojiEl) emojiEl.textContent = entry.emoji;
+  if (titleEl) titleEl.textContent = `Your ${days}-day streak broke`;
+  if (subtitleEl) subtitleEl.textContent = `${days} days of progress don't have to disappear. You earned them.`;
+  if (quoteEl) quoteEl.textContent = entry.quote.replace(/\{price\}/g, price).replace(/\{days\}/g, days);
+  if (priceEl) priceEl.textContent = `₹${price}`;
+
+  if (payBtn) {
+    payBtn.disabled = true;
+    payBtn.textContent = `Restore My ${days}-Day Streak — ₹${price}`;
+  }
+
+  if (consentCb) {
+    consentCb.checked = false;
+    consentCb.onchange = () => {
+      if (payBtn) payBtn.disabled = !consentCb.checked;
+    };
+  }
+
+  if (payBtn) {
+    payBtn.onclick = () => {
+      modal.style.display = 'none';
+      restoreStreak();
+    };
+  }
+
+  if (dismissBtn) {
+    dismissBtn.onclick = () => {
+      modal.style.display = 'none';
+      showToast('Starting fresh. Your past effort still counts — build on it.');
+    };
+  }
+
+  modal.style.display = 'flex';
+  if (window.haptic) window.haptic.heavy();
+}
+
 
 function applyStreakRestore(streakValue) {
   state.streak = streakValue;
@@ -6351,3 +6543,567 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+// ---------------------------------------------------------------------------
+// STREAK MILESTONE CELEBRATIONS
+// ---------------------------------------------------------------------------
+const STREAK_MILESTONES = [
+  { day: 7,  emoji: '🔥', text: 'First week complete! 7 days of showing up.' },
+  { day: 14, emoji: '⭐', text: 'Two weeks strong! You\'re building real habits.' },
+  { day: 30, emoji: '🏆', text: '30-day warrior! Most people quit by now. You didn\'t.' },
+  { day: 60, emoji: '💎', text: '60 days! This is not discipline anymore — it\'s who you are.' },
+  { day: 90, emoji: '👑', text: '90-day legend! You\'ve proven that consistency beats everything.' }
+];
+
+function checkStreakMilestone() {
+  const milestone = STREAK_MILESTONES.find(m => m.day === state.streak);
+  if (!milestone) return;
+  
+  const shown = JSON.parse(localStorage.getItem('relix-milestones-shown') || '[]');
+  if (shown.includes(milestone.day)) return;
+  
+  shown.push(milestone.day);
+  localStorage.setItem('relix-milestones-shown', JSON.stringify(shown));
+  
+  // Show milestone celebration
+  const el = document.createElement('div');
+  el.className = 'milestone-toast';
+  el.innerHTML = `
+    <div class="milestone-emoji">${milestone.emoji}</div>
+    <div class="milestone-text">${milestone.text}</div>
+  `;
+  document.body.appendChild(el);
+  createConfetti();
+  if (window.haptic) window.haptic.heavy();
+  
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 400ms ease';
+    setTimeout(() => el.remove(), 400);
+  }, 4000);
+}
+
+// Check milestones after each streak increment
+const _origCheckDailyReset = checkDailyReset;
+// Monitor streak changes
+let _prevStreak = state.streak;
+setInterval(() => {
+  if (state.streak > _prevStreak && state.streak > 0) {
+    checkStreakMilestone();
+  }
+  _prevStreak = state.streak;
+}, 2000);
+
+// ---------------------------------------------------------------------------
+// DAILY 30-SECOND MISSION
+// ---------------------------------------------------------------------------
+function renderDailyMission() {
+  const container = document.getElementById('daily-mission-container');
+  if (!container) return;
+  
+  const today = new Date().toDateString();
+  const missionDone = localStorage.getItem('relix-mission-date') === today;
+  
+  if (missionDone) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  const waterDone = state.consumedHydration >= 250;
+  const mealDone = state.loggedFoods.length > 0;
+  
+  container.innerHTML = `
+    <div class="daily-mission-card">
+      <div class="daily-mission-title">⚡ Your 30-Second Mission</div>
+      <div class="daily-mission-actions">
+        <button class="mission-btn ${waterDone ? 'done' : ''}" id="mission-water" type="button">
+          ${waterDone ? '✅' : '💧'} Water
+        </button>
+        <button class="mission-btn ${mealDone ? 'done' : ''}" id="mission-meal" type="button">
+          ${mealDone ? '✅' : '🍽️'} Meal
+        </button>
+        <button class="mission-btn" id="mission-mood" type="button">
+          😊 Mood
+        </button>
+      </div>
+    </div>
+  `;
+  
+  const waterBtn = document.getElementById('mission-water');
+  const mealBtn = document.getElementById('mission-meal');
+  const moodBtn = document.getElementById('mission-mood');
+  
+  if (waterBtn && !waterDone) {
+    waterBtn.addEventListener('click', () => {
+      state.consumedHydration += 250;
+      state.loggedHydrations.push({ ml: 250, timestamp: Date.now() });
+      recordActivity('Mission: Water logged 250ml', 15);
+      showToast('💧 250ml logged! Mission progress!');
+      renderDailyMission();
+      checkMissionComplete();
+    });
+  }
+  
+  if (mealBtn && !mealDone) {
+    mealBtn.addEventListener('click', () => {
+      switchView('routine');
+    });
+  }
+  
+  if (moodBtn) {
+    moodBtn.addEventListener('click', () => {
+      const moods = ['😊 Great', '😐 Okay', '😔 Low', '💪 Motivated'];
+      const mood = moods[Math.floor(Math.random() * moods.length)];
+      moodBtn.classList.add('done');
+      moodBtn.textContent = '✅ Mood';
+      state.xpManualDelta = (Number(state.xpManualDelta) || 0) + 10;
+      saveState();
+      showToast(`Mood logged: ${mood} (+10 XP)`);
+      renderDashboard();
+      checkMissionComplete();
+    });
+  }
+}
+
+function checkMissionComplete() {
+  const today = new Date().toDateString();
+  const waterDone = state.consumedHydration >= 250;
+  const mealDone = state.loggedFoods.length > 0;
+  
+  if (waterDone && mealDone) {
+    localStorage.setItem('relix-mission-date', today);
+    showToast('🎉 Daily mission complete! +25 XP');
+    state.xpManualDelta = (Number(state.xpManualDelta) || 0) + 25;
+    saveState();
+    createConfetti();
+    renderDailyMission();
+    renderDashboard();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// URL PARAMETER HANDLING (for PWA shortcuts and notification deep links)
+// ---------------------------------------------------------------------------
+(function handleUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  const action = params.get('action');
+  
+  if (tab) {
+    // Wait for init to complete, then switch tab
+    setTimeout(() => {
+      switchView(tab);
+      
+      if (action === 'water') {
+        state.consumedHydration += 250;
+        state.loggedHydrations.push({ ml: 250, timestamp: Date.now() });
+        recordActivity('Quick: Water 250ml', 10);
+        showToast('💧 250ml water logged from shortcut!');
+      } else if (action === 'meal') {
+        // Focus the custom food input
+        const input = document.getElementById('custom-food-input');
+        if (input) input.focus();
+      }
+      
+      // Clean URL without reload
+      if (window.history.replaceState) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }, 800);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// TRACK MY PROGRESS MODULE (Adaptive Environmental AI)
+// ---------------------------------------------------------------------------
+let _progressEventsBound = false;
+
+function initProgressEvents() {
+  if (_progressEventsBound) return;
+  _progressEventsBound = true;
+
+  // 1. Questionnaire option buttons
+  document.querySelectorAll('.progress-option-group').forEach(group => {
+    group.querySelectorAll('.progress-option-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('.progress-option-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+  });
+
+  // 2. Questionnaire form submission
+  const qForm = document.getElementById('progress-questionnaire-form');
+  if (qForm) {
+    qForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const isStudent = document.querySelector('.progress-option-group[data-name="isStudent"] .selected')?.dataset.value === 'true';
+      const kioskAccess = document.querySelector('.progress-option-group[data-name="kioskAccess"] .selected')?.dataset.value || 'daily';
+      const hasScale = document.querySelector('.progress-option-group[data-name="hasScale"] .selected')?.dataset.value === 'true';
+      const hasTape = document.querySelector('.progress-option-group[data-name="hasTape"] .selected')?.dataset.value === 'true';
+      const canTakePhotos = document.querySelector('.progress-option-group[data-name="canTakePhotos"] .selected')?.dataset.value === 'true';
+
+      if (!state.progressProfile) state.progressProfile = {};
+      state.progressProfile.isStudent = isStudent;
+      state.progressProfile.kioskAccess = kioskAccess;
+      state.progressProfile.hasScale = hasScale;
+      state.progressProfile.hasTape = hasTape;
+      state.progressProfile.canTakePhotos = canTakePhotos;
+      state.progressProfile.configured = true;
+
+      if (!state.progressProfile.weightLogs || !state.progressProfile.weightLogs.length) {
+        state.progressProfile.weightLogs = [
+          { date: new Date().toISOString(), weight: Number(state.weight || 65) }
+        ];
+      }
+
+      saveState();
+      recordActivity('Progress Setup Completed', 30);
+      createConfetti();
+      showToast('🚀 Setup saved! Your personalized progress plan is active.');
+      renderProgress();
+      renderDashboard();
+    });
+  }
+
+  // 3. Weight log form
+  const logForm = document.getElementById('progress-log-form');
+  if (logForm) {
+    logForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const weightInput = document.getElementById('progress-input-weight');
+      const waistInput = document.getElementById('progress-input-waist');
+      const weightVal = parseFloat(weightInput?.value);
+      const waistVal = waistInput?.value ? parseFloat(waistInput.value) : null;
+
+      if (!weightVal || isNaN(weightVal) || weightVal <= 20 || weightVal >= 300) {
+        showToast('⚠️ Please enter a valid weight in kg (e.g. 68.5)');
+        return;
+      }
+
+      if (!state.progressProfile) state.progressProfile = { configured: true, weightLogs: [] };
+      if (!state.progressProfile.weightLogs) state.progressProfile.weightLogs = [];
+
+      state.progressProfile.weightLogs.push({
+        date: new Date().toISOString(),
+        weight: weightVal,
+        waist: waistVal
+      });
+      state.weight = weightVal;
+
+      saveState();
+      recordActivity(`Progress Logged: ${weightVal} kg`, 15);
+      createConfetti();
+      showToast(`📈 Logged ${weightVal} kg! Target trends recalculated.`);
+
+      if (weightInput) weightInput.value = '';
+      if (waistInput) waistInput.value = '';
+
+      renderProgress();
+      renderDashboard();
+      renderWeightForecast();
+    });
+  }
+
+  // 4. Retake button
+  const retakeBtn = document.getElementById('progress-retake-btn');
+  if (retakeBtn) {
+    retakeBtn.addEventListener('click', () => {
+      if (state.progressProfile) {
+        state.progressProfile.configured = false;
+        saveState();
+        renderProgress();
+      }
+    });
+  }
+
+  // 5. Claim refund button
+  const claimBtn = document.getElementById('progress-claim-refund-btn');
+  if (claimBtn) {
+    claimBtn.addEventListener('click', claimStreakRefund);
+  }
+}
+
+function calculateProgressTrends() {
+  const profile = state.progressProfile || {};
+  const logs = (profile.weightLogs || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  const currentWeight = Number(state.weight || 65);
+  const targetWeight = Number(state.targetWeight || 70);
+  const isLoss = targetWeight < currentWeight;
+  const weightGap = Math.abs(currentWeight - targetWeight);
+
+  let ratePerWeek = 0;
+  if (logs.length >= 2) {
+    const first = logs[0];
+    const last = logs[logs.length - 1];
+    const daysDiff = Math.max(1, (new Date(last.date) - new Date(first.date)) / (1000 * 60 * 60 * 24));
+    const kgDiff = last.weight - first.weight;
+    ratePerWeek = (kgDiff / daysDiff) * 7;
+  } else {
+    // Estimate from calorie target vs maintenance
+    const calDelta = (Number(state.targetCalories || 2400) - 2200);
+    ratePerWeek = (calDelta * 7) / 7700;
+  }
+
+  // Safe limits
+  const safeRateMax = isLoss ? 0.75 : 0.45;
+  const effectivePace = Math.abs(ratePerWeek) > 0.05 ? Math.abs(ratePerWeek) : (isLoss ? 0.4 : 0.3);
+
+  const daysToGoalPace = Math.max(7, Math.round((weightGap / effectivePace) * 7));
+  const daysToGoalFastest = Math.max(7, Math.round((weightGap / safeRateMax) * 7));
+
+  const etaPaceDate = new Date(Date.now() + daysToGoalPace * 86400000);
+  const etaFastestDate = new Date(Date.now() + daysToGoalFastest * 86400000);
+
+  // Adherence
+  const logsCount = logs.length;
+  const adherence = Math.min(100, Math.max(40, Math.round(50 + (state.streak * 5) + (logsCount * 5))));
+
+  return {
+    ratePerWeek,
+    isLoss,
+    weightGap,
+    adherence,
+    etaPaceStr: etaPaceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+    etaFastestStr: etaFastestDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  };
+}
+
+function drawWeightChart(canvas, logs, targetWeight) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const width = rect.width || 340;
+  const height = 180;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Collect data points
+  let points = (logs || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date)).map(l => l.weight);
+  if (points.length === 0) points = [Number(state.weight || 65)];
+  if (points.length === 1) points = [points[0], points[0]];
+
+  const target = Number(targetWeight || 70);
+  const allVals = [...points, target];
+  const minVal = Math.floor(Math.min(...allVals) - 1.5);
+  const maxVal = Math.ceil(Math.max(...allVals) + 1.5);
+  const range = Math.max(1, maxVal - minVal);
+
+  const padLeft = 38;
+  const padRight = 20;
+  const padTop = 22;
+  const padBottom = 26;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+
+  const getY = (v) => padTop + plotH - ((v - minVal) / range) * plotH;
+  const getX = (i) => padLeft + (i / (points.length - 1)) * plotW;
+
+  // Background Grid
+  ctx.strokeStyle = 'rgba(150, 150, 150, 0.12)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const y = padTop + (plotH / 3) * i;
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(width - padRight, y);
+    ctx.stroke();
+
+    const valLabel = Math.round(maxVal - (range / 3) * i);
+    ctx.fillStyle = 'rgba(150, 150, 150, 0.7)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${valLabel}kg`, padLeft - 6, y + 3);
+  }
+
+  // Target Goal Line (Dashed Orange)
+  const targetY = getY(target);
+  ctx.save();
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = '#ff9f1a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(padLeft, targetY);
+  ctx.lineTo(width - padRight, targetY);
+  ctx.stroke();
+  ctx.fillStyle = '#ff9f1a';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`Target ${target}kg`, width - padRight, targetY - 4);
+  ctx.restore();
+
+  // Gradient Fill under Curve
+  const grad = ctx.createLinearGradient(0, padTop, 0, height - padBottom);
+  grad.addColorStop(0, 'rgba(255, 106, 0, 0.28)');
+  grad.addColorStop(1, 'rgba(255, 106, 0, 0.0)');
+
+  ctx.beginPath();
+  ctx.moveTo(getX(0), getY(points[0]));
+  for (let i = 1; i < points.length; i++) {
+    const prevX = getX(i - 1);
+    const prevY = getY(points[i - 1]);
+    const currX = getX(i);
+    const currY = getY(points[i]);
+    const cpX = (prevX + currX) / 2;
+    ctx.bezierCurveTo(cpX, prevY, cpX, currY, currX, currY);
+  }
+  ctx.lineTo(getX(points.length - 1), height - padBottom);
+  ctx.lineTo(getX(0), height - padBottom);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Trend Line (Solid Primary)
+  ctx.beginPath();
+  ctx.moveTo(getX(0), getY(points[0]));
+  for (let i = 1; i < points.length; i++) {
+    const prevX = getX(i - 1);
+    const prevY = getY(points[i - 1]);
+    const currX = getX(i);
+    const currY = getY(points[i]);
+    const cpX = (prevX + currX) / 2;
+    ctx.bezierCurveTo(cpX, prevY, cpX, currY, currX, currY);
+  }
+  ctx.strokeStyle = '#ff6a00';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Data Point Dots
+  points.forEach((pt, i) => {
+    const x = getX(i);
+    const y = getY(pt);
+    ctx.beginPath();
+    ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = '#ff6a00';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = 'var(--text, #111827)';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${pt}`, x, y - 8);
+  });
+}
+
+async function claimStreakRefund() {
+  const userId = state.userId || 'user_default';
+  try {
+    showToast('⏳ Verifying target completion and processing refund…');
+    const res = await fetch(`${BACKEND_URL}/api/streak/restore/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast(data.message || '🎉 Refund processed! Your commitment has been rewarded.');
+      createConfetti();
+      renderProgress();
+    } else {
+      showToast(`ℹ️ ${data.message || 'No eligible refundable deposit found or already processed.'}`);
+    }
+  } catch (err) {
+    showToast('⚠️ Could not connect to refund server. Will retry next session.');
+  }
+}
+
+function renderProgress() {
+  initProgressEvents();
+
+  const qCard = document.getElementById('progress-questionnaire-card');
+  const dView = document.getElementById('progress-dashboard-view');
+  const modeBadge = document.getElementById('progress-mode-badge');
+  if (!qCard || !dView) return;
+
+  const profile = state.progressProfile;
+  if (!profile || !profile.configured) {
+    qCard.style.display = 'block';
+    dView.style.display = 'none';
+    if (modeBadge) modeBadge.textContent = 'Setup Needed';
+    return;
+  }
+
+  qCard.style.display = 'none';
+  dView.style.display = 'flex';
+
+  // Mode badge & plan descriptions
+  const planTitle = document.getElementById('progress-plan-title');
+  const planDesc = document.getElementById('progress-plan-desc');
+  
+  if (profile.kioskAccess === 'daily') {
+    if (modeBadge) modeBadge.textContent = profile.isStudent ? '🎓 Student · Kiosk Mode' : '⚡ Kiosk Daily';
+    if (planTitle) planTitle.textContent = '⚡ Daily Reliv Kiosk Check-In';
+    if (planDesc) planDesc.textContent = 'Step on the Reliv Kiosk daily for weight, body fat %, and lean mass tracking. Daily kiosk checkpoints provide the highest accuracy for AI target milestone forecasting.';
+  } else if (profile.kioskAccess === 'weekly') {
+    if (modeBadge) modeBadge.textContent = '📅 Kiosk Weekly';
+    if (planTitle) planTitle.textContent = '📅 Weekly Reliv Kiosk Check-In';
+    if (planDesc) planDesc.textContent = 'Weekly kiosk visits keep tabs on muscular density and fat percentage without daily scale fluctuations.';
+  } else if (profile.hasScale) {
+    if (modeBadge) modeBadge.textContent = '🏠 Home Scale Mode';
+    if (planTitle) planTitle.textContent = '⚖️ Morning Home Scale Plan';
+    if (planDesc) planDesc.textContent = 'Weigh in every morning upon waking, before eating or drinking. The AI applies a rolling 7-day trend to eliminate water weight noise.';
+  } else {
+    if (modeBadge) modeBadge.textContent = '📏 Metric & Tape Mode';
+    if (planTitle) planTitle.textContent = '📏 Body Composition & Tape Plan';
+    if (planDesc) planDesc.textContent = 'No scale needed! Log waist & hip measurements weekly and check off your nutrition streak for true body recomposition.';
+  }
+
+  // Calculate trends
+  const trends = calculateProgressTrends();
+  const rateEl = document.getElementById('progress-rate-val');
+  const adhEl = document.getElementById('progress-adherence-val');
+  const etaCurEl = document.getElementById('progress-eta-current');
+  const etaFastEl = document.getElementById('progress-eta-fastest');
+  const etaNoteEl = document.getElementById('progress-eta-note');
+
+  if (rateEl) {
+    const sign = trends.ratePerWeek > 0 ? '+' : '';
+    rateEl.textContent = `${sign}${trends.ratePerWeek.toFixed(2)} kg`;
+    rateEl.style.color = (trends.isLoss ? trends.ratePerWeek <= 0 : trends.ratePerWeek >= 0) ? '#22c55e' : '#ff9f1a';
+  }
+  if (adhEl) adhEl.textContent = `${trends.adherence}%`;
+  if (etaCurEl) etaCurEl.textContent = trends.etaPaceStr;
+  if (etaFastEl) etaFastEl.textContent = trends.etaFastestStr;
+  if (etaNoteEl) {
+    etaNoteEl.textContent = trends.isLoss
+      ? `Fastest safe date limits deficit to 0.75 kg/week to preserve lean muscle and avoid hormonal crashes.`
+      : `Fastest safe date limits surplus to 0.45 kg/week to ensure clean lean tissue gain rather than excess fat.`;
+  }
+
+  // Render Chart
+  const canvas = document.getElementById('progress-weight-canvas');
+  if (canvas) {
+    drawWeightChart(canvas, profile.weightLogs || [], state.targetWeight || 70);
+  }
+
+  // Commitment Deposit Status
+  const depositPill = document.getElementById('progress-deposit-pill');
+  const refundArea = document.getElementById('progress-refund-area');
+  const isTargetAchieved = Math.abs(Number(state.weight || 65) - Number(state.targetWeight || 70)) <= 0.5;
+
+  if (depositPill) {
+    depositPill.textContent = isTargetAchieved ? '🎉 Target Reached!' : (state.restorableStreak > 0 ? `₹${Math.max(5, state.restorableStreak)} Held` : '₹0 Held');
+  }
+  if (refundArea) {
+    refundArea.style.display = isTargetAchieved ? 'block' : 'none';
+  }
+}
+
+function initWhatsAppChallenge() {
+  const btn = document.getElementById('whatsapp-challenge-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const text = `🔥 I'm on day ${state.streak} of my health streak on Reliv! Challenge me to see who stays consistent longer: ${window.location.origin}`;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  });
+}

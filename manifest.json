@@ -29,5 +29,28 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Water",
+      "short_name": "Water",
+      "description": "Quick-log 250ml water",
+      "url": "./index.html?tab=dashboard&action=water",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Log Meal",
+      "short_name": "Meal",
+      "description": "Log your meal with AI",
+      "url": "./index.html?tab=routine&action=meal",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Open Coach",
+      "short_name": "Coach",
+      "description": "Chat with your AI coach",
+      "url": "./index.html?tab=coach",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

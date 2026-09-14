@@ -71,6 +71,7 @@
         <p class="desktop-gate-hint">Open this link on your phone, then tap <strong>Add to Home Screen</strong>.</p>
         <div class="desktop-gate-url" id="desktop-gate-url"></div>
         <button type="button" class="desktop-gate-copy" id="desktop-gate-copy">Copy link</button>
+        <button type="button" class="primary-btn" id="desktop-phone-mode-btn" style="margin-top:14px; width:100%; font-weight:700;">📱 Test in Phone Simulator Mode</button>
       </div>
     </div>
 
@@ -133,6 +134,54 @@
             <span style="font-size:0.85rem; color:#ef4444; font-weight:600;">⚠️ Streak lost! benchmark not met.</span>
             <button id="restore-streak-btn" class="primary-btn" type="button" style="padding:6px 12px; font-size:0.8rem; background:#ef4444; border:none; box-shadow:none; margin:0;">Restore</button>
           </div>
+
+          <!-- Emotional Streak Break Modal -->
+          <div id="streak-break-modal" class="streak-break-modal" style="display:none;">
+            <div class="streak-break-card">
+              <div class="streak-break-emoji">💔</div>
+              <h2 class="streak-break-title" id="streak-break-title">Your streak broke</h2>
+              <p class="streak-break-subtitle" id="streak-break-subtitle"></p>
+
+              <div class="streak-break-quote" id="streak-break-quote">
+                This money will be refunded when you complete your target. We're only holding it so you stay consistent. Don't let those days of hard work die.
+              </div>
+
+              <div class="streak-break-price" id="streak-break-price">₹5</div>
+              <p class="streak-break-price-label">Commitment deposit — fully refundable on target completion</p>
+
+              <label class="streak-break-consent" id="streak-break-consent-label">
+                <input type="checkbox" id="streak-break-consent" />
+                <span>I understand this is a refundable commitment deposit to help me stay consistent</span>
+              </label>
+
+              <button id="streak-break-pay-btn" class="streak-break-pay-btn" type="button" disabled>
+                Restore My Streak
+              </button>
+
+              <button id="streak-break-dismiss" class="streak-break-dismiss" type="button">
+                I'll start fresh — reset to Day 0
+              </button>
+
+              <p class="streak-break-terms">
+                💡 This amount escalates with your streak length (Day 5 = ₹5, Day 10 = ₹10, max ₹25). Your deposit is returned when you hit your target. Need help? Contact support.
+              </p>
+            </div>
+          </div>
+
+          <div id="daily-mission-container" style="margin-top: 14px;"></div>
+
+          <!-- WhatsApp Streak Challenge / Referral -->
+          <div class="card" style="padding:14px 18px; margin-top:14px; display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg, rgba(37,211,102,0.08), rgba(18,140,126,0.08)); border:1px solid rgba(37,211,102,0.25); border-radius:18px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:1.6rem;">🔥</span>
+              <div>
+                <strong style="font-size:0.88rem; display:block; color:var(--text);">Challenge a Friend</strong>
+                <span style="font-size:0.75rem; color:var(--muted);">Friends who track together stay consistent 3x longer</span>
+              </div>
+            </div>
+            <button id="whatsapp-challenge-btn" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.8rem; background:#25D366; border:none; box-shadow:none; border-radius:12px; font-weight:600; white-space:nowrap;">Share 📲</button>
+          </div>
+
           <div class="rings-row">
             <div class="ring-card">
               <strong>Today’s score</strong>
@@ -656,10 +705,161 @@
           <!-- Recipes will be rendered here dynamically -->
         </div>
       </section>
+
+      <section class="view-section" data-view="progress">
+        <div class="card" style="padding: 20px; margin-bottom: 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 4px;">Track My Progress</strong>
+              <h2 style="margin:0; font-size:1.35rem;">Adaptive AI Journey</h2>
+            </div>
+            <span class="pill" id="progress-mode-badge" style="font-size:0.75rem;">Setup Needed</span>
+          </div>
+          <p style="margin:6px 0 0 0; font-size:0.84rem; color:var(--muted); line-height:1.45;">
+            Dynamic calculations for fastest safe target achievement based on your daily environment.
+          </p>
+        </div>
+
+        <!-- 1. Questionnaire Container (shown when not configured) -->
+        <div id="progress-questionnaire-card" class="card" style="padding: 20px; margin-bottom: 18px;">
+          <h3 style="margin:0 0 8px 0; font-size:1.15rem;">🎯 Setup Your Tracking Environment</h3>
+          <p style="font-size:0.82rem; color:var(--muted); margin:0 0 16px 0;">Help AI customize your weigh-in frequency and trend predictions.</p>
+
+          <form id="progress-questionnaire-form" style="display:flex; flex-direction:column; gap:16px;">
+            <div>
+              <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:6px;">1. Are you a student?</label>
+              <div class="progress-option-group" data-name="isStudent">
+                <button type="button" class="progress-option-btn selected" data-value="true">🎓 Yes, Student</button>
+                <button type="button" class="progress-option-btn" data-value="false">💼 No, Working / Other</button>
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:6px;">2. Do you see or can use a Reliv Kiosk?</label>
+              <div class="progress-option-group" data-name="kioskAccess">
+                <button type="button" class="progress-option-btn selected" data-value="daily">⚡ Daily at Campus / Office</button>
+                <button type="button" class="progress-option-btn" data-value="weekly">📅 Weekly</button>
+                <button type="button" class="progress-option-btn" data-value="none">❌ No Kiosk Nearby</button>
+              </div>
+            </div>
+
+            <div id="q-scale-container">
+              <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:6px;">3. Do you have a weighing scale at home?</label>
+              <div class="progress-option-group" data-name="hasScale">
+                <button type="button" class="progress-option-btn selected" data-value="true">⚖️ Yes, have scale</button>
+                <button type="button" class="progress-option-btn" data-value="false">🚫 No scale at home</button>
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:6px;">4. Do you have a measuring tape (waist/hip)?</label>
+              <div class="progress-option-group" data-name="hasTape">
+                <button type="button" class="progress-option-btn selected" data-value="true">📏 Yes</button>
+                <button type="button" class="progress-option-btn" data-value="false">No</button>
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:6px;">5. Can you take private check-in photos?</label>
+              <div class="progress-option-group" data-name="canTakePhotos">
+                <button type="button" class="progress-option-btn selected" data-value="true">📸 Yes, weekly</button>
+                <button type="button" class="progress-option-btn" data-value="false">No photos</button>
+              </div>
+            </div>
+
+            <button type="submit" class="primary-btn" style="margin-top:6px; padding:12px; font-weight:700; width:100%;">
+              Save Setup & Build My Progress Plan 🚀
+            </button>
+          </form>
+        </div>
+
+        <!-- 2. Active Progress Dashboard (shown when configured) -->
+        <div id="progress-dashboard-view" style="display:none; flex-direction:column; gap:16px;">
+          <!-- Plan Banner -->
+          <div class="card" id="progress-plan-banner" style="padding:16px; border-left:4px solid var(--primary); background:rgba(255,106,0,0.06);">
+            <strong id="progress-plan-title" style="font-size:0.95rem; color:var(--text); display:block;">Plan Active</strong>
+            <p id="progress-plan-desc" style="margin:4px 0 0 0; font-size:0.82rem; color:var(--muted); line-height:1.4;"></p>
+          </div>
+
+          <!-- Quick Log Card -->
+          <div class="card" style="padding:18px;">
+            <strong style="font-size:0.92rem; display:block; margin-bottom:10px;">📝 Today's Measurement Log</strong>
+            <form id="progress-log-form" style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div>
+                  <label style="font-size:0.78rem; color:var(--muted); display:block; margin-bottom:4px;">Weight (kg)</label>
+                  <input type="number" step="0.1" id="progress-input-weight" placeholder="e.g. 68.4" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+                </div>
+                <div id="progress-input-waist-col">
+                  <label style="font-size:0.78rem; color:var(--muted); display:block; margin-bottom:4px;">Waist (cm, opt)</label>
+                  <input type="number" step="0.5" id="progress-input-waist" placeholder="e.g. 78" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+                </div>
+              </div>
+              <button type="submit" class="primary-btn" style="padding:10px; font-size:0.85rem; font-weight:700;">
+                Log Today's Entry & Recalculate 📈
+              </button>
+            </form>
+          </div>
+
+          <!-- AI Trend Prediction Cards -->
+          <div class="progress-stat-row">
+            <div class="progress-stat-card">
+              <div class="progress-stat-value" id="progress-rate-val">--</div>
+              <div class="progress-stat-label">Rate of Change / Wk</div>
+            </div>
+            <div class="progress-stat-card">
+              <div class="progress-stat-value" id="progress-adherence-val">--</div>
+              <div class="progress-stat-label">Log Adherence</div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:16px;">
+            <strong style="font-size:0.88rem; color:var(--text); display:block; margin-bottom:8px;">🤖 AI Target Forecast</strong>
+            <div style="display:flex; flex-direction:column; gap:6px; font-size:0.82rem; color:var(--muted);">
+              <div>• Current Pace ETA: <strong id="progress-eta-current" style="color:var(--text);">Calculating…</strong></div>
+              <div>• Fastest Safe ETA: <strong id="progress-eta-fastest" style="color:var(--primary);">Calculating…</strong></div>
+              <p id="progress-eta-note" style="margin:4px 0 0 0; font-size:0.78rem; color:var(--muted); line-height:1.4;"></p>
+            </div>
+          </div>
+
+          <!-- Interactive Weight Chart -->
+          <div class="progress-chart-container">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <strong style="font-size:0.9rem;">Weight Trend vs Target</strong>
+              <span id="progress-chart-summary" style="font-size:0.78rem; color:var(--muted);"></span>
+            </div>
+            <canvas id="progress-weight-canvas" class="progress-chart-canvas" width="360" height="180"></canvas>
+          </div>
+
+          <!-- Commitment Deposit Ledger & Refund Card -->
+          <div class="card" style="padding:16px; border:1px solid rgba(255,106,0,0.25); background:linear-gradient(135deg, rgba(255,106,0,0.05), transparent);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <strong style="font-size:0.9rem; color:var(--text);">💰 Commitment Deposit Status</strong>
+                <p style="margin:2px 0 0 0; font-size:0.78rem; color:var(--muted);">Held in trust — 100% refunded when you hit your target.</p>
+              </div>
+              <span class="pill" id="progress-deposit-pill">₹0 Held</span>
+            </div>
+            <div id="progress-refund-area" style="margin-top:10px; display:none;">
+              <button id="progress-claim-refund-btn" class="primary-btn" type="button" style="width:100%; padding:10px; font-size:0.82rem; background:#22c55e;">
+                Claim Target Completion Refund 🎉
+              </button>
+            </div>
+          </div>
+
+          <!-- Retake Button -->
+          <div style="text-align:center; margin-top:8px; margin-bottom:80px;">
+            <button id="progress-retake-btn" class="ghost-btn" type="button" style="font-size:0.78rem; padding:6px 12px;">
+              ⚙️ Retake Environment Setup
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <nav class="bottom-nav" aria-label="Bottom navigation">
       <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Dashboard</span></button>
+      <button class="nav-pill" data-tab="progress" type="button">📈<span>Progress</span></button>
       <button class="nav-pill" data-tab="routine" type="button">🧘<span>Routine</span></button>
       <button class="nav-pill" data-tab="natural" type="button">🍃<span>Natural</span></button>
       <button class="nav-pill" data-tab="coach" type="button">🤖<span>Coach</span></button>

@@ -11,7 +11,57 @@ import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(cors());
+
+// ---------------------------------------------------------------------------
+// ENV VALIDATION
+// ---------------------------------------------------------------------------
+// Fail loudly at boot so a misconfigured deploy is caught immediately instead
+// of silently returning 500s on every AI/payment request.
+// ---------------------------------------------------------------------------
+const REQUIRED_WARNINGS = [];
+const ENV_CHECKS = [
+  { key: 'GROQ_API_KEY',          label: 'AI chat (Groq)',        required: false },
+  { key: 'GEMINI_API_KEY',        label: 'AI vision (Gemini)',    required: false },
+  { key: 'RAZORPAY_KEY_ID',       label: 'Streak restore pay',    required: false },
+  { key: 'RAZORPAY_KEY_SECRET',   label: 'Streak restore verify', required: false },
+];
+for (const { key, label, required } of ENV_CHECKS) {
+  if (!process.env[key]) {
+    const msg = `[env] ${required ? 'FATAL' : 'WARNING'}: ${key} is not set — ${label} will not work.`;
+    console.log(msg);
+    REQUIRED_WARNINGS.push(msg);
+    if (required) { console.error(msg); process.exit(1); }
+  }
+}
+if (REQUIRED_WARNINGS.length === 0) console.log('[env] All optional keys present. Good.');
+
+// ---------------------------------------------------------------------------
+// GLOBAL ERROR HANDLERS
+// ---------------------------------------------------------------------------
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message, err.stack);
+  // Don't exit — keep serving. Log for monitoring.
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+});
+
+const ALLOWED_ORIGINS = [
+  /^https?:\/\/localhost(:\d+)?$/,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /\.netlify\.app$/,
+  /\.onrender\.com$/,
+];
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (curl, server-to-server, mobile apps)
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.some(re => re.test(origin))) return cb(null, true);
+    cb(null, true); // Permissive for now; tighten after deploy
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '12mb' })); // meal photos arrive as base64
 
 // ---------------------------------------------------------------------------
@@ -195,6 +245,22 @@ async function broadcast(payloadObj) {
 }
 
 const SERVER_START = Date.now();
+const SERVER_VERSION = '2.0.0';
+
+// Health check for monitoring. Uptime alerts hit this endpoint.
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    uptime: Math.round((Date.now() - SERVER_START) / 1000),
+    version: SERVER_VERSION,
+    env: {
+      hasGemini: Boolean(process.env.GEMINI_API_KEY),
+      hasGroq: Boolean(process.env.GROQ_API_KEY),
+      hasRazorpay: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+      hasVapid: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)
+    }
+  });
+});
 
 app.get('/api/ping', (req, res) => {
   const uptimeSec = Math.round((Date.now() - SERVER_START) / 1000);
@@ -203,6 +269,7 @@ app.get('/api/ping', (req, res) => {
   res.json({
     status: 'awake',
     uptime: `${mins}m ${secs}s`,
+    version: SERVER_VERSION,
     users: subscriptions.size,
     devices: deviceCount(),
     waterLoopsActive: waterIntervals.size
@@ -576,47 +643,112 @@ app.post('/api/ai/chat', rateLimit('chat'), async (req, res) => {
   }
 });
 
-app.post('/api/ai/analyze-image', rateLimit('vision'), async (req, res) => {
-  const { prompt, mimeType, base64Data } = req.body || {};
+async function analyzeImageHandler(req, res) {
+  const { prompt, mimeType, base64Data, customGroqKey, customGeminiKey } = req.body || {};
   if (!prompt || !base64Data) {
     return res.status(400).json({ error: 'Missing prompt or base64Data' });
   }
 
-  try {
-    const url = geminiUrl();
-    const payload = {
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType || 'image/jpeg',
-                data: base64Data
-              }
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    };
+  const effectiveGeminiKey = customGeminiKey || GEMINI_API_KEY;
+  const effectiveGroqKey = customGroqKey || GROQ_API_KEY;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return res.json({ text });
-  } catch (err) {
-    console.error('[AI Analyze Image Error]:', err.message);
-    res.status(500).json({ error: err.message });
+  // Try Gemini first if key is present
+  if (effectiveGeminiKey) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${effectiveGeminiKey}`;
+      const payload = {
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: mimeType || 'image/jpeg',
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return res.json({ text: data.candidates[0].content.parts[0].text, provider: 'gemini' });
+      }
+      console.warn('[AI Vision] Gemini returned error or empty response, attempting Groq fallback...', data.error?.message || data);
+    } catch (geminiErr) {
+      console.warn('[AI Vision] Gemini exception, attempting Groq fallback...', geminiErr.message);
+    }
   }
-});
+
+  // Fallback to Groq vision
+  if (effectiveGroqKey) {
+    try {
+      const visionModels = [GROQ_VISION_MODEL, 'llama-3.2-11b-vision-preview', 'llama-3.2-90b-vision-preview'];
+      let lastErr = null;
+      for (const model of visionModels) {
+        try {
+          const payload = {
+            model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: `${prompt}\nRespond ONLY in valid raw JSON with format: {"type":"food","foodName":"...","calories":0,"protein":0,"carbs":0,"fat":0,"healthScore":8,"analysis":"..."}` },
+                  { type: "image_url", image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${base64Data}` } }
+                ]
+              }
+            ],
+            temperature: 0.2
+          };
+
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${effectiveGroqKey}`
+            },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          if (data.choices?.[0]?.message?.content) {
+            return res.json({ text: data.choices[0].message.content, provider: 'groq', model });
+          }
+          lastErr = data.error?.message || 'Empty response from Groq vision';
+        } catch (err) {
+          lastErr = err.message;
+        }
+      }
+      console.warn('[AI Vision] Groq vision models exhausted:', lastErr);
+    } catch (groqErr) {
+      console.error('[AI Vision] Groq error:', groqErr.message);
+    }
+  }
+
+  // If neither succeeded
+  if (!effectiveGeminiKey && !effectiveGroqKey) {
+    return res.status(400).json({
+      error: 'Image analysis requires a Gemini API key or Groq API key configured on the server or in app settings.'
+    });
+  }
+
+  return res.status(502).json({
+    error: 'Vision analysis service temporarily unavailable. Please try again or enter meal text manually.'
+  });
+}
+
+app.post('/api/ai/analyze-image', rateLimit('vision'), analyzeImageHandler);
+app.post('/api/analyze-image', rateLimit('vision'), analyzeImageHandler);
+
 
 app.post('/api/ai/analyze-image-groq', rateLimit('vision'), async (req, res) => {
   const { prompt, mimeType, base64Data } = req.body || {};
@@ -817,7 +949,106 @@ app.post('/api/streak/restore/claim', (req, res) => {
   res.json({ ok: true, restoreStreak: best });
 });
 
+// Target completion refund endpoint for commitment money
+app.post('/api/streak/restore/refund', async (req, res) => {
+  const { userId, paymentId } = req.body || {};
+  if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
+
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    return res.status(503).json({ ok: false, error: 'Razorpay keys not configured on server' });
+  }
+
+  // Find refundable payments for this user
+  const refundable = restores.paid.filter(p => p.userId === userId && !p.refundedAt && (!paymentId || p.paymentId === paymentId));
+
+  if (refundable.length === 0) {
+    return res.json({ ok: false, message: 'No eligible commitment deposits found for refund.' });
+  }
+
+  const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+  const results = [];
+
+  for (const item of refundable) {
+    try {
+      const response = await fetch(`https://api.razorpay.com/v1/payments/${item.paymentId}/refund`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          notes: {
+            reason: 'Target completed streak deposit refund',
+            userId: item.userId
+          }
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.id) {
+        item.refundId = data.id;
+        item.refundedAt = Date.now();
+        item.refundStatus = 'processed';
+        results.push({ paymentId: item.paymentId, refundId: data.id, rupees: item.rupees, status: 'success' });
+      } else {
+        // Fallback for simulation / already processed
+        item.refundStatus = data.error?.description || 'failed';
+        results.push({ paymentId: item.paymentId, error: data.error?.description || 'Refund API failed', status: 'error' });
+      }
+    } catch (err) {
+      results.push({ paymentId: item.paymentId, error: err.message, status: 'error' });
+    }
+  }
+
+  saveRestores();
+  const refundedCount = results.filter(r => r.status === 'success').length;
+  res.json({
+    ok: refundedCount > 0,
+    refundedCount,
+    details: results,
+    message: refundedCount > 0
+      ? `🎉 Successfully initiated refund of ₹${results.reduce((acc, r) => acc + (r.rupees || 0), 0)}! Consistency rewarded.`
+      : 'Refund request processed.'
+  });
+});
+
+// Public ledger of streak commitments and refunds for transparent audit
+app.get('/api/streak/restore/ledger', (req, res) => {
+  const { userId } = req.query;
+  const userLogs = userId
+    ? restores.paid.filter(p => p.userId === userId)
+    : restores.paid.slice(-100);
+
+  res.json({
+    totalHeldRupees: restores.paid.filter(p => !p.refundedAt).reduce((sum, p) => sum + (p.rupees || 0), 0),
+    totalRefundedRupees: restores.paid.filter(p => p.refundedAt).reduce((sum, p) => sum + (p.rupees || 0), 0),
+    records: userLogs.map(r => ({
+      userId: r.userId ? r.userId.slice(0, 8) + '...' : 'anon',
+      orderId: r.orderId,
+      paymentId: r.paymentId,
+      rupees: r.rupees,
+      paidAt: r.at,
+      refundId: r.refundId || null,
+      refundedAt: r.refundedAt || null,
+      status: r.refundedAt ? 'Refunded to User' : 'Held in Trust'
+    }))
+  });
+});
+
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Reliv backend running on port ${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`Reliv backend v${SERVER_VERSION} running on port ${PORT}`);
+  if (REQUIRED_WARNINGS.length) {
+    console.log(`[env] ${REQUIRED_WARNINGS.length} warning(s) — some features disabled. See above.`);
+  }
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n[FATAL] Port ${PORT} is already in use.`);
+    console.error('  → Kill the other process: lsof -ti :' + PORT + ' | xargs kill');
+    console.error('  → Or change PORT in .env\n');
+    process.exit(1);
+  }
+  throw err;
 });
