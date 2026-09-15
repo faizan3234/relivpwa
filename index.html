@@ -88,6 +88,7 @@
           <span id="connection-status" class="status-badge online" style="display:none;"><span class="dot"></span>Online</span>
           <div class="top-bar-badge" id="unread-badge" style="display:none;">0</div>
           <button id="install-button" class="install-button" type="button" aria-label="Install app" style="display:none;">📥 Download App</button>
+          <button class="icon-btn" id="header-share-btn" type="button" aria-label="Share Reliv" title="Challenge a friend" style="font-size: 1.05rem;">🔗</button>
           <button class="icon-btn" id="theme-toggle-icon" type="button" aria-label="Toggle theme">🌙</button>
         </div>
       </header>
@@ -144,7 +145,7 @@
           </div>
 
           <div class="hero-stats" style="margin-top:12px;">
-            <div class="stat-chip"><strong id="streak-value">0</strong><span>Daily streak 🔥</span></div>
+            <div class="stat-chip" id="streak-chip-clickable" style="cursor:pointer;" title="Tap to share streak"><strong id="streak-value">0</strong><span>Daily streak 🔥</span></div>
             <div class="stat-chip"><strong id="score-value">0</strong><span>Today's score</span></div>
             <div class="stat-chip"><strong id="xp-value">0</strong><span>XP earned</span></div>
             <span id="level-value" style="display:none;">1</span>
@@ -236,6 +237,18 @@
               <div class="progress-track"><span id="hydration-bar" style="background:#2196F3; width:0%"></span></div>
             </div>
           </div>
+        </div>
+
+        <!-- Challenge a Friend / Share Streak -->
+        <div class="card" style="padding:14px 18px; margin-top:14px; display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg, rgba(37,211,102,0.08), rgba(18,140,126,0.08)); border:1px solid rgba(37,211,102,0.25); border-radius:18px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:1.6rem;">🔥</span>
+            <div>
+              <strong style="font-size:0.88rem; display:block; color:var(--text);">Challenge a Friend</strong>
+              <span style="font-size:0.75rem; color:var(--muted);">Friends who track together stay consistent 3x longer</span>
+            </div>
+          </div>
+          <button id="whatsapp-challenge-btn" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.8rem; background:#25D366; border:none; box-shadow:none; border-radius:12px; font-weight:600; white-space:nowrap; cursor:pointer;">Share 📲</button>
         </div>
 
         <!-- Progressive Disclosure: Detailed Food & Hydration Logging Details -->
@@ -800,7 +813,10 @@
                 <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.04em;">Live Target Tracking</span>
                 <h3 style="margin:2px 0 0 0; font-size:1.1rem;" id="progress-goal-headline">Tracking to Target</h3>
               </div>
-              <span class="pill" id="progress-pct-badge">0% Reached</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button id="progress-share-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem; border:1px solid rgba(37,211,102,0.4); color:#25D366; border-radius:8px; cursor:pointer;">Share 📲</button>
+                <span class="pill" id="progress-pct-badge">0% Reached</span>
+              </div>
             </div>
 
             <div style="margin-top:12px; background:rgba(0,0,0,0.06); border-radius:999px; height:8px; overflow:hidden;">
@@ -934,10 +950,21 @@
         <div style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
           <strong style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Instant 1-Tap Hydration:</strong>
           <div style="display:flex; gap:8px;">
-            <button class="ghost-btn ql-fast-water" data-ml="250" type="button" style="flex:1; padding:8px; font-size:0.82rem; border-radius:10px;">+250 ml 🥛</button>
-            <button class="ghost-btn ql-fast-water" data-ml="500" type="button" style="flex:1; padding:8px; font-size:0.82rem; border-radius:10px;">+500 ml 🥤</button>
-            <button class="ghost-btn ql-fast-water" data-ml="1000" type="button" style="flex:1; padding:8px; font-size:0.82rem; border-radius:10px;">+1000 ml 💧</button>
+            <button class="ghost-btn" id="ql-water-quick-250" type="button" style="flex:1; padding:8px 6px; font-size:0.8rem; border:1px solid var(--border); border-radius:10px;">+250ml 💧</button>
+            <button class="ghost-btn" id="ql-water-quick-500" type="button" style="flex:1; padding:8px 6px; font-size:0.8rem; border:1px solid var(--border); border-radius:10px;">+500ml 🥤</button>
           </div>
+        </div>
+
+        <!-- Challenge a Friend / Share from Quick Log -->
+        <div style="margin-top:12px; background:linear-gradient(135deg, rgba(37,211,102,0.08), rgba(18,140,126,0.06)); border:1px solid rgba(37,211,102,0.25); border-radius:14px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.2rem;">🔥</span>
+            <div>
+              <strong style="font-size:0.82rem; display:block;">Challenge a Friend</strong>
+              <span style="font-size:0.72rem; color:var(--muted);">Share your streak & companion link</span>
+            </div>
+          </div>
+          <button id="ql-share" class="primary-btn" type="button" style="padding:6px 12px; font-size:0.75rem; background:#25D366; border:none; box-shadow:none; border-radius:10px; font-weight:600; cursor:pointer;">Share 📲</button>
         </div>
       </div>
     </div>

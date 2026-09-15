@@ -2358,6 +2358,7 @@ function renderDashboard() {
   renderCustomHabits();
   renderReminders();
   if (typeof renderDailyMission === 'function') renderDailyMission();
+  if (typeof initWhatsAppChallenge === 'function') initWhatsAppChallenge();
 }
 
 function renderCustomHabits() {
@@ -7773,12 +7774,32 @@ function renderProgress() {
   if (refundArea) {
     refundArea.style.display = isTargetAchieved ? 'block' : 'none';
   }
+  if (typeof initWhatsAppChallenge === 'function') initWhatsAppChallenge();
 }
 
 function initWhatsAppChallenge() {
-  const btn = document.getElementById('whatsapp-challenge-btn');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    shareRelivCard();
+  const shareButtonIds = [
+    'whatsapp-challenge-btn',
+    'header-share-btn',
+    'ql-share',
+    'streak-chip-clickable',
+    'progress-share-btn'
+  ];
+
+  shareButtonIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.dataset.shareBound === 'true') return;
+    el.dataset.shareBound = 'true';
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const qlModal = document.getElementById('quick-log-modal');
+      if (qlModal && qlModal.style.display !== 'none') {
+        if (typeof closeQuickLogModal === 'function') closeQuickLogModal();
+        else qlModal.style.display = 'none';
+      }
+      shareRelivCard();
+    });
   });
 }
