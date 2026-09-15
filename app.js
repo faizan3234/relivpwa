@@ -818,6 +818,7 @@ function triggerUiHighlight(selectorOrEl) {
 function applyQuickCoachCommand(message) {
   const lower = String(message || '').toLowerCase();
   const updates = [];
+  let actionCard = null;
 
   // 1. Streak command
   const streakMatch = lower.match(/(?:set|change|update|make)\s+(?:my\s+)?streak\s*(?:to|=)?\s*(\d+)/i);
@@ -854,7 +855,7 @@ function applyQuickCoachCommand(message) {
   }
 
   // 5. Hydration / Water target command
-  const waterMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:water|hydration|water target|hydration target)\s*(?:to|=|as)?\s*(\d+)/i);
+  const waterMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:water target|hydration target)\s*(?:to|=|as)?\s*(\d+)/i);
   if (waterMatch) {
     state.targetHydration = Math.max(500, Number(waterMatch[1]));
     updates.push(`Hydration target set to ${state.targetHydration}ml`);
@@ -870,7 +871,61 @@ function applyQuickCoachCommand(message) {
     updates.push(`Current weight updated to ${state.weight}kg`);
   }
 
-  // 7. Student & Kiosk status command: "I'm a student with kiosk daily", "student with daily kiosk"
+  // 7. Target weight modification: "change target weight to 72", "target 72 kg", "target 72"
+  const targetWeightMatch = lower.match(/(?:target\s+weight|goal\s+weight|change\s+target\s+to|target\s+to|target)\s*(?:is|=|:)?\s*(\d+(?:\.\d+)?)/i);
+  if (targetWeightMatch && !lower.includes('calorie') && !lower.includes('protein') && !lower.includes('water')) {
+    const prevTarget = state.targetWeight || 70;
+    const newTarget = Number(targetWeightMatch[1]);
+    state.targetWeight = newTarget;
+    updates.push(`Target updated: ${prevTarget} kg → ${newTarget} kg\nYour nutrition plan and estimated date have been recalculated.`);
+    actionCard = {
+      icon: '⚖️',
+      title: `Target updated: ${prevTarget} kg → ${newTarget} kg`,
+      canUndo: true,
+      undoAction: { type: 'targetWeight', prevVal: prevTarget }
+    };
+  }
+
+  // 8. Workout adjustment / skip: "won't be able to workout", "can't workout", "skip workout"
+  if (lower.includes("won't be able to workout") || lower.includes("skip workout") || lower.includes("can't workout") || lower.includes("skip gym") || lower.includes("rest day today")) {
+    const prevCalories = state.targetCalories;
+    const adjustedCalories = Math.max(1500, state.targetCalories - 150);
+    state.targetCalories = adjustedCalories;
+    updates.push(`I'll adjust today's plan.\nWorkout moved → Tomorrow\nCalories adjusted → ${adjustedCalories} kcal\nProtein unchanged → ${state.targetProtein} g`);
+    actionCard = {
+      icon: '🏋️',
+      title: `Workout moved → Tomorrow · Calories adjusted to ${adjustedCalories} kcal`,
+      canUndo: true,
+      undoAction: { type: 'workout', prevCalories }
+    };
+  }
+
+  // 9. Drank water log: "drank half a litre", "drank 500ml", "drank 250ml", "drank 1 litre"
+  const drankWaterMatch = lower.match(/(?:drank|drink|had)\s+(?:a\s+)?(half\s+a\s+litre|500\s*ml|250\s*ml|1000\s*ml|1\s*litre|1\s*l|glass\s+of\s+water|\d+\s*ml)/i);
+  if (drankWaterMatch) {
+    let ml = 250;
+    const valStr = drankWaterMatch[1].toLowerCase();
+    if (valStr.includes('half')) ml = 500;
+    else if (valStr.includes('1000') || valStr.includes('1 litre') || valStr.includes('1 l')) ml = 1000;
+    else if (valStr.includes('500')) ml = 500;
+    else {
+      const numMatch = valStr.match(/\d+/);
+      if (numMatch) ml = Number(numMatch[0]);
+    }
+    state.consumedHydration += ml;
+    state.loggedHydrations.push({ ml, timestamp: Date.now() });
+    const currL = (state.consumedHydration / 1000).toFixed(1);
+    const targetL = (state.targetHydration / 1000).toFixed(1);
+    updates.push(`✓ ${ml} ml logged\n${currL} / ${targetL} L today`);
+    actionCard = {
+      icon: '💧',
+      title: `✓ ${ml} ml logged (${currL} / ${targetL} L today)`,
+      canUndo: true,
+      undoAction: { type: 'hydration', amount: ml }
+    };
+  }
+
+  // 10. Student & Kiosk status command: "I'm a student with kiosk daily", "student with daily kiosk"
   if (lower.includes('student') && lower.includes('kiosk')) {
     if (!state.progressProfile) state.progressProfile = { weightLogs: [] };
     state.progressProfile.isStudent = true;
@@ -879,7 +934,7 @@ function applyQuickCoachCommand(message) {
     updates.push(`Adaptive plan switched: Student with ${state.progressProfile.kioskAccess} Reliv Kiosk weigh-ins`);
   }
 
-  // 8. Reminder command: "remind me at 9pm", "set reminder at 21:00"
+  // 11. Reminder command: "remind me at 9pm", "set reminder at 21:00"
   const remindMatch = lower.match(/(?:remind\s+me|set\s+reminder)\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
   if (remindMatch) {
     const timeStr = remindMatch[1].trim();
@@ -897,11 +952,18 @@ function applyQuickCoachCommand(message) {
   // Trigger Live UI Highlights
   if (streakMatch || xpMatch) triggerUiHighlight('.hero-card');
   if (calorieMatch || proteinMatch) triggerUiHighlight('#nutrition-overview-card');
-  if (waterMatch) triggerUiHighlight('#skincare-overview-card');
-  if (weightMatch) triggerUiHighlight('#progress-milestone-card');
+  if (waterMatch || drankWaterMatch) triggerUiHighlight('#skincare-overview-card');
+  if (weightMatch || targetWeightMatch) triggerUiHighlight('#progress-milestone-card');
   if (lower.includes('student') || lower.includes('kiosk')) triggerUiHighlight('#progress-plan-banner');
 
-  return updates.join(' · ');
+  return {
+    text: updates.join('\n\n'),
+    actionCard: actionCard || {
+      icon: '✦',
+      title: (updates[0] || 'Setting updated').split('\n')[0],
+      canUndo: false
+    }
+  };
 }
 
 function hasExplicitFoodLogIntent(text) {
@@ -1265,11 +1327,14 @@ async function processMissedActions() {
 function applyTheme() {
   els.app.classList.toggle('dark', state.darkMode);
   els.body.classList.toggle('dark', state.darkMode);
-  if (state.darkMode) {
-    document.getElementById('theme-toggle-icon').textContent = '☀️';
-  } else {
-    document.getElementById('theme-toggle-icon').textContent = '🌙';
+  const icon = document.getElementById('theme-toggle-icon');
+  if (icon) {
+    icon.textContent = state.darkMode ? '☀️' : '🌙';
   }
+  const themeSegmentLight = document.getElementById('theme-segment-light');
+  const themeSegmentDark = document.getElementById('theme-segment-dark');
+  if (themeSegmentLight) themeSegmentLight.classList.toggle('active', !state.darkMode);
+  if (themeSegmentDark) themeSegmentDark.classList.toggle('active', state.darkMode);
 }
 
 function syncProfileMeta() {
@@ -1354,29 +1419,24 @@ function bindEvents() {
   const qlMeal = document.getElementById('ql-meal');
   if (qlMeal) {
     qlMeal.addEventListener('click', () => {
-      closeQuickLogModal();
-      switchView('routine');
-      setTimeout(() => {
+      const foodPanel = document.getElementById('ql-panel-food');
+      if (foodPanel) {
+        foodPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         const input = document.getElementById('custom-food-input');
-        if (input) {
-          input.focus();
-          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 200);
-      showToast('🍽️ Enter what you ate or tap a quick-pick!');
+        if (input) input.focus();
+      }
     });
   }
 
   const qlWater = document.getElementById('ql-water');
   if (qlWater) {
     qlWater.addEventListener('click', () => {
-      state.consumedHydration += 250;
-      state.loggedHydrations.push({ ml: 250, timestamp: Date.now() });
-      saveState();
-      recordActivity('Quick: Water 250ml 💧', 10);
-      renderApp();
-      closeQuickLogModal();
-      showToast('💧 250ml water logged!');
+      const waterPanel = document.getElementById('ql-panel-water');
+      if (waterPanel) {
+        waterPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const input = document.getElementById('custom-hydration-input');
+        if (input) input.focus();
+      }
     });
   }
 
@@ -1424,7 +1484,18 @@ function bindEvents() {
     });
   }
 
-  const qlTell = document.getElementById('ql-tell');
+  const qlSleep = document.getElementById('ql-sleep');
+  if (qlSleep) {
+    qlSleep.addEventListener('click', () => {
+      recordActivity('Sleep & Rest Logged 😴', 20);
+      saveState();
+      renderApp();
+      closeQuickLogModal();
+      showToast('😴 Restful sleep logged! +20 XP');
+    });
+  }
+
+  const qlTell = document.getElementById('ql-tell-btn') || document.getElementById('ql-tell');
   if (qlTell) {
     qlTell.addEventListener('click', () => {
       closeQuickLogModal();
@@ -1439,13 +1510,51 @@ function bindEvents() {
   const openLabsBtn = document.getElementById('open-labs-btn');
   if (openLabsBtn) {
     openLabsBtn.addEventListener('click', () => {
-      switchView('coach');
-      const pdfZone = document.getElementById('pdf-academy-interface');
-      if (pdfZone) {
-        pdfZone.style.display = 'flex';
-        pdfZone.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const labsDrawer = document.getElementById('labs-drawer');
+      if (labsDrawer) {
+        const isClosed = labsDrawer.style.display === 'none' || !labsDrawer.style.display;
+        labsDrawer.style.display = isClosed ? 'flex' : 'none';
+        if (isClosed) {
+          labsDrawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          showToast('📚 Reliv Labs PDF Academy opened');
+        }
       }
-      showToast('📚 Opened Reliv Labs PDF Academy');
+    });
+  }
+
+  const headerAvatarBtn = document.getElementById('header-avatar-btn');
+  if (headerAvatarBtn) {
+    headerAvatarBtn.addEventListener('click', () => {
+      switchView('profile');
+    });
+  }
+
+  const themeSegmentLight = document.getElementById('theme-segment-light');
+  const themeSegmentDark = document.getElementById('theme-segment-dark');
+  const setThemeMode = (isDark) => {
+    document.documentElement.classList.toggle('dark', isDark);
+    document.body.classList.toggle('dark', isDark);
+    if (themeSegmentLight) themeSegmentLight.classList.toggle('active', !isDark);
+    if (themeSegmentDark) themeSegmentDark.classList.toggle('active', isDark);
+    const darkToggle = document.getElementById('dark-toggle');
+    if (darkToggle) darkToggle.checked = isDark;
+    localStorage.setItem('reliv-theme', isDark ? 'dark' : 'light');
+  };
+
+  if (themeSegmentLight) {
+    themeSegmentLight.addEventListener('click', () => setThemeMode(false));
+  }
+  if (themeSegmentDark) {
+    themeSegmentDark.addEventListener('click', () => setThemeMode(true));
+  }
+  const savedTheme = localStorage.getItem('reliv-theme');
+  const initialDark = savedTheme ? savedTheme === 'dark' : document.documentElement.classList.contains('dark');
+  setThemeMode(initialDark);
+
+  const shareAchieveBtn = document.getElementById('progress-share-achieve-btn');
+  if (shareAchieveBtn) {
+    shareAchieveBtn.addEventListener('click', () => {
+      shareRelivCard();
     });
   }
 
@@ -1487,18 +1596,20 @@ function bindEvents() {
   if (els.mealInput) els.mealInput.addEventListener('change', previewMeal);
   if (els.mealButton) els.mealButton.addEventListener('click', analyzeMeal);
 
-  // Route through showInstallPrompt so the button always does SOMETHING. It
-  // used to bail silently when `installPrompt` was null, which is exactly the
-  // state iOS is permanently in - so on iPhone the button looked broken.
-  els.installButton.addEventListener('click', () => showInstallPrompt());
+  if (els.installButton) {
+    els.installButton.addEventListener('click', () => showInstallPrompt());
+  }
 
-  document.getElementById('theme-toggle-icon').addEventListener('click', () => {
-    els.darkToggle.checked = !els.darkToggle.checked;
-    toggleDarkMode();
-  });
+  const themeToggleIcon = document.getElementById('theme-toggle-icon');
+  if (themeToggleIcon) {
+    themeToggleIcon.addEventListener('click', () => {
+      if (els.darkToggle) els.darkToggle.checked = !els.darkToggle.checked;
+      toggleDarkMode();
+    });
+  }
 
-  els.darkToggle.addEventListener('change', toggleDarkMode);
-  els.notifyToggle.addEventListener('change', toggleNotifications);
+  if (els.darkToggle) els.darkToggle.addEventListener('change', toggleDarkMode);
+  if (els.notifyToggle) els.notifyToggle.addEventListener('change', toggleNotifications);
 
   if (els.inviteTeam) {
     els.inviteTeam.addEventListener('click', () => {
@@ -2266,6 +2377,13 @@ function renderDashboard() {
 
     const completed = items.filter(i => i.done).length;
     if (essentialsProg) essentialsProg.textContent = `${completed} / ${items.length} done`;
+    const completionPctEl = document.getElementById('today-completion-pct');
+    if (completionPctEl) {
+      const pct = Math.round((completed / items.length) * 100);
+      completionPctEl.textContent = `${pct}% today`;
+    }
+    const streakDisplay = document.getElementById('streak-display-val');
+    if (streakDisplay) streakDisplay.textContent = state.streak || 0;
 
     essentialsList.innerHTML = items.map(item => `
       <div class="today-essential-item ${item.done ? 'done' : ''}" onclick="handleEssentialClick('${item.id}')">
@@ -4063,20 +4181,60 @@ async function copyMessageText(index, btn) {
 }
 
 function renderMessages() {
-  els.chatMessages.innerHTML = chatMessages.map((message, index) => `
-    <div class="message ${escapeHtml(message.role)}">
-      <div class="message-text">${escapeHtml(message.text)}</div>
-      <button class="msg-copy-btn" type="button" data-copy-index="${index}" aria-label="Copy this message" title="Copy">⧉</button>
-    </div>
-  `).join('');
+  els.chatMessages.innerHTML = chatMessages.map((message, index) => {
+    const actionHtml = message.actionCard ? `
+      <div class="ai-action-card">
+        <div class="ai-action-info">${message.actionCard.icon || '✦'} <span>${escapeHtml(message.actionCard.title)}</span></div>
+        ${message.actionCard.canUndo ? `<button class="ai-undo-btn" type="button" onclick="handleAiUndo(${index})">Undo</button>` : ''}
+      </div>
+    ` : '';
+    return `
+      <div class="message ${escapeHtml(message.role)}">
+        <div class="message-text">${escapeHtml(message.text).replace(/\n/g, '<br>')}${actionHtml}</div>
+        <button class="msg-copy-btn" type="button" data-copy-index="${index}" aria-label="Copy this message" title="Copy">⧉</button>
+      </div>
+    `;
+  }).join('');
   els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
   localStorage.setItem('relix-chat-messages', JSON.stringify(chatMessages));
 }
+
+window.handleAiUndo = function(index) {
+  const msg = chatMessages[index];
+  if (!msg || !msg.actionCard || !msg.actionCard.undoAction) return;
+  const undo = msg.actionCard.undoAction;
+  if (undo.type === 'targetWeight') {
+    state.targetWeight = undo.prevVal;
+  } else if (undo.type === 'hydration') {
+    state.consumedHydration = Math.max(0, state.consumedHydration - undo.amount);
+    state.loggedHydrations.pop();
+  } else if (undo.type === 'workout') {
+    state.targetCalories = undo.prevCalories;
+  }
+  msg.actionCard.canUndo = false;
+  saveState();
+  renderApp();
+  renderMessages();
+  showToast('↩ Undone AI adjustment');
+};
 
 function switchView(target) {
   if (state.activeTab === target) return;
   
   els.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === target));
+
+  const pageTitle = document.getElementById('page-title');
+  if (pageTitle) {
+    const titleMap = {
+      dashboard: 'Today',
+      routine: 'Plan',
+      coach: 'AI',
+      progress: 'Progress',
+      profile: 'Me',
+      natural: 'Plan'
+    };
+    pageTitle.textContent = titleMap[target] || 'Today';
+  }
   
   const currentSection = Array.from(els.sections).find(s => s.classList.contains('active'));
   if (currentSection) {
@@ -4087,11 +4245,13 @@ function switchView(target) {
       els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
       state.activeTab = target;
       if (target === 'progress' && typeof renderProgress === 'function') renderProgress();
+      if (target === 'profile' && typeof renderProfile === 'function') renderProfile();
     }, 140);
   } else {
     els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
     state.activeTab = target;
     if (target === 'progress' && typeof renderProgress === 'function') renderProgress();
+    if (target === 'profile' && typeof renderProfile === 'function') renderProfile();
   }
 }
 
@@ -4152,7 +4312,11 @@ function sendCoachMessage(message) {
 
   const quickCommandReply = applyQuickCoachCommand(message);
   if (quickCommandReply) {
-    chatMessages.push({ role: 'assistant', text: quickCommandReply });
+    if (typeof quickCommandReply === 'object' && quickCommandReply.text) {
+      chatMessages.push({ role: 'assistant', text: quickCommandReply.text, actionCard: quickCommandReply.actionCard });
+    } else {
+      chatMessages.push({ role: 'assistant', text: String(quickCommandReply) });
+    }
     renderMessages();
     return;
   }
@@ -7774,6 +7938,23 @@ function renderProgress() {
   if (refundArea) {
     refundArea.style.display = isTargetAchieved ? 'block' : 'none';
   }
+
+  // Update Achievements & Mastery card
+  const progressLevelTitle = document.getElementById('progress-level-title');
+  const progressLevelPill = document.getElementById('progress-level-pill');
+  const progressXpText = document.getElementById('progress-xp-text');
+  const progressXpBar = document.getElementById('progress-xp-bar');
+  const progressStreakDisplay = document.getElementById('progress-streak-display');
+  if (progressLevelPill) progressLevelPill.textContent = `Lvl ${state.level || 1}`;
+  if (progressLevelTitle) progressLevelTitle.textContent = `Level ${state.level || 1} Practitioner`;
+  const nextLevelXP = (state.level || 1) * 500;
+  if (progressXpText) progressXpText.textContent = `${state.xp || 0} / ${nextLevelXP} XP`;
+  if (progressXpBar) {
+    const xpInLevel = (state.xp || 0) % 500;
+    progressXpBar.style.width = `${Math.min(100, Math.round((xpInLevel / 500) * 100))}%`;
+  }
+  if (progressStreakDisplay) progressStreakDisplay.textContent = state.streak || 0;
+
   if (typeof initWhatsAppChallenge === 'function') initWhatsAppChallenge();
 }
 
@@ -7783,7 +7964,8 @@ function initWhatsAppChallenge() {
     'header-share-btn',
     'ql-share',
     'streak-chip-clickable',
-    'progress-share-btn'
+    'progress-share-btn',
+    'progress-share-achieve-btn'
   ];
 
   shareButtonIds.forEach((id) => {

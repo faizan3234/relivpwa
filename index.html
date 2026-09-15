@@ -80,16 +80,15 @@
         <div class="brand">
           <img src="icons/icon-192.svg" alt="Reliv brand mark" style="width:34px; height:34px; border-radius:10px;" />
           <div>
-            <strong>Reliv</strong>
-            <span style="font-size:0.7rem; color:var(--muted);">Wellness Companion</span>
+            <strong id="page-title">Today</strong>
+            <span style="font-size:0.7rem; color:var(--muted);" id="page-subtitle">Wellness Companion</span>
           </div>
         </div>
         <div class="top-bar-actions">
           <span id="connection-status" class="status-badge online" style="display:none;"><span class="dot"></span>Online</span>
           <div class="top-bar-badge" id="unread-badge" style="display:none;">0</div>
           <button id="install-button" class="install-button" type="button" aria-label="Install app" style="display:none;">📥 Download App</button>
-          <button class="icon-btn" id="header-share-btn" type="button" aria-label="Share Reliv" title="Challenge a friend" style="font-size: 1.05rem;">🔗</button>
-          <button class="icon-btn" id="theme-toggle-icon" type="button" aria-label="Toggle theme">🌙</button>
+          <button class="top-bar-avatar" id="header-avatar-btn" type="button" aria-label="My Profile">👤</button>
         </div>
       </header>
 
@@ -113,25 +112,25 @@
       </div>
 
       <section class="view-section active" data-view="dashboard">
-        <div class="hero-card">
-          <div class="hero-head">
+        <div class="hero-card" style="padding: 20px; border-radius: 22px;">
+          <div class="hero-head" style="margin-bottom: 12px;">
             <div class="hero-title">
-              <p style="margin:0; font-size:0.85rem; color:var(--muted);">Welcome back</p>
+              <p style="margin:0; font-size:0.85rem; color:var(--muted);" id="today-greeting-sub">Good morning</p>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <h1 id="hero-name" style="margin: 0; font-size:1.45rem;">Your Name 👋</h1>
-                <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="font-size: 1.1rem; opacity:0.6;">↻</button>
+                <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="font-size: 1.05rem; width:32px; height:32px; opacity:0.6;">↻</button>
               </div>
             </div>
             <div class="hero-meta">
-              <span class="pill" id="level-pill" style="font-size:0.75rem;">Level 1</span>
+              <span class="pill" id="today-streak-pill" style="font-size:0.8rem; font-weight:700;">🔥 <strong id="streak-value">0</strong> day streak</span>
             </div>
           </div>
 
           <!-- Goal Progress Tracker Strip -->
-          <div class="today-goal-box" id="today-goal-box">
+          <div class="today-goal-box" id="today-goal-box" style="margin-top: 4px;">
             <div class="today-goal-labels">
               <strong id="today-goal-title">TARGET GOAL</strong>
-              <span id="today-goal-eta">Estimated: ~6 weeks</span>
+              <span id="today-goal-eta">Target · ~6–8 weeks</span>
             </div>
             <div class="today-goal-track-wrap">
               <div class="today-goal-track-bar">
@@ -144,12 +143,16 @@
             </div>
           </div>
 
-          <div class="hero-stats" style="margin-top:12px;">
-            <div class="stat-chip" id="streak-chip-clickable" style="cursor:pointer;" title="Tap to share streak"><strong id="streak-value">0</strong><span>Daily streak 🔥</span></div>
-            <div class="stat-chip"><strong id="score-value">0</strong><span>Today's score</span></div>
-            <div class="stat-chip"><strong id="xp-value">0</strong><span>XP earned</span></div>
-            <span id="level-value" style="display:none;">1</span>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+            <span style="font-size:0.8rem; color:var(--muted);">Daily progress</span>
+            <span class="pill" id="today-completion-pill" style="font-size:0.75rem; font-weight:700; background:rgba(255,122,0,0.1); color:var(--primary);"><span id="today-completion-pct">0</span>% today</span>
           </div>
+
+          <!-- Compatibility nodes to preserve JS data bindings -->
+          <span id="level-pill" style="display:none;">Level 1</span>
+          <span id="score-value" style="display:none;">0</span>
+          <span id="xp-value" style="display:none;">0</span>
+          <span id="level-value" style="display:none;">1</span>
 
           <div id="streak-restore-banner" style="display:none; align-items:center; justify-content:space-between; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); padding:12px 16px; border-radius:18px; margin-top:14px;">
             <span style="font-size:0.85rem; color:#ef4444; font-weight:600;">⚠️ Streak lost! benchmark not met.</span>
@@ -239,133 +242,64 @@
           </div>
         </div>
 
-        <!-- Challenge a Friend / Share Streak -->
-        <div class="card" style="padding:14px 18px; margin-top:14px; display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg, rgba(37,211,102,0.08), rgba(18,140,126,0.08)); border:1px solid rgba(37,211,102,0.25); border-radius:18px;">
-          <div style="display:flex; align-items:center; gap:12px;">
-            <span style="font-size:1.6rem;">🔥</span>
-            <div>
-              <strong style="font-size:0.88rem; display:block; color:var(--text);">Challenge a Friend</strong>
-              <span style="font-size:0.75rem; color:var(--muted);">Friends who track together stay consistent 3x longer</span>
+        <!-- Today ends cleanly here -->
+      </section>
+
+      <section class="view-section" data-view="routine">
+        <div class="card" style="padding: 20px; border-radius:22px;">
+          <div class="hero-head">
+            <div class="hero-title">
+              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Your Ritual Engine</p>
+              <h2 style="margin:2px 0 0 0; font-size:1.35rem;">Daily Plan</h2>
             </div>
+            <span class="pill" id="routine-days-pill">30-day transformation</span>
           </div>
-          <button id="whatsapp-challenge-btn" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.8rem; background:#25D366; border:none; box-shadow:none; border-radius:12px; font-weight:600; white-space:nowrap; cursor:pointer;">Share 📲</button>
+          <div class="tracker-card" style="margin-top:10px;">
+            <strong>Progress tracker</strong>
+            <div class="progress-track"><span id="routine-progress"></span></div>
+            <p class="tracker-copy">0 of 3 complete · 0%</p>
+          </div>
+          <div id="routine-list" class="routine-list" style="margin-top:14px;"></div>
         </div>
 
-        <!-- Progressive Disclosure: Detailed Food & Hydration Logging Details -->
-        <details style="margin-top:14px; background:rgba(255,255,255,0.01); border:1px dashed var(--border); border-radius:14px; padding:12px;">
-          <summary style="font-size:0.8rem; font-weight:600; color:var(--muted); cursor:pointer;">🔍 Detailed Food & Hydration Controls</summary>
-          <div style="margin-top:12px; display:flex; flex-direction:column; gap:14px;">
-            
-            <div id="nutrition-overview-card" style="display:flex; flex-direction:column; gap:8px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <strong>Quick-Pick Foods & Increments</strong>
-                <div style="display:flex; gap:6px;">
-                  <button id="undo-log-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
-                  <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset Daily</button>
-                </div>
-              </div>
-              <div style="display:flex; justify-content:space-between; gap:4px;">
-                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="100" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+100 kcal</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="500" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+500 kcal</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="10" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+10g Pro</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="25" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+25g Pro</button>
-              </div>
-              <div id="last-logged-food-status" style="font-size:0.82rem; color:var(--muted); font-style:italic; display:none;">Last Logged: None</div>
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍛</span>Dal Chawal</button>
-                <button class="ghost-btn quick-pick-btn" data-food="burger" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍔</span>Burger</button>
-                <button class="ghost-btn quick-pick-btn" data-food="coffee" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">☕</span>Coffee</button>
-                <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍪</span>Chai & Biscuit</button>
-              </div>
-              <form id="custom-food-form" style="display:flex; gap:8px; margin-top:4px;">
-                <input type="text" id="custom-food-input" placeholder="Or type e.g. 1 slice of pizza..." aria-label="Custom food" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" required />
-                <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
-              </form>
-            </div>
-
-            <!-- Hydration Manual Controls -->
-            <div id="skincare-overview-card" style="display:none; flex-direction:column; gap:8px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <strong>Hydration Controls</strong>
-                <button id="undo-hydration-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
-              </div>
-              <div id="last-logged-hydration-status" style="font-size:0.82rem; color:var(--muted); font-style:italic; display:none;">Last Logged: None</div>
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="ghost-btn log-hydration-btn" data-ml="250" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🥛</span>250 ml glass</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="500" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🥤</span>500 ml bottle</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">💧</span>1000 ml bottle</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="150" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍵</span>150 ml green tea</button>
-              </div>
-              <form id="custom-hydration-form" style="display:flex; gap:8px; margin-top:4px;">
-                <input type="number" id="custom-hydration-input" placeholder="Or enter specific ml..." aria-label="Custom hydration" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" min="1" max="5000" required />
-                <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
-              </form>
-            </div>
-
-          </div>
-        </details>
-
         <!-- Custom Habits (Dynamic AI Routines) -->
-        <div id="custom-habits-card" class="card" style="display:none; margin-top: 14px;">
+        <div id="custom-habits-card" class="card" style="display:none; margin-top: 14px; padding:18px; border-radius:20px;">
           <div class="hero-head" style="margin-bottom: 10px;">
             <div class="hero-title">
-              <p>AI Detected</p>
-              <h3>Custom Routine</h3>
+              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">AI Detected</p>
+              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Custom Routine</h3>
             </div>
           </div>
           <div id="custom-habits-list" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
 
         <!-- Hitting Your Targets (Close the Gap) -->
-        <div id="close-the-gap-card" class="card" style="margin-top: 14px;">
+        <div id="close-the-gap-card" class="card" style="margin-top: 14px; padding:18px; border-radius:20px;">
           <div class="hero-head" style="margin-bottom: 10px;">
             <div class="hero-title">
-              <p>Close the gap</p>
-              <h3>Target Suggestions</h3>
+              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Target Suggestions</p>
+              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Close the Gap</h3>
             </div>
           </div>
           <div id="gap-analytics" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
 
-        <div class="card reminder-panel" style="margin-top: 14px;">
+        <div class="card reminder-panel" style="margin-top: 14px; padding:18px; border-radius:20px;">
           <div class="hero-head">
             <div class="hero-title">
-              <p>Gentle nudges</p>
-              <h3>Daily check-ins</h3>
+              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Gentle Nudges</p>
+              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Daily Check-ins</h3>
             </div>
           </div>
           <div id="reminder-list" class="reminder-list"></div>
         </div>
 
-        <div class="activity-card" style="margin-top: 14px;">
-          <strong>Recent activity</strong>
-          <ul id="recent-list"></ul>
-        </div>
-      </section>
-
-      <section class="view-section" data-view="routine">
-        <div class="card" style="padding: 24px;">
-          <div class="hero-head">
-            <div class="hero-title">
-              <p>Your ritual engine</p>
-              <h1>Daily routine</h1>
-            </div>
-            <span class="pill">30-day transformation</span>
-          </div>
-          <div class="tracker-card">
-            <strong>Progress tracker</strong>
-            <div class="progress-track"><span id="routine-progress"></span></div>
-            <p class="tracker-copy">0 of 3 complete · 0%</p>
-            <p>Unlock your certificate at day 30 by staying consistent.</p>
-          </div>
-          <div id="routine-list" class="routine-list"></div>
-        </div>
-
-        <div class="card" style="padding: 24px; margin-top: 18px;">
+        <!-- Today's Intake History -->
+        <div class="card" style="padding: 20px; margin-top: 14px; border-radius:20px;">
           <div class="hero-head" style="margin-bottom: 12px; align-items: center;">
             <div class="hero-title">
-              <p>Daily logs feed</p>
-              <h3 style="margin: 0;">Today's Intake History</h3>
+              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Daily logs feed</p>
+              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Today's Intake History</h3>
             </div>
             <button id="routine-reset-logs-btn" class="ghost-btn" type="button" style="font-size:0.8rem; padding:4px 8px; border:1px solid var(--border);">Reset All</button>
           </div>
@@ -373,153 +307,36 @@
             <p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:12px 0;">No items logged today yet.</p>
           </div>
         </div>
+
+        <div class="activity-card" style="margin-top: 14px; border-radius:20px;">
+          <strong>Recent activity</strong>
+          <ul id="recent-list"></ul>
+        </div>
       </section>
 
       <section class="view-section" data-view="coach">
         <div class="coach-shell">
-          <!-- Toggle Segment Control -->
-          <div style="display:flex; background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:4px; border-radius:16px; margin-bottom:14px; gap:4px;">
-            <button id="toggle-coach-chat" class="ghost-btn" type="button" style="flex:1; padding:8px; font-size:0.85rem; border-radius:12px; font-weight:700; border:none; background:var(--primary); color:white;">💬 AI Coach</button>
-            <button id="toggle-pdf-academy" class="ghost-btn" type="button" style="flex:1; padding:8px; font-size:0.85rem; border-radius:12px; font-weight:700; border:none; color:var(--muted);">📚 PDF Academy</button>
-          </div>
-
-          <!-- Chat interface -->
-          <div id="coach-chat-interface" class="card" style="padding: 20px;">
+          <div class="card" style="padding: 20px; border-radius:22px;">
             <div class="hero-head">
               <div class="hero-title">
-                <p>Health coach</p>
-                <h1>Reliv AI</h1>
+                <p style="margin:0; font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">✦ Reliv AI</p>
+                <h2 style="margin:2px 0 0 0; font-size:1.3rem;">What can I help you adjust?</h2>
               </div>
-              <span class="pill">Offline ready</span>
+              <span class="pill">Active Controller</span>
             </div>
             <div id="chat-messages" class="message-list"></div>
-            <div class="suggestion-row" style="margin-top: 12px;">
-              <button class="suggestion-pill" data-prompt="How can I improve my sleep tonight?" type="button">How can I improve my sleep?</button>
-              <button class="suggestion-pill" data-prompt="What foods help with energy?" type="button">What helps with energy?</button>
-              <button class="suggestion-pill" data-prompt="How do I recover after a workout?" type="button">Recovery tips</button>
+            <div class="suggestion-row" style="margin-top: 12px; display:flex; flex-wrap:wrap; gap:6px;">
+              <button class="suggestion-pill" data-prompt="drank 500ml water" type="button">💧 Log 500ml water</button>
+              <button class="suggestion-pill" data-prompt="ate lunch: 2 roti and dal" type="button">🍳 Log lunch</button>
+              <button class="suggestion-pill" data-prompt="change target weight to 72" type="button">⚖️ Target 72 kg</button>
+              <button class="suggestion-pill" data-prompt="How is my progress looking this week?" type="button">📈 Progress check</button>
             </div>
             <form id="coach-form" class="coach-form" style="margin-top: 12px;">
-              <input id="coach-input" placeholder="Ask Reliv about nutrition, workouts, or goals" aria-label="Ask Reliv" />
-              <button id="coach-voice-btn" class="ghost-btn voice-btn" type="button" style="white-space:nowrap; min-width:92px;">🎙️ Voice</button>
+              <input id="coach-input" placeholder="Ask or tell Reliv e.g. drank 500ml..." aria-label="Ask Reliv" />
+              <button id="coach-voice-btn" class="ghost-btn voice-btn" type="button" style="white-space:nowrap; min-width:86px;">🎙️ Voice</button>
               <button class="primary-btn" type="submit">Send</button>
             </form>
             <div id="coach-voice-status" style="margin-top:8px; min-height:18px; font-size:0.78rem; color:var(--muted);"></div>
-          </div>
-
-          <!-- PDF Academy Interface -->
-          <div id="pdf-academy-interface" class="card" style="padding: 20px; display:none; flex-direction:column; gap:16px;">
-            <div class="hero-head">
-              <div class="hero-title">
-                <p>Interactive School</p>
-                <h1>PDF Academy</h1>
-              </div>
-              <span class="pill" style="background:#2196F3; color:white;">Knowledge Base</span>
-            </div>
-
-            <!-- Upload Zone -->
-            <div id="pdf-upload-zone" style="border: 2px dashed var(--border); padding: 24px; border-radius: 18px; text-align:center; cursor:pointer; background:rgba(255,255,255,0.01); transition: 0.2s;" onclick="document.getElementById('pdf-file-input').click()">
-              <span style="font-size:2.2rem; display:block; margin-bottom:8px;">📁</span>
-              <strong style="font-size:0.9rem; display:block; color:var(--text);">Upload Wellness Routine or PDF</strong>
-              <span style="font-size:0.75rem; color:var(--muted); display:block; margin-top:4px;">Drag & drop or tap (Accepts .pdf, .txt, .jpg, .png)</span>
-              <input type="file" id="pdf-file-input" accept=".pdf,.txt,image/*" style="display:none;" />
-            </div>
-
-            <!-- Loaded Document Info Banner -->
-            <div id="pdf-doc-info" style="display:none; align-items:center; justify-content:space-between; background:rgba(33, 150, 243, 0.08); border:1px solid rgba(33, 150, 243, 0.2); padding:10px 14px; border-radius:12px;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:1.2rem;">📄</span>
-                <div>
-                  <strong id="pdf-file-name" style="font-size:0.85rem; color:var(--text); display:block;">wellness_guide.pdf</strong>
-                  <span id="pdf-file-size" style="font-size:0.72rem; color:var(--muted);">42 KB · Text extracted successfully</span>
-                </div>
-              </div>
-              <button id="clear-pdf-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem; border:1px solid var(--border);">Remove</button>
-            </div>
-
-            <!-- Academy Subtabs -->
-            <div id="academy-subtabs" style="display:none; flex-direction:column; gap:14px; border-top:1px solid var(--border); padding-top:14px;">
-              
-              <!-- Tab Bar selector -->
-              <div class="academy-tab-bar">
-                <button class="academy-tab-btn" data-subtab="search" type="button" style="background:var(--primary); color:white;">🔍 Search</button>
-                <button class="academy-tab-btn" data-subtab="summary" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📝 Summary</button>
-                <button class="academy-tab-btn" data-subtab="flashcards" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📇 Cards</button>
-                <button class="academy-tab-btn" data-subtab="quiz" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">✏️ Quiz</button>
-                <button class="academy-tab-btn" data-subtab="lessons" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📖 Lessons</button>
-              </div>
-
-              <!-- Academy panels -->
-              <div id="academy-panel-search" class="academy-panel">
-                <div style="display:flex; gap:8px;">
-                  <input type="text" id="pdf-search-input" placeholder="Search extracted PDF content..." aria-label="PDF search" style="flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text);" />
-                  <button id="pdf-search-btn" class="primary-btn" type="button" style="padding:0 14px; border-radius:10px;">Find</button>
-                </div>
-                <div id="pdf-search-results" style="margin-top:12px; display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; font-size:0.82rem; color:var(--muted);">
-                  Type keywords to search inside the document context.
-                </div>
-              </div>
-
-              <div id="academy-panel-summary" class="academy-panel" style="display:none;">
-                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px;">
-                  <strong style="color:var(--primary); font-size:0.85rem; display:block; margin-bottom:6px;">⚡ PDF Document Summary</strong>
-                  <ul id="pdf-summary-list" style="margin:0; padding-left:18px; line-height:1.45; font-size:0.82rem; color:var(--muted);">
-                    <li>Uploading PDF...</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div id="academy-panel-flashcards" class="academy-panel" style="display:none;">
-                <div style="perspective: 1000px; width: 100%; height: 160px; margin-bottom: 12px; cursor: pointer;" id="flashcard-widget">
-                  <div id="flashcard-inner" style="position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; border-radius:18px; border:1px solid var(--border); background:linear-gradient(135deg, rgba(255,122,0,0.08), rgba(255,122,0,0.02)); display:flex; align-items:center; justify-content:center; padding:20px;">
-                    <div id="flashcard-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
-                      <strong style="color:var(--primary); font-size:0.8rem; text-transform:uppercase;">Flashcard Q</strong>
-                      <span id="flashcard-question-text" style="font-size:0.9rem; font-weight:600; color:var(--text);">What is a calorie deficit?</span>
-                      <small style="color:var(--muted); font-size:0.7rem;">(Tap to Reveal Answer)</small>
-                    </div>
-                    <div id="flashcard-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; transform: rotateY(180deg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02)); border:1px solid rgba(34,197,94,0.15); border-radius:18px; padding:20px;">
-                      <strong style="color:#22c55e; font-size:0.8rem; text-transform:uppercase;">Answer</strong>
-                      <span id="flashcard-answer-text" style="font-size:0.85rem; color:var(--text); line-height:1.4;">Consuming fewer calories than your body burns, forcing it to utilize stored fat for energy.</span>
-                      <small style="color:var(--muted); font-size:0.7rem;">(Tap to Flip Back)</small>
-                    </div>
-                  </div>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <button id="prev-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">← Previous</button>
-                  <span id="flashcard-index" style="font-size:0.8rem; color:var(--muted);">1 of 5</span>
-                  <button id="next-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">Next →</button>
-                </div>
-              </div>
-
-              <div id="academy-panel-quiz" class="academy-panel" style="display:none;">
-                <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:10px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:var(--muted);">
-                    <span id="quiz-question-number">Question 1 of 3</span>
-                    <span id="quiz-score-tracker">Score: 0/0</span>
-                  </div>
-                  <strong id="quiz-question-title" style="font-size:0.92rem; color:var(--text); line-height:1.35;">Which of the following macronutrients has the highest thermic effect (TEF)?</strong>
-                  <div id="quiz-options-container" style="display:flex; flex-direction:column; gap:8px;">
-                    <!-- Filled dynamically -->
-                  </div>
-                  <div id="quiz-feedback-box" style="display:none; font-size:0.82rem; font-weight:700; padding:8px 10px; border-radius:8px;"></div>
-                  <button id="next-quiz-btn" class="primary-btn" type="button" style="display:none; align-self:flex-end; padding:8px 16px; font-size:0.8rem; border-radius:10px;">Next Question</button>
-                </div>
-              </div>
-
-              <div id="academy-panel-lessons" class="academy-panel" style="display:none;">
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                  <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;">
-                    <button class="lesson-chap-btn active-chap" data-chap="0" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:var(--border); color:var(--text); white-space:nowrap;">Chapter 1</button>
-                    <button class="lesson-chap-btn" data-chap="1" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 2</button>
-                    <button class="lesson-chap-btn" data-chap="2" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 3</button>
-                  </div>
-                  <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px; font-size:0.82rem; line-height:1.45;">
-                    <strong id="lesson-chapter-title" style="display:block; margin-bottom:6px; color:var(--text);">Metabolic Mastery Intro</strong>
-                    <p id="lesson-chapter-body" style="margin:0; color:var(--muted);"></p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
           </div>
         </div>
       </section>
@@ -610,10 +427,135 @@
               </div>
             </div>
             <div class="setting-row"><span>Team</span><button id="invite-team" class="primary-btn" type="button" style="background: var(--text); color: var(--bg);">Invite your Team</button></div>
-            <div class="setting-row"><span>Dark mode</span><label class="switch"><input id="dark-toggle" type="checkbox" /><span></span></label></div>
+            <div class="setting-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Appearance</span>
+                <label class="switch" style="display:none;"><input id="dark-toggle" type="checkbox" /><span></span></label>
+              </div>
+              <div class="theme-segmented-control">
+                <button id="theme-segment-light" class="theme-segment-btn" type="button">☀️ Light</button>
+                <button id="theme-segment-dark" class="theme-segment-btn active" type="button">🌙 Dark</button>
+              </div>
+            </div>
             <div class="setting-row"><span>Notifications</span><div style="display:flex; gap:8px; align-items:center;"><label class="switch"><input id="notify-toggle" type="checkbox" checked /><span></span></label><button id="settings-enable-alerts" class="ghost-btn" type="button">Allow alerts</button></div></div>
             <div class="setting-row"><span>Install app</span><button id="settings-install-button" class="ghost-btn install-action-btn" type="button">Install</button></div>
             <div class="setting-row"><span>Reliv Labs</span><button id="open-labs-btn" class="ghost-btn" type="button" style="border:1px solid var(--border); color:var(--primary);">📚 PDF Academy</button></div>
+            
+            <div id="labs-drawer" style="display:none; margin-top:12px;">
+              <div id="pdf-academy-interface" class="card" style="padding: 20px; display:flex; flex-direction:column; gap:16px;">
+                <div class="hero-head">
+                  <div class="hero-title">
+                    <p style="color:var(--primary); font-size:0.75rem; font-weight:700; text-transform:uppercase; margin:0;">Reliv Labs</p>
+                    <h2 style="margin:2px 0 0 0; font-size:1.25rem;">PDF Academy & Study Tools</h2>
+                  </div>
+                  <span class="pill" style="background:var(--primary); color:white; font-size:0.75rem;">Labs v2</span>
+                </div>
+
+                <!-- Upload Zone -->
+                <div id="pdf-upload-zone" style="border: 2px dashed var(--border); padding: 20px; border-radius: 16px; text-align:center; cursor:pointer; background:rgba(255,255,255,0.01); transition: 0.2s;" onclick="document.getElementById('pdf-file-input').click()">
+                  <span style="font-size:2rem; display:block; margin-bottom:6px;">📁</span>
+                  <strong style="font-size:0.88rem; display:block; color:var(--text);">Upload Wellness Routine or PDF</strong>
+                  <span style="font-size:0.74rem; color:var(--muted); display:block; margin-top:2px;">Drag & drop or tap (Accepts .pdf, .txt, .jpg, .png)</span>
+                  <input type="file" id="pdf-file-input" accept=".pdf,.txt,image/*" style="display:none;" />
+                </div>
+
+                <!-- Loaded Document Info Banner -->
+                <div id="pdf-doc-info" style="display:none; align-items:center; justify-content:space-between; background:rgba(33, 150, 243, 0.08); border:1px solid rgba(33, 150, 243, 0.2); padding:10px 14px; border-radius:12px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:1.2rem;">📄</span>
+                    <div>
+                      <strong id="pdf-file-name" style="font-size:0.85rem; color:var(--text); display:block;">wellness_guide.pdf</strong>
+                      <span id="pdf-file-size" style="font-size:0.72rem; color:var(--muted);">42 KB · Text extracted successfully</span>
+                    </div>
+                  </div>
+                  <button id="clear-pdf-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem; border:1px solid var(--border);">Remove</button>
+                </div>
+
+                <!-- Academy Subtabs -->
+                <div id="academy-subtabs" style="display:none; flex-direction:column; gap:14px; border-top:1px solid var(--border); padding-top:14px;">
+                  <!-- Tab Bar selector -->
+                  <div class="academy-tab-bar">
+                    <button class="academy-tab-btn" data-subtab="search" type="button" style="background:var(--primary); color:white;">🔍 Search</button>
+                    <button class="academy-tab-btn" data-subtab="summary" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📝 Summary</button>
+                    <button class="academy-tab-btn" data-subtab="flashcards" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📇 Cards</button>
+                    <button class="academy-tab-btn" data-subtab="quiz" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">✏️ Quiz</button>
+                    <button class="academy-tab-btn" data-subtab="lessons" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📖 Lessons</button>
+                  </div>
+
+                  <!-- Academy panels -->
+                  <div id="academy-panel-search" class="academy-panel">
+                    <div style="display:flex; gap:8px;">
+                      <input type="text" id="pdf-search-input" placeholder="Search extracted PDF content..." aria-label="PDF search" style="flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text);" />
+                      <button id="pdf-search-btn" class="primary-btn" type="button" style="padding:0 14px; border-radius:10px;">Find</button>
+                    </div>
+                    <div id="pdf-search-results" style="margin-top:12px; display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; font-size:0.82rem; color:var(--muted);">
+                      Type keywords to search inside the document context.
+                    </div>
+                  </div>
+
+                  <div id="academy-panel-summary" class="academy-panel" style="display:none;">
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px;">
+                      <strong style="color:var(--primary); font-size:0.85rem; display:block; margin-bottom:6px;">⚡ PDF Document Summary</strong>
+                      <ul id="pdf-summary-list" style="margin:0; padding-left:18px; line-height:1.45; font-size:0.82rem; color:var(--muted);">
+                        <li>Uploading PDF...</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div id="academy-panel-flashcards" class="academy-panel" style="display:none;">
+                    <div style="perspective: 1000px; width: 100%; height: 160px; margin-bottom: 12px; cursor: pointer;" id="flashcard-widget">
+                      <div id="flashcard-inner" style="position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; border-radius:18px; border:1px solid var(--border); background:linear-gradient(135deg, rgba(255,122,0,0.08), rgba(255,122,0,0.02)); display:flex; align-items:center; justify-content:center; padding:20px;">
+                        <div id="flashcard-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+                          <strong style="color:var(--primary); font-size:0.8rem; text-transform:uppercase;">Flashcard Q</strong>
+                          <span id="flashcard-question-text" style="font-size:0.9rem; font-weight:600; color:var(--text);">What is a calorie deficit?</span>
+                          <small style="color:var(--muted); font-size:0.7rem;">(Tap to Reveal Answer)</small>
+                        </div>
+                        <div id="flashcard-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; transform: rotateY(180deg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02)); border:1px solid rgba(34,197,94,0.15); border-radius:18px; padding:20px;">
+                          <strong style="color:#22c55e; font-size:0.8rem; text-transform:uppercase;">Answer</strong>
+                          <span id="flashcard-answer-text" style="font-size:0.85rem; color:var(--text); line-height:1.4;">Consuming fewer calories than your body burns, forcing it to utilize stored fat for energy.</span>
+                          <small style="color:var(--muted); font-size:0.7rem;">(Tap to Flip Back)</small>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <button id="prev-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">← Previous</button>
+                      <span id="flashcard-index" style="font-size:0.8rem; color:var(--muted);">1 of 5</span>
+                      <button id="next-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">Next →</button>
+                    </div>
+                  </div>
+
+                  <div id="academy-panel-quiz" class="academy-panel" style="display:none;">
+                    <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:10px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:var(--muted);">
+                        <span id="quiz-question-number">Question 1 of 3</span>
+                        <span id="quiz-score-tracker">Score: 0/0</span>
+                      </div>
+                      <strong id="quiz-question-title" style="font-size:0.92rem; color:var(--text); line-height:1.35;">Which of the following macronutrients has the highest thermic effect (TEF)?</strong>
+                      <div id="quiz-options-container" style="display:flex; flex-direction:column; gap:8px;">
+                        <!-- Filled dynamically -->
+                      </div>
+                      <div id="quiz-feedback-box" style="display:none; font-size:0.82rem; font-weight:700; padding:8px 10px; border-radius:8px;"></div>
+                      <button id="next-quiz-btn" class="primary-btn" type="button" style="display:none; align-self:flex-end; padding:8px 16px; font-size:0.8rem; border-radius:10px;">Next Question</button>
+                    </div>
+                  </div>
+
+                  <div id="academy-panel-lessons" class="academy-panel" style="display:none;">
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                      <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;">
+                        <button class="lesson-chap-btn active-chap" data-chap="0" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:var(--border); color:var(--text); white-space:nowrap;">Chapter 1</button>
+                        <button class="lesson-chap-btn" data-chap="1" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 2</button>
+                        <button class="lesson-chap-btn" data-chap="2" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 3</button>
+                      </div>
+                      <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px; font-size:0.82rem; line-height:1.45;">
+                        <strong id="lesson-chapter-title" style="display:block; margin-bottom:6px; color:var(--text);">Metabolic Mastery Intro</strong>
+                        <p id="lesson-chapter-body" style="margin:0; color:var(--muted);"></p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
             <div class="setting-row"><span>Export data</span><button id="export-data" class="ghost-btn" type="button">Export</button></div>
             <div class="setting-row"><span>Delete data</span><button id="delete-data" class="ghost-btn" type="button">Forget me</button></div>
 
@@ -676,6 +618,28 @@
           <p style="margin:6px 0 0 0; font-size:0.84rem; color:var(--muted); line-height:1.45;">
             Dynamic calculations for fastest safe target achievement based on your daily environment.
           </p>
+        </div>
+
+        <!-- Achievements & Mastery Card -->
+        <div class="card" id="progress-achievements-card" style="padding:18px; margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <span style="font-size:0.72rem; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.04em;">Mastery & Progression</span>
+              <h3 style="margin:2px 0 0 0; font-size:1.15rem;" id="progress-level-title">Level 1 Practitioner</h3>
+            </div>
+            <span class="pill" id="progress-level-pill" style="background:rgba(255,122,0,0.12); color:var(--primary); font-weight:700;">Lvl 1</span>
+          </div>
+          <div style="margin-top:12px; display:flex; justify-content:space-between; font-size:0.8rem; color:var(--muted);">
+            <span>Next Level XP Progress</span>
+            <strong id="progress-xp-text" style="color:var(--text);">0 / 500 XP</strong>
+          </div>
+          <div style="margin-top:6px; background:rgba(0,0,0,0.06); border-radius:999px; height:8px; overflow:hidden;">
+            <div id="progress-xp-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #ff7a00, #ffae00); transition:width 400ms ease;"></div>
+          </div>
+          <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:0.75rem; color:var(--muted);">🔥 <strong id="progress-streak-display">0</strong> day consistency streak</span>
+            <button id="progress-share-achieve-btn" class="ghost-btn" type="button" style="padding:4px 10px; font-size:0.75rem; border:1px solid rgba(37,211,102,0.4); color:#25D366; border-radius:8px; cursor:pointer;">Share Milestone 📲</button>
+          </div>
         </div>
 
         <!-- 1. Questionnaire Container (shown when not configured) -->
@@ -894,21 +858,38 @@
     </div>
 
     <nav class="bottom-nav" aria-label="Bottom navigation">
-      <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Today</span></button>
-      <button class="nav-pill" data-tab="routine" type="button">✓<span>Plan</span></button>
-      <button class="nav-fab" id="fab-quick-log" type="button" aria-label="Quick Log"><span>+</span></button>
-      <button class="nav-pill" data-tab="coach" type="button">✦<span>AI</span></button>
-      <button class="nav-pill" data-tab="progress" type="button">📈<span>Progress</span></button>
-      <button class="nav-pill" data-tab="profile" type="button">👤<span>Me</span></button>
+      <button class="nav-pill active" data-tab="dashboard" type="button" aria-label="Today">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Today</span>
+      </button>
+      <button class="nav-pill" data-tab="routine" type="button" aria-label="Plan">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
+        <span>Plan</span>
+      </button>
+      <button class="nav-fab" id="fab-quick-log" type="button" aria-label="Quick Log">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <button class="nav-pill" data-tab="coach" type="button" aria-label="AI">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>
+        <span>AI</span>
+      </button>
+      <button class="nav-pill" data-tab="progress" type="button" aria-label="Progress">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Progress</span>
+      </button>
+      <button class="nav-pill" data-tab="profile" type="button" aria-label="Me">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span>Me</span>
+      </button>
     </nav>
 
     <!-- Floating Action Quick-Log Modal -->
     <div id="quick-log-modal" class="modal-overlay quick-log-overlay" aria-hidden="true" style="display:none; z-index:1000;">
-      <div class="quick-log-card">
+      <div class="quick-log-card" style="max-height:85vh; overflow-y:auto;">
         <div class="quick-log-header">
           <div>
-            <h3 style="margin:0; font-size:1.15rem; color:var(--text);">Quick Log</h3>
-            <span style="font-size:0.75rem; color:var(--muted);">What would you like to record?</span>
+            <h3 style="margin:0; font-size:1.15rem; color:var(--text);">Log</h3>
+            <span style="font-size:0.75rem; color:var(--muted);">Select an activity or tell Reliv</span>
           </div>
           <button id="close-quick-log" class="icon-btn" type="button" aria-label="Close">✕</button>
         </div>
@@ -916,13 +897,13 @@
         <div class="quick-log-grid">
           <button class="quick-log-item" id="ql-meal" type="button">
             <span class="ql-icon">🍽️</span>
-            <strong class="ql-title">Meal</strong>
-            <span class="ql-sub">Track food</span>
+            <strong class="ql-title">Food</strong>
+            <span class="ql-sub">Meal / snack</span>
           </button>
           <button class="quick-log-item" id="ql-water" type="button">
             <span class="ql-icon">💧</span>
             <strong class="ql-title">Water</strong>
-            <span class="ql-sub">+250ml / +500ml</span>
+            <span class="ql-sub">+250 / +500ml</span>
           </button>
           <button class="quick-log-item" id="ql-weight" type="button">
             <span class="ql-icon">⚖️</span>
@@ -932,39 +913,82 @@
           <button class="quick-log-item" id="ql-workout" type="button">
             <span class="ql-icon">🏋️</span>
             <strong class="ql-title">Workout</strong>
-            <span class="ql-sub">Activity</span>
+            <span class="ql-sub">Daily activity</span>
+          </button>
+          <button class="quick-log-item" id="ql-sleep" type="button">
+            <span class="ql-icon">😴</span>
+            <strong class="ql-title">Sleep</strong>
+            <span class="ql-sub">Rest log</span>
           </button>
           <button class="quick-log-item" id="ql-supplement" type="button">
             <span class="ql-icon">💊</span>
-            <strong class="ql-title">Vitamins</strong>
-            <span class="ql-sub">Daily dose</span>
-          </button>
-          <button class="quick-log-item" id="ql-tell" type="button">
-            <span class="ql-icon">🎙️</span>
-            <strong class="ql-title">Tell Reliv</strong>
-            <span class="ql-sub">Voice log</span>
+            <strong class="ql-title">Supplement</strong>
+            <span class="ql-sub">Vitamins / creatine</span>
           </button>
         </div>
 
-        <!-- 1-Tap Instant Water -->
-        <div style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
-          <strong style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Instant 1-Tap Hydration:</strong>
-          <div style="display:flex; gap:8px;">
-            <button class="ghost-btn" id="ql-water-quick-250" type="button" style="flex:1; padding:8px 6px; font-size:0.8rem; border:1px solid var(--border); border-radius:10px;">+250ml 💧</button>
-            <button class="ghost-btn" id="ql-water-quick-500" type="button" style="flex:1; padding:8px 6px; font-size:0.8rem; border:1px solid var(--border); border-radius:10px;">+500ml 🥤</button>
+        <div style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
+          <button id="ql-tell-btn" class="ghost-btn" type="button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; font-weight:700; color:var(--primary); border:1px solid rgba(255,122,0,0.3); border-radius:14px; background:rgba(255,122,0,0.05);">
+            <span>✦</span>
+            <span>Tell Reliv instead (Voice / Text)</span>
+          </button>
+        </div>
+
+        <!-- Food Panel (inline) -->
+        <div id="ql-panel-food" style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
+          <strong style="font-size:0.8rem; color:var(--text); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Recent & Quick Foods:</strong>
+          <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:10px;">
+            <button class="ghost-btn quick-food-btn" data-food="dal" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">Dal Chawal</span>
+              <span style="font-size:0.72rem; color:var(--muted);">350 kcal · 10g pro</span>
+            </button>
+            <button class="ghost-btn quick-food-btn" data-food="eggs" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">Eggs & Toast</span>
+              <span style="font-size:0.72rem; color:var(--muted);">280 kcal · 18g pro</span>
+            </button>
+            <button class="ghost-btn quick-food-btn" data-food="chicken" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">Chicken Rice</span>
+              <span style="font-size:0.72rem; color:var(--muted);">450 kcal · 35g pro</span>
+            </button>
+            <button class="ghost-btn quick-food-btn" data-food="chai" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">Chai / Tea</span>
+              <span style="font-size:0.72rem; color:var(--muted);">120 kcal · 3g pro</span>
+            </button>
+          </div>
+
+          <strong style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:6px;">Quick Add:</strong>
+          <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+            <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="100" type="button" style="flex:1; min-width:70px; padding:6px; font-size:0.78rem; border:1px solid var(--border); border-radius:10px;">+100 kcal</button>
+            <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="500" type="button" style="flex:1; min-width:70px; padding:6px; font-size:0.78rem; border:1px solid var(--border); border-radius:10px;">+500 kcal</button>
+            <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="10" type="button" style="flex:1; min-width:70px; padding:6px; font-size:0.78rem; border:1px solid var(--border); border-radius:10px;">+10g Pro</button>
+            <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="25" type="button" style="flex:1; min-width:70px; padding:6px; font-size:0.78rem; border:1px solid var(--border); border-radius:10px;">+25g Pro</button>
+          </div>
+
+          <form id="custom-food-form" style="display:flex; gap:8px;">
+            <input id="custom-food-input" placeholder="Type what you ate e.g. 2 eggs..." aria-label="Food name" style="flex:1; padding:9px 12px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.84rem;" />
+            <button class="primary-btn" type="submit" style="padding:0 14px; font-size:0.84rem; border-radius:12px;">Log</button>
+          </form>
+          <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+            <button id="undo-log-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:4px 8px; color:var(--muted);">↩ Undo Last Food</button>
           </div>
         </div>
 
-        <!-- Challenge a Friend / Share from Quick Log -->
-        <div style="margin-top:12px; background:linear-gradient(135deg, rgba(37,211,102,0.08), rgba(18,140,126,0.06)); border:1px solid rgba(37,211,102,0.25); border-radius:14px; padding:10px 14px; display:flex; align-items:center; justify-content:space-between;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:1.2rem;">🔥</span>
-            <div>
-              <strong style="font-size:0.82rem; display:block;">Challenge a Friend</strong>
-              <span style="font-size:0.72rem; color:var(--muted);">Share your streak & companion link</span>
-            </div>
+        <!-- Water Panel (inline) -->
+        <div id="ql-panel-water" style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
+          <strong style="font-size:0.8rem; color:var(--text); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">1-Tap Hydration:</strong>
+          <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <button class="ghost-btn log-hydration-btn" data-ml="250" id="ql-water-quick-250" type="button" style="flex:1; padding:8px 6px; font-size:0.8rem; border:1px solid var(--border); border-radius:10px;">+250ml 💧</button>
+            <button class="ghost-btn log-hydration-btn" data-ml="500" id="ql-water-quick-500" type="button" style="flex:1; padding:8px 6px; font-size:0.8rem; border:1px solid var(--border); border-radius:10px;">+500ml 🥤</button>
+            <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="flex:1; padding:8px 6px; font-size:0.8rem; border:1px solid var(--border); border-radius:10px;">+1.0L 🫗</button>
           </div>
-          <button id="ql-share" class="primary-btn" type="button" style="padding:6px 12px; font-size:0.75rem; background:#25D366; border:none; box-shadow:none; border-radius:10px; font-weight:600; cursor:pointer;">Share 📲</button>
+
+          <form id="custom-hydration-form" style="display:flex; gap:8px;">
+            <input id="custom-hydration-input" type="number" placeholder="Custom ml (e.g. 350)" aria-label="Water ml" style="flex:1; padding:9px 12px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.84rem;" />
+            <button class="primary-btn" type="submit" style="padding:0 14px; font-size:0.84rem; border-radius:12px;">Add</button>
+          </form>
+          <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+            <button id="undo-hydration-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:4px 8px; color:var(--muted);">↩ Undo Hydration</button>
+          </div>
         </div>
       </div>
     </div>
