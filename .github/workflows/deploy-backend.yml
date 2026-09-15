@@ -1,0 +1,74 @@
+name: Deploy Reliv Backend to Oracle
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Prepare SSH key
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/oracle_key
+          chmod 600 ~/.ssh/oracle_key
+
+      - name: Trust Oracle server
+        shell: bash
+        run: |
+          ssh-keyscan -H "${{ secrets.ORACLE_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy backend
+        shell: bash
+        run: |
+          ssh \
+            -i ~/.ssh/oracle_key \
+            -o IdentitiesOnly=yes \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}" << 'EOF'
+
+          set -e
+
+          echo "================================"
+          echo "Reliv Backend Auto Deployment"
+          echo "================================"
+
+          cd /home/ubuntu/relivpwa
+
+          echo "Fetching latest code..."
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          echo "Installing backend dependencies..."
+          cd backend
+          npm install --omit=dev
+
+          echo "Checking JavaScript syntax..."
+          node --check server.js
+
+          echo "Restarting backend..."
+          pm2 restart relivpwa-backend --update-env
+          pm2 save
+
+          echo "Waiting for backend..."
+          sleep 4
+
+          echo "Running health check..."
+          curl -fsS http://127.0.0.1:4000/health
+
+          echo ""
+          echo "================================"
+          echo "DEPLOYMENT SUCCESSFUL"
+          echo "================================"
+
+          EOF
