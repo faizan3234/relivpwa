@@ -1,12 +1,6 @@
 [build]
   publish = "."
 
-[[redirects]]
-  from = "/oracle-api/*"
-  to = "/.netlify/functions/oracle-api/:splat"
-  status = 200
-  force = true
-
 [[headers]]
   for = "/sw.js"
   [headers.values]

@@ -2,9 +2,8 @@ window.RELIX_GROQ_API_KEY = '';
 // ---------------------------------------------------------------------------
 // BACKEND
 // ---------------------------------------------------------------------------
-// Oracle Cloud Backend API accessed via Netlify reverse proxy (/oracle-api)
-// Proxies: /oracle-api/* -> http://161.118.169.29:4000/:splat
-const PRODUCTION_API = '/oracle-api';
+// Oracle Cloud Backend API accessed via Netlify Function proxy
+const PRODUCTION_API = '/.netlify/functions/oracle-api';
 
 const BACKEND_URL = (() => {
   // Lets you point a phone at a laptop or a staging box without a rebuild:
