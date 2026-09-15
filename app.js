@@ -843,32 +843,64 @@ function applyQuickCoachCommand(message) {
   // 3. Calorie target command
   const calorieMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:calories?|calorie target|cal target|daily calories)\s*(?:to|=|as)?\s*(\d+)/i);
   if (calorieMatch) {
-    state.targetCalories = Math.max(1, Number(calorieMatch[1]));
-    updates.push(`Calorie target updated to ${state.targetCalories} kcal`);
+    const prevCalories = state.targetCalories || 2200;
+    const newCalories = Math.max(1, Number(calorieMatch[1]));
+    state.targetCalories = newCalories;
+    updates.push(`Calorie target updated\n${prevCalories} kcal → ${newCalories} kcal\n\nYour daily plan has been recalculated.`);
+    actionCard = {
+      icon: '🔥',
+      title: `Calorie target: ${prevCalories} kcal → ${newCalories} kcal`,
+      canUndo: true,
+      undoAction: { type: 'calories', prevVal: prevCalories }
+    };
   }
 
   // 4. Protein target command: "change my protein target to 120", "set protein 120", "make protein 120"
   const proteinMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:protein|protein target|pro target|daily protein)\s*(?:to|=|as)?\s*(\d+)/i);
   if (proteinMatch) {
-    state.targetProtein = Math.max(1, Number(proteinMatch[1]));
-    updates.push(`Protein target updated to ${state.targetProtein}g`);
+    const prevProtein = state.targetProtein || 140;
+    const newProtein = Math.max(1, Number(proteinMatch[1]));
+    state.targetProtein = newProtein;
+    updates.push(`Protein target updated\n${prevProtein} g → ${newProtein} g\n\nYour daily plan has been recalculated.`);
+    actionCard = {
+      icon: '🥩',
+      title: `Protein target: ${prevProtein} g → ${newProtein} g`,
+      canUndo: true,
+      undoAction: { type: 'protein', prevVal: prevProtein }
+    };
   }
 
   // 5. Hydration / Water target command
   const waterMatch = lower.match(/(?:set|change|update|make)\s+(?:the\s+|my\s+)?(?:water target|hydration target)\s*(?:to|=|as)?\s*(\d+)/i);
   if (waterMatch) {
-    state.targetHydration = Math.max(500, Number(waterMatch[1]));
-    updates.push(`Hydration target set to ${state.targetHydration}ml`);
+    const prevHydration = state.targetHydration || 3000;
+    const newHydration = Math.max(500, Number(waterMatch[1]));
+    state.targetHydration = newHydration;
+    updates.push(`Hydration target updated\n${prevHydration} ml → ${newHydration} ml\n\nYour daily plan has been recalculated.`);
+    actionCard = {
+      icon: '💧',
+      title: `Hydration target: ${prevHydration} ml → ${newHydration} ml`,
+      canUndo: true,
+      undoAction: { type: 'waterTarget', prevVal: prevHydration }
+    };
   }
 
   // 6. Weight update command: "my weight is 72kg", "update weight to 72", "set weight 72"
   const weightMatch = lower.match(/(?:my\s+weight\s+is|set\s+weight\s+to?|update\s+weight\s+to?|weigh\s+in\s+at)\s*(\d+(?:\.\d+)?)/i);
   if (weightMatch) {
-    state.weight = Number(weightMatch[1]);
+    const prevWeight = state.weight || 65;
+    const newWeight = Number(weightMatch[1]);
+    state.weight = newWeight;
     if (!state.progressProfile) state.progressProfile = { weightLogs: [] };
     if (!state.progressProfile.weightLogs) state.progressProfile.weightLogs = [];
     state.progressProfile.weightLogs.push({ date: new Date().toISOString(), weight: state.weight });
-    updates.push(`Current weight updated to ${state.weight}kg`);
+    updates.push(`Current weight updated\n${prevWeight} kg → ${newWeight} kg\n\nYour trajectory and daily targets have been adjusted.`);
+    actionCard = {
+      icon: '⚖️',
+      title: `Weight updated: ${prevWeight} kg → ${newWeight} kg`,
+      canUndo: true,
+      undoAction: { type: 'weight', prevVal: prevWeight }
+    };
   }
 
   // 7. Target weight modification: "change target weight to 72", "target 72 kg", "target 72"
@@ -877,9 +909,9 @@ function applyQuickCoachCommand(message) {
     const prevTarget = state.targetWeight || 70;
     const newTarget = Number(targetWeightMatch[1]);
     state.targetWeight = newTarget;
-    updates.push(`Target updated: ${prevTarget} kg → ${newTarget} kg\nYour nutrition plan and estimated date have been recalculated.`);
+    updates.push(`Target goal updated\n${prevTarget} kg → ${newTarget} kg\n\nYour daily plan and estimated date have been recalculated.`);
     actionCard = {
-      icon: '⚖️',
+      icon: '🎯',
       title: `Target updated: ${prevTarget} kg → ${newTarget} kg`,
       canUndo: true,
       undoAction: { type: 'targetWeight', prevVal: prevTarget }
@@ -888,13 +920,13 @@ function applyQuickCoachCommand(message) {
 
   // 8. Workout adjustment / skip: "won't be able to workout", "can't workout", "skip workout"
   if (lower.includes("won't be able to workout") || lower.includes("skip workout") || lower.includes("can't workout") || lower.includes("skip gym") || lower.includes("rest day today")) {
-    const prevCalories = state.targetCalories;
-    const adjustedCalories = Math.max(1500, state.targetCalories - 150);
+    const prevCalories = state.targetCalories || 2200;
+    const adjustedCalories = Math.max(1500, prevCalories - 150);
     state.targetCalories = adjustedCalories;
-    updates.push(`I'll adjust today's plan.\nWorkout moved → Tomorrow\nCalories adjusted → ${adjustedCalories} kcal\nProtein unchanged → ${state.targetProtein} g`);
+    updates.push(`Workout schedule updated\nWorkout moved: Today → Tomorrow\nCalories adjusted: ${prevCalories} kcal → ${adjustedCalories} kcal\nProtein preserved: ${state.targetProtein} g\n\nYour daily plan has been recalculated.`);
     actionCard = {
       icon: '🏋️',
-      title: `Workout moved → Tomorrow · Calories adjusted to ${adjustedCalories} kcal`,
+      title: `Workout moved → Tomorrow (${prevCalories} → ${adjustedCalories} kcal)`,
       canUndo: true,
       undoAction: { type: 'workout', prevCalories }
     };
@@ -1325,16 +1357,30 @@ async function processMissedActions() {
 }
 
 function applyTheme() {
-  els.app.classList.toggle('dark', state.darkMode);
-  els.body.classList.toggle('dark', state.darkMode);
+  const savedPref = localStorage.getItem('reliv-theme-pref') || 'system';
+  let isDark = false;
+  if (savedPref === 'system') {
+    isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } else {
+    isDark = (savedPref === 'dark');
+  }
+  state.darkMode = isDark;
+  if (els.app) els.app.classList.toggle('dark', isDark);
+  if (els.body) els.body.classList.toggle('dark', isDark);
+  document.documentElement.classList.toggle('dark', isDark);
+
   const icon = document.getElementById('theme-toggle-icon');
   if (icon) {
-    icon.textContent = state.darkMode ? '☀️' : '🌙';
+    icon.textContent = isDark ? '☀️' : '🌙';
   }
+  const themeSegmentSystem = document.getElementById('theme-segment-system');
   const themeSegmentLight = document.getElementById('theme-segment-light');
   const themeSegmentDark = document.getElementById('theme-segment-dark');
-  if (themeSegmentLight) themeSegmentLight.classList.toggle('active', !state.darkMode);
-  if (themeSegmentDark) themeSegmentDark.classList.toggle('active', state.darkMode);
+  if (themeSegmentSystem) themeSegmentSystem.classList.toggle('active', savedPref === 'system');
+  if (themeSegmentLight) themeSegmentLight.classList.toggle('active', savedPref === 'light');
+  if (themeSegmentDark) themeSegmentDark.classList.toggle('active', savedPref === 'dark');
+  const darkToggle = document.getElementById('dark-toggle');
+  if (darkToggle) darkToggle.checked = isDark;
 }
 
 function syncProfileMeta() {
@@ -1376,10 +1422,22 @@ window.handleEssentialClick = function(id) {
     recordActivity('Hydration Essential Checked 💧', 10);
     renderApp();
     showToast('💧 250ml water logged! Essential complete.');
-  } else if (id === 'meal') {
+  } else if (id === 'meal' || id === 'nutrition') {
     openQuickLogModal();
   } else if (id === 'protein') {
     openQuickLogModal();
+  } else if (id === 'skincare-am' || id === 'skincare-pm' || id === 'movement') {
+    if (!state.completedEssentials) state.completedEssentials = [];
+    if (!state.completedEssentials.includes(id)) {
+      state.completedEssentials.push(id);
+      saveState();
+      const label = id === 'movement' ? 'Daily Movement / Workout' : id === 'skincare-am' ? 'Morning Skincare & UV Shield' : 'Evening Cleanse & Barrier Repair';
+      recordActivity(`${label} Complete ✓`, 15);
+      renderApp();
+      showToast(`✓ ${label} checked off!`);
+    } else {
+      switchView('routine');
+    }
   } else if (id === 'routine') {
     switchView('routine');
   }
@@ -1529,27 +1587,26 @@ function bindEvents() {
     });
   }
 
+  const themeSegmentSystem = document.getElementById('theme-segment-system');
   const themeSegmentLight = document.getElementById('theme-segment-light');
   const themeSegmentDark = document.getElementById('theme-segment-dark');
-  const setThemeMode = (isDark) => {
-    document.documentElement.classList.toggle('dark', isDark);
-    document.body.classList.toggle('dark', isDark);
-    if (themeSegmentLight) themeSegmentLight.classList.toggle('active', !isDark);
-    if (themeSegmentDark) themeSegmentDark.classList.toggle('active', isDark);
-    const darkToggle = document.getElementById('dark-toggle');
-    if (darkToggle) darkToggle.checked = isDark;
-    localStorage.setItem('reliv-theme', isDark ? 'dark' : 'light');
+  const setThemePref = (pref) => {
+    localStorage.setItem('reliv-theme-pref', pref);
+    applyTheme();
   };
 
-  if (themeSegmentLight) {
-    themeSegmentLight.addEventListener('click', () => setThemeMode(false));
+  if (themeSegmentSystem) themeSegmentSystem.addEventListener('click', () => setThemePref('system'));
+  if (themeSegmentLight) themeSegmentLight.addEventListener('click', () => setThemePref('light'));
+  if (themeSegmentDark) themeSegmentDark.addEventListener('click', () => setThemePref('dark'));
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if ((localStorage.getItem('reliv-theme-pref') || 'system') === 'system') {
+        applyTheme();
+      }
+    });
   }
-  if (themeSegmentDark) {
-    themeSegmentDark.addEventListener('click', () => setThemeMode(true));
-  }
-  const savedTheme = localStorage.getItem('reliv-theme');
-  const initialDark = savedTheme ? savedTheme === 'dark' : document.documentElement.classList.contains('dark');
-  setThemeMode(initialDark);
+  applyTheme();
 
   const shareAchieveBtn = document.getElementById('progress-share-achieve-btn');
   if (shareAchieveBtn) {
@@ -2008,7 +2065,42 @@ function parseLocalFoodIntake(text) {
   }
 
   els.exportButton.addEventListener('click', exportData);
-  els.deleteButton.addEventListener('click', deleteData);
+  els.deleteButton.addEventListener('click', (e) => { e.stopPropagation(); openDeleteModal(); });
+  const rowDeleteData = document.getElementById('row-delete-data');
+  if (rowDeleteData) rowDeleteData.addEventListener('click', openDeleteModal);
+
+  const confirmDeleteBtn = document.getElementById('confirm-delete-data-btn');
+  if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', executeDeleteAllData);
+  const cancelDeleteBtn = document.getElementById('cancel-delete-data-btn');
+  if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+  const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+  if (deleteConfirmModal) {
+    deleteConfirmModal.addEventListener('click', (e) => {
+      if (e.target === deleteConfirmModal) closeDeleteModal();
+    });
+  }
+
+  // Developer Diagnostics 7-Tap Easter Egg Unlock on About Version Tag
+  let versionTapCount = 0;
+  let versionTapTimer = null;
+  const versionTag = document.getElementById('about-version-tag');
+  const devDrawer = document.getElementById('developer-diagnostics-drawer');
+  if (versionTag && devDrawer) {
+    versionTag.addEventListener('click', () => {
+      versionTapCount++;
+      clearTimeout(versionTapTimer);
+      versionTapTimer = setTimeout(() => { versionTapCount = 0; }, 3500);
+      if (versionTapCount >= 7) {
+        versionTapCount = 0;
+        devDrawer.style.display = 'block';
+        devDrawer.scrollIntoView({ behavior: 'smooth' });
+        showToast('🛠️ Developer Diagnostics unlocked!');
+      } else if (versionTapCount >= 4) {
+        showToast(`Tap ${7 - versionTapCount} more times for dev mode`);
+      }
+    });
+  }
+
   if (els.installCta) els.installCta.addEventListener('click', () => showInstallPrompt());
   if (els.installModalAction) els.installModalAction.addEventListener('click', () => handleInstallAction());
   if (els.closeInstallModal) els.closeInstallModal.addEventListener('click', () => closeInstallPrompt());
@@ -2313,7 +2405,25 @@ function renderDashboard() {
       goalTrackFillEl.style.width = `${pct}%`;
     }
     if (goalEtaEl) {
-      goalEtaEl.textContent = 'Estimated: ~6–8 weeks';
+      const current = Number(state.weight) || 65;
+      const target = Number(targetKg);
+      const diff = Math.abs(target - current);
+      if (diff <= 0.3) {
+        goalEtaEl.textContent = 'Goal Reached! 🎉';
+      } else if (state.goalType && state.goalType.startsWith('skin')) {
+        goalEtaEl.textContent = 'Estimated: ~4–6 weeks (Skin renewal cycle)';
+      } else {
+        const isGain = state.goalType === 'muscle' || target > current;
+        let minW, maxW;
+        if (isGain) {
+          minW = Math.max(1, Math.round(diff / 0.5));
+          maxW = Math.max(minW + 2, Math.round(diff / 0.32));
+        } else {
+          minW = Math.max(1, Math.round(diff / 0.75));
+          maxW = Math.max(minW + 2, Math.round(diff / 0.48));
+        }
+        goalEtaEl.textContent = `Estimated: ~${minW}–${maxW} weeks`;
+      }
     }
   }
 
@@ -2359,28 +2469,53 @@ function renderDashboard() {
     }
   }
 
-  // Today's Essentials Checklist
+  // Today's Essentials Checklist (Goal-Specific)
   const essentialsList = document.getElementById('today-essentials-list');
   const essentialsProg = document.getElementById('today-essentials-progress');
   if (essentialsList) {
+    const completedCust = state.completedEssentials || [];
     const waterDone = state.consumedHydration >= 250;
     const mealDone = state.loggedFoods.length > 0;
     const proDone = state.consumedProtein >= (state.targetProtein * 0.5);
     const routineDone = (state.routineProgress || 0) > 0;
 
-    const items = [
-      { id: 'water', label: 'Morning Hydration (250ml)', done: waterDone, icon: '💧' },
-      { id: 'meal', label: 'Balanced Nutrition Check', done: mealDone, icon: '🍳' },
-      { id: 'protein', label: `Hit Protein Benchmark (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' },
-      { id: 'routine', label: 'Daily Transformation Routine', done: routineDone, icon: '🧘' }
-    ];
+    let items = [];
+    if (state.goalType === 'muscle') {
+      items = [
+        { id: 'water', label: 'Morning Hydration (250ml)', done: waterDone, icon: '💧' },
+        { id: 'meal', label: 'Calorie & Meal Fuel Check', done: mealDone, icon: '🍳' },
+        { id: 'protein', label: `Hit Protein Benchmark (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' },
+        { id: 'movement', label: 'Strength & Hypertrophy Session', done: completedCust.includes('movement') || routineDone, icon: '🏋️' }
+      ];
+    } else if (state.goalType === 'lose') {
+      items = [
+        { id: 'water', label: 'Hydration & Satiety Flush', done: waterDone, icon: '💧' },
+        { id: 'meal', label: 'Calorie Deficit Check', done: mealDone, icon: '🥗' },
+        { id: 'protein', label: `Protein Satiety Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '🥩' },
+        { id: 'movement', label: 'Daily Movement / Cardio', done: completedCust.includes('movement') || routineDone, icon: '🏃' }
+      ];
+    } else if (state.goalType && state.goalType.startsWith('skin')) {
+      items = [
+        { id: 'water', label: 'Cellular Hydration (500ml+)', done: state.consumedHydration >= 500, icon: '💧' },
+        { id: 'skincare-am', label: 'Morning Routine & Sunscreen UV Shield', done: completedCust.includes('skincare-am') || routineDone, icon: '🧴' },
+        { id: 'meal', label: 'Antioxidant Nutrient Intake', done: mealDone, icon: '🥑' },
+        { id: 'skincare-pm', label: 'Evening Cleanse & Barrier Repair', done: completedCust.includes('skincare-pm'), icon: '✨' }
+      ];
+    } else {
+      items = [
+        { id: 'water', label: 'Daily Hydration (250ml+)', done: waterDone, icon: '💧' },
+        { id: 'meal', label: 'Balanced Nutrition Check', done: mealDone, icon: '🍳' },
+        { id: 'protein', label: `Protein Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' },
+        { id: 'routine', label: 'Daily Transformation Routine', done: routineDone, icon: '🧘' }
+      ];
+    }
 
     const completed = items.filter(i => i.done).length;
     if (essentialsProg) essentialsProg.textContent = `${completed} / ${items.length} done`;
     const completionPctEl = document.getElementById('today-completion-pct');
     if (completionPctEl) {
       const pct = Math.round((completed / items.length) * 100);
-      completionPctEl.textContent = `${pct}% today`;
+      completionPctEl.textContent = `${pct}`;
     }
     const streakDisplay = document.getElementById('streak-display-val');
     if (streakDisplay) streakDisplay.textContent = state.streak || 0;
@@ -2396,13 +2531,42 @@ function renderDashboard() {
     `).join('');
   }
 
-  if (els.calBar && els.proBar) {
-    const calPercent = Math.min(100, Math.round((state.consumedCalories / state.targetCalories) * 100)) || 0;
-    const proPercent = Math.min(100, Math.round((state.consumedProtein / state.targetProtein) * 100)) || 0;
-    els.calBar.style.width = `${calPercent}%`;
-    els.proBar.style.width = `${proPercent}%`;
-    els.calText.textContent = `${state.consumedCalories} / ${state.targetCalories} kcal (${calPercent}%)`;
-    els.proText.textContent = `${state.consumedProtein} / ${state.targetProtein} g (${proPercent}%)`;
+  const macroBalanceCard = document.getElementById('today-macro-balance-card');
+  const skinBalanceCard = document.getElementById('today-skincare-balance-card');
+
+  if (state.goalType && state.goalType.startsWith('skin')) {
+    if (macroBalanceCard) macroBalanceCard.style.display = 'none';
+    if (skinBalanceCard) {
+      skinBalanceCard.style.display = 'block';
+      const skinHydPercent = Math.min(100, Math.round((state.consumedHydration / 2500) * 100)) || 0;
+      const skinHydBar = document.getElementById('skin-hydration-bar');
+      const skinHydText = document.getElementById('skin-hydration-text');
+      if (skinHydBar) skinHydBar.style.width = `${skinHydPercent}%`;
+      if (skinHydText) skinHydText.textContent = `${state.consumedHydration} / 2500 ml (${skinHydPercent}%)`;
+
+      const comp = state.completedEssentials || [];
+      const amDone = comp.includes('skincare-am') || (state.routineProgress || 0) > 0;
+      const pmDone = comp.includes('skincare-pm');
+      const skinAmBar = document.getElementById('skin-am-bar');
+      const skinAmText = document.getElementById('skin-am-text');
+      const skinPmBar = document.getElementById('skin-pm-bar');
+      const skinPmText = document.getElementById('skin-pm-text');
+      if (skinAmBar) skinAmBar.style.width = amDone ? '100%' : '0%';
+      if (skinAmText) skinAmText.textContent = amDone ? 'Complete ✓' : 'Pending';
+      if (skinPmBar) skinPmBar.style.width = pmDone ? '100%' : '0%';
+      if (skinPmText) skinPmText.textContent = pmDone ? 'Complete ✓' : 'Pending';
+    }
+  } else {
+    if (macroBalanceCard) macroBalanceCard.style.display = 'block';
+    if (skinBalanceCard) skinBalanceCard.style.display = 'none';
+    if (els.calBar && els.proBar) {
+      const calPercent = Math.min(100, Math.round((state.consumedCalories / state.targetCalories) * 100)) || 0;
+      const proPercent = Math.min(100, Math.round((state.consumedProtein / state.targetProtein) * 100)) || 0;
+      els.calBar.style.width = `${calPercent}%`;
+      els.proBar.style.width = `${proPercent}%`;
+      els.calText.textContent = `${state.consumedCalories} / ${state.targetCalories} kcal (${calPercent}%)`;
+      els.proText.textContent = `${state.consumedProtein} / ${state.targetProtein} g (${proPercent}%)`;
+    }
   }
 
   const nutritionCard = document.getElementById('nutrition-overview-card');
@@ -2814,73 +2978,144 @@ function renderTodayLogs() {
 }
 
 function renderRoutine() {
+  const isSkin = state.goalType && state.goalType.startsWith('skin');
+  const isLose = state.goalType === 'lose';
+
+  // 1. Phased Blueprint Card Headers
+  const phaseBadgeEl = document.getElementById('plan-phase-badge');
+  const headlineEl = document.getElementById('plan-headline');
+  const subheadlineEl = document.getElementById('plan-subheadline');
+  const priorityTitleEl = document.getElementById('plan-priority-title');
+  const priorityDescEl = document.getElementById('plan-priority-desc');
+
+  if (phaseBadgeEl && headlineEl && subheadlineEl) {
+    if (isSkin) {
+      phaseBadgeEl.textContent = 'Skin Renewal Cycle · Week 2 of 4';
+      headlineEl.textContent = 'Barrier Restore & Glass Skin';
+      subheadlineEl.textContent = 'Cellular hydration, active Korean serums & daily SPF 50 shield';
+      if (priorityTitleEl) priorityTitleEl.textContent = "Today's Focus: UV Shield & Hydration";
+      if (priorityDescEl) priorityDescEl.textContent = 'Apply SPF 50 before leaving and log 500ml water to plump skin cells';
+    } else if (isLose) {
+      phaseBadgeEl.textContent = 'Deficit & Tone · Phase 1 (Week 3 of 6)';
+      headlineEl.textContent = 'Metabolic Reset & Fat Loss';
+      subheadlineEl.textContent = 'Caloric deficit adherence, high protein satiety & daily 8k movement';
+      if (priorityTitleEl) priorityTitleEl.textContent = "Today's Focus: Deficit Adherence";
+      if (priorityDescEl) priorityDescEl.textContent = `Maintain ~${Math.max(0, state.targetCalories - state.consumedCalories)} kcal buffer and complete 15-min brisk walk`;
+    } else {
+      phaseBadgeEl.textContent = 'Hypertrophy Protocol · Week 3 of 8';
+      headlineEl.textContent = 'Hypertrophy Blueprint';
+      subheadlineEl.textContent = 'Progressive volume accumulation & metabolic recovery cycle';
+      if (priorityTitleEl) priorityTitleEl.textContent = "Today's Focus: Push Volume & Fuel";
+      if (priorityDescEl) priorityDescEl.textContent = `Hit ${state.targetProtein}g protein benchmark and log strength session`;
+    }
+  }
+
+  // 2. Weekly Day Strip
+  const weekStrip = document.getElementById('plan-week-strip');
+  if (weekStrip) {
+    const jsDay = new Date().getDay(); // 0 = Sun, 1 = Mon ...
+    const monDayIndex = (jsDay + 6) % 7;
+    const chips = weekStrip.querySelectorAll('.plan-day-chip');
+    chips.forEach((chip, i) => {
+      chip.classList.toggle('active', i === monDayIndex);
+      chip.onclick = () => {
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        showToast(`📅 Viewing ${dayNames[i]}'s scheduled protocol`);
+      };
+    });
+  }
+
+  // 3. Define Phased Habits
   let habits = [];
-  if (state.goalType.startsWith('skin')) {
+  if (isSkin) {
     habits = [
-      { title: 'Morning Double Cleanse', description: 'Double cleanse with a gentle wash.', time: '8:00 AM', duration: '5 min', why: 'Removes sebum, sunscreen, and overnight impurities.', scientific: 'Double cleansing keeps pores clean and ready for hydration.', benefits: 'Fewer breakouts, brighter skin tone, clean base.' },
-      { title: 'SPF Shield Application', description: 'Apply or reapply your SPF 50 sunscreen.', time: '9:00 AM', duration: '2 min', why: 'Protects the skin barrier from UV aging and damage.', scientific: 'Daily sunscreen reduces photoaging and hyperpigmentation.', benefits: 'Prevents dark spots, preserves collagen, healthy skin.' },
-      { title: 'Mid-day Skincare Hydration Log', description: 'Log a glass of water to hydrate skin cells.', time: '3:00 PM', duration: '2 min', why: 'Maintains skin elasticity and flushes toxins.', scientific: 'Hydration supports skin cell repair and prevents dry patches.', benefits: 'Plump skin, natural glow, less skin tightness.' },
-      { title: 'Evening Cleanse & Actives', description: 'Wash and apply Korean skincare serums.', time: '9:00 PM', duration: '10 min', why: 'Restores skin barrier and treats target concerns.', scientific: 'Actives like Hyaluronic acid absorb better on damp skin.', benefits: 'Smoother texture, active acne reduction, skin repair.' },
-      { title: 'Acne Treatment Spot Gel', description: 'Apply spot treatment or pimple patches.', time: '9:30 PM', duration: '3 min', why: 'Targets active acne breakouts directly overnight.', scientific: 'Spot gels reduce inflammation and speed healing.', benefits: 'Flattens pimples, limits scarring, calms redness.' },
-      { title: 'Sleep Window Prep', description: 'Dim screens and sleep for 8+ hours.', time: '10:30 PM', duration: '15 min', why: 'Essential for cellular skin repair and collagen synthesis.', scientific: 'Growth hormone released during sleep repairs tissue.', benefits: 'Refreshed skin, fewer dark circles, youthful texture.' }
+      { title: 'Morning Double Cleanse', description: 'Double cleanse with a gentle wash.', time: '8:00 AM', duration: '5 min', icon: '🧴', block: 'morning', why: 'Removes sebum, sunscreen, and overnight impurities.', scientific: 'Double cleansing keeps pores clean and ready for hydration.', benefits: 'Fewer breakouts, brighter skin tone, clean base.' },
+      { title: 'SPF 50 Shield Application', description: 'Apply generous layer of SPF 50 sunscreen.', time: '9:00 AM', duration: '2 min', icon: '☀️', block: 'morning', why: 'Protects the skin barrier from UV aging and damage.', scientific: 'Daily sunscreen reduces photoaging and hyperpigmentation.', benefits: 'Prevents dark spots, preserves collagen, healthy skin.' },
+      { title: 'Mid-day Skin Hydration Flush', description: 'Log a 500ml glass of water for dermal cells.', time: '2:30 PM', duration: '2 min', icon: '💧', block: 'midday', why: 'Maintains skin elasticity and flushes toxins.', scientific: 'Hydration supports skin cell repair and prevents dry patches.', benefits: 'Plump skin, natural glow, less skin tightness.' },
+      { title: 'Clean Antioxidant Snack', description: 'Fresh berries, green tea, or avocado.', time: '4:30 PM', duration: '10 min', icon: '🥑', block: 'midday', why: 'Provides vitamins C and E to neutralize free radicals.', scientific: 'Antioxidants prevent collagen degradation.', benefits: 'Radiant complexion, lowered oxidative stress.' },
+      { title: 'Evening Cleanse & Actives', description: 'Gentle cleanser + Hyaluronic or Niacinamide.', time: '9:00 PM', duration: '10 min', icon: '✨', block: 'evening', why: 'Restores skin barrier and treats target concerns.', scientific: 'Actives like Hyaluronic acid absorb better on damp skin.', benefits: 'Smoother texture, active acne reduction, skin repair.' },
+      { title: 'Barrier Repair Sleep Window', description: 'Night cream applied, screens off for 8h sleep.', time: '10:30 PM', duration: '10 min', icon: '😴', block: 'evening', why: 'Essential for cellular skin repair and collagen synthesis.', scientific: 'Growth hormone released during sleep repairs tissue.', benefits: 'Refreshed skin, fewer dark circles, youthful texture.' }
     ];
-  } else if (state.goalType === 'lose') {
+  } else if (isLose) {
     habits = [
-      { title: 'Water Nudge & Sip', description: 'Drink a glass of water before first meal.', time: '8:00 AM', duration: '2 min', why: 'Fills stomach and helps boost calorie burning.', scientific: 'Pre-meal hydration naturally reduces portion sizes.', benefits: 'Reduced appetite, steady metabolism, active start.' },
-      { title: 'Green Tea Intake', description: 'Sip unsweetened green tea.', time: '11:00 AM', duration: '5 min', why: 'Boosts metabolic rate and fat oxidation.', scientific: 'Catechins in green tea aid in breakdown of fats.', benefits: 'Metabolic boost, clean energy, antioxidant rich.' },
-      { title: 'Lunch Portion Check', description: 'Eat slowly and stop at 80% full.', time: '1:30 PM', duration: '5 min', why: 'Prevents overeating and improves digestion.', scientific: 'Satiety signals take 20 minutes to reach the brain.', benefits: 'No post-lunch slump, steady deficit, better digestion.' },
-      { title: 'Evening Active Walk', description: 'Take a brisk 15-minute walk.', time: '6:00 PM', duration: '15 min', why: 'Increases active calorie burn and cardiovascular health.', scientific: 'Low-intensity exercise burns fat stores for fuel.', benefits: 'Calorie deficit support, lower stress, better sleep.' },
-      { title: 'Dinner Mindfulness check', description: 'Avoid screens while having dinner.', time: '8:30 PM', duration: '10 min', why: 'Helps track portions and prevents late-night cravings.', scientific: 'Distracted eating is linked to high calorie consumption.', benefits: 'Better portion control, satisfying meal, no overeating.' },
-      { title: 'Sleep Prep Dimming', description: 'Dim lights to prepare for recovery sleep.', time: '10:00 PM', duration: '10 min', why: 'Optimizes fat loss hormones like melatonin.', scientific: 'Sufficient sleep supports muscle retention during deficit.', benefits: 'Steady fat burn, low cortisol, high morning energy.' }
+      { title: 'Water Nudge & Sip', description: 'Drink 350ml water before first meal.', time: '8:00 AM', duration: '2 min', icon: '💧', block: 'morning', why: 'Fills stomach and helps boost calorie burning.', scientific: 'Pre-meal hydration naturally reduces portion sizes.', benefits: 'Reduced appetite, steady metabolism, active start.' },
+      { title: 'Green Tea Metabolic Boost', description: 'Sip unsweetened green tea or matcha.', time: '11:00 AM', duration: '5 min', icon: '🍵', block: 'morning', why: 'Boosts metabolic rate and fat oxidation.', scientific: 'Catechins in green tea aid in breakdown of fats.', benefits: 'Metabolic boost, clean energy, antioxidant rich.' },
+      { title: 'Lunch Calorie Deficit Check', description: 'High protein + voluminous vegetables (80% full).', time: '1:30 PM', duration: '15 min', icon: '🥗', block: 'midday', why: 'Prevents overeating and improves digestion.', scientific: 'Satiety signals take 20 minutes to reach the brain.', benefits: 'No post-lunch slump, steady deficit, better digestion.' },
+      { title: 'Daily 8k Step Movement', description: 'Brisk 15–20 min outdoor walk.', time: '5:30 PM', duration: '20 min', icon: '🏃', block: 'midday', why: 'Increases active calorie burn and cardiovascular health.', scientific: 'Low-intensity exercise burns fat stores for fuel.', benefits: 'Calorie deficit support, lower stress, better sleep.' },
+      { title: 'Lean Protein Dinner Log', description: 'Target 30g+ protein with low carb buffer.', time: '8:30 PM', duration: '15 min', icon: '🥩', block: 'evening', why: 'Helps track portions and prevents late-night cravings.', scientific: 'Distracted eating is linked to high calorie consumption.', benefits: 'Better portion control, satisfying meal, no overeating.' },
+      { title: 'Cortisol Dimming & Rest', description: 'Dim lights for deep recovery sleep.', time: '10:30 PM', duration: '10 min', icon: '🌙', block: 'evening', why: 'Optimizes fat loss hormones like melatonin.', scientific: 'Sufficient sleep supports muscle retention during deficit.', benefits: 'Steady fat burn, low cortisol, high morning energy.' }
     ];
   } else {
     habits = [
-      { title: 'High Protein Breakfast', description: 'Eat eggs, paneer, oats, or peanut butter.', time: '8:30 AM', duration: '15 min', why: 'Triggers muscle protein synthesis early in the day.', scientific: 'Breakfast protein helps prevent muscle breakdown.', benefits: 'Muscle building, sustained energy, no morning fatigue.' },
-      { title: 'Mid-Day Calorie Shake', description: 'Drink high-calorie banana peanut shake.', time: '11:00 AM', duration: '10 min', why: 'Provides clean calories and protein for surplus.', scientific: 'Liquid calories are easier to consume for weight gain.', benefits: 'Easy calorie surplus, high protein, quick refueling.' },
-      { title: 'Post-Workout Supplement', description: 'Have whey protein or high-protein meal.', time: '5:30 PM', duration: '2 min', why: 'Repairs muscle fibers torn during resistance training.', scientific: 'Protein intake post-workout triggers anabolic repair.', benefits: 'Fast recovery, muscle gain, reduced soreness.' },
-      { title: 'Dinner Protein Log', description: 'Eat paneer, eggs, chicken, or curd.', time: '8:30 PM', duration: '15 min', why: 'Provides steady protein flow during overnight fast.', scientific: 'Slow-digesting protein supports muscle repair while sleeping.', benefits: 'Sustained muscle building, deep recovery.' },
-      { title: 'Evening Stretching', description: 'Gentle mobility and muscle stretching.', time: '9:30 PM', duration: '10 min', why: 'Improves flexibility and reduces muscle soreness.', scientific: 'Stretching increases blood flow and joint range of motion.', benefits: 'Reduced soreness, lower injury risk, relaxed mind.' },
-      { title: 'Sleep Prep Blockout', description: 'Shut down screens for growth hormone release.', time: '10:30 PM', duration: '10 min', why: 'Ensures deep sleep for testosterone and growth hormone.', scientific: 'Melatonin and growth hormones spike during deep sleep.', benefits: 'Maximum muscle growth, high morning testosterone.' }
+      { title: 'High Protein Breakfast', description: 'Eggs, paneer, oats, or peanut butter (35g pro).', time: '8:30 AM', duration: '15 min', icon: '🍳', block: 'morning', why: 'Triggers muscle protein synthesis early in the day.', scientific: 'Breakfast protein helps prevent muscle breakdown.', benefits: 'Muscle building, sustained energy, no morning fatigue.' },
+      { title: 'Mid-Day Fuel Shake', description: 'High-calorie anabolic smoothie or Greek yogurt.', time: '11:00 AM', duration: '10 min', icon: '🥛', block: 'morning', why: 'Provides clean calories and protein for surplus.', scientific: 'Liquid calories are easier to consume for weight gain.', benefits: 'Easy calorie surplus, high protein, quick refueling.' },
+      { title: 'Strength & Hypertrophy Session', description: 'Progressive overload compound lift session.', time: '4:30 PM', duration: '45 min', icon: '🏋️', block: 'midday', why: 'Mechanical tension signals muscle hypertrophy.', scientific: 'Overload stimulus triggers micro-tear repair and growth.', benefits: 'Strength gains, muscle thickness, density.' },
+      { title: 'Post-Workout Anabolic Feed', description: 'Whey protein or high-protein recovery meal.', time: '6:00 PM', duration: '10 min', icon: '🥩', block: 'midday', why: 'Repairs muscle fibers torn during resistance training.', scientific: 'Protein intake post-workout triggers anabolic repair.', benefits: 'Fast recovery, muscle gain, reduced soreness.' },
+      { title: 'Overnight Protein Dinner', description: 'Slow-digesting protein (casein/curd/chicken).', time: '8:30 PM', duration: '15 min', icon: '🍗', block: 'evening', why: 'Provides steady protein flow during overnight fast.', scientific: 'Slow-digesting protein supports muscle repair while sleeping.', benefits: 'Sustained muscle building, deep recovery.' },
+      { title: 'Sleep Prep for Growth Hormone', description: 'Screens off for deep anabolic sleep cycles.', time: '10:30 PM', duration: '10 min', icon: '😴', block: 'evening', why: 'Ensures deep sleep for testosterone and growth hormone.', scientific: 'Melatonin and growth hormones spike during deep sleep.', benefits: 'Maximum muscle growth, high morning testosterone.' }
     ];
   }
 
-  els.routineList.innerHTML = habits.map((habit, index) => `
-    <article class="routine-card">
-      <div class="routine-top">
-        <div>
-          <h4>${habit.title}</h4>
-          <p>${habit.description}</p>
+  // 4. Render into 3 Phased Timeline Blocks
+  const morningContainer = document.getElementById('plan-morning-items');
+  const middayContainer = document.getElementById('plan-midday-items');
+  const eveningContainer = document.getElementById('plan-evening-items');
+
+  const renderTimelineBlock = (container, items, startIndex) => {
+    if (!container) return;
+    container.innerHTML = items.map((habit, offset) => {
+      const idx = startIndex + offset;
+      const done = state.completedTasks.includes(idx);
+      return `
+        <div class="plan-timeline-item ${done ? 'done' : ''}" onclick="toggleTimelineHabit(${idx})">
+          <div class="plan-item-left">
+            <span class="plan-item-icon">${habit.icon}</span>
+            <div class="plan-item-info">
+              <strong>${habit.title}</strong>
+              <span>${habit.time} · ${habit.duration} · ${habit.description}</span>
+            </div>
+          </div>
+          <div class="plan-item-check">${done ? '✓' : ''}</div>
         </div>
-        <label class="checkbox-pill">
-          <input class="check-habit" type="checkbox" ${state.completedTasks.includes(index) ? 'checked' : ''} data-index="${index}">
-          <span></span>
-        </label>
-      </div>
-      <div class="routine-meta">
-        <span>${habit.time}</span>
-        <span>${habit.duration}</span>
-      </div>
-      <div class="routine-actions">
-        <button class="why-btn" data-title="${habit.title}" data-why="${habit.why}|${habit.scientific}|${habit.benefits}">Why</button>
-      </div>
-    </article>
-  `).join('');
+      `;
+    }).join('');
+  };
 
-  document.querySelectorAll('.check-habit').forEach((checkbox) => {
-    checkbox.addEventListener('change', toggleHabit);
-  });
+  renderTimelineBlock(morningContainer, habits.slice(0, 2), 0);
+  renderTimelineBlock(middayContainer, habits.slice(2, 4), 2);
+  renderTimelineBlock(eveningContainer, habits.slice(4, 6), 4);
 
-  document.querySelectorAll('.why-btn').forEach((btn) => {
-    btn.addEventListener('click', () => openWhyModal(btn.dataset.title, btn.dataset.why));
-  });
+  // Keep compatibility list populated
+  if (els.routineList) {
+    els.routineList.innerHTML = habits.map((habit, index) => `
+      <div data-index="${index}" style="display:none;"></div>
+    `).join('');
+  }
 
+  // Update progress numbers
   const doneCount = state.completedTasks.filter((value) => typeof value === 'number').length;
   const percent = habits.length > 0 ? Math.round((doneCount / habits.length) * 100) : 0;
-  els.routineProgress.style.width = `${percent}%`;
-  const copyEl = els.routineProgress.closest('.tracker-card')?.querySelector('.tracker-copy') || document.querySelector('.tracker-copy');
+  if (els.routineProgress) els.routineProgress.style.width = `${percent}%`;
+  const copyEl = document.querySelector('.tracker-copy');
   if (copyEl) copyEl.textContent = `${doneCount} of ${habits.length} complete · ${percent}%`;
   renderTodayLogs();
 }
+
+window.toggleTimelineHabit = function(index) {
+  index = Number(index);
+  if (state.completedTasks.includes(index)) {
+    state.completedTasks = state.completedTasks.filter((i) => i !== index);
+  } else {
+    state.completedTasks.push(index);
+    recordActivity('Plan ritual completed ✓', 20);
+    showToast('✓ Ritual checked off!');
+  }
+  saveState();
+  renderRoutine();
+  renderDashboard();
+};
 
 function renderWeightForecast() {
   const titleEl = document.getElementById('forecast-title');
@@ -5725,40 +5960,32 @@ function exportData() {
   showToast('Your local data was exported.');
 }
 
-function deleteData() {
-  if (!confirm('Are you sure you want to delete all user data and reset? This cannot be undone.')) {
-    return;
+function openDeleteModal() {
+  const modal = document.getElementById('delete-confirm-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
   }
-  localStorage.removeItem('relix-dark');
-  localStorage.removeItem('relix-notify');
-  localStorage.removeItem('relix-profile-name');
-  localStorage.removeItem('relix-xp');
-  localStorage.removeItem('relix-level');
-  localStorage.removeItem('relix-streak');
-  localStorage.removeItem('relix-weekly');
-  localStorage.removeItem('relix-daily-score');
-  localStorage.removeItem('relix-last-activity');
-  localStorage.removeItem('relix-activity-log');
-  localStorage.removeItem('relix-routine-progress');
-  localStorage.removeItem('relix-meal-count');
-  localStorage.removeItem('relix-daily-meals');
-  localStorage.removeItem('relix-completed');
-  localStorage.removeItem('relix-last-log');
-  localStorage.removeItem('relix-day-start');
-  localStorage.removeItem('relix-restorable-streak');
-  localStorage.removeItem('relix-logged-foods');
-  localStorage.removeItem('relix-logged-hydrations');
-  localStorage.removeItem('relix-profile-pic');
-  localStorage.removeItem('relix-chat-messages');
-  localStorage.removeItem('relix-historical-logs');
-  localStorage.removeItem('relix-pending-meal-image');
-  localStorage.removeItem('relix-last-vision-result');
-  localStorage.removeItem('relix-skin-type');
-  localStorage.removeItem('relix-kitchen');
-  localStorage.removeItem('relix-target-hyd');
-  localStorage.removeItem('relix-wakeup-time');
-  localStorage.removeItem('relix-shake-ingredients');
-  window.location.reload();
+}
+
+function closeDeleteModal() {
+  const modal = document.getElementById('delete-confirm-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function deleteData() {
+  openDeleteModal();
+}
+
+function executeDeleteAllData() {
+  localStorage.clear();
+  showToast('🗑️ All health data erased.');
+  setTimeout(() => window.location.reload(), 700);
 }
 
 function updateConnectionStatus() {
