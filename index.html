@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#ff7a00" />
     <meta name="description" content="Reliv Companion is a premium wellness companion that helps you build routines, track progress, and stay on top of your health goals." />
     <meta property="og:title" content="Reliv Companion" />
@@ -537,6 +537,16 @@
                   <option value="fasting">Fasting / windows</option>
                   <option value="simple">Simple (no calorie counting)</option>
                 </select>
+              </div>
+              <div class="settings-group-row">
+                <div class="settings-row-left">
+                  <span class="settings-row-icon">🏋️</span>
+                  <div>
+                    <span style="display:block;">Daily Movement Tracking</span>
+                    <span style="display:block; font-size:0.72rem; color:var(--muted);">Include workouts in Today & Plan</span>
+                  </div>
+                </div>
+                <label class="switch"><input id="track-workout-toggle" type="checkbox" checked /><span></span></label>
               </div>
               <div class="settings-group-row">
                 <div class="settings-row-left">
@@ -1205,23 +1215,8 @@
         <!-- Food Panel (inline) -->
         <div id="ql-panel-food" style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
           <strong style="font-size:0.8rem; color:var(--text); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Recent & Quick Foods:</strong>
-          <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:10px;">
-            <button class="ghost-btn quick-food-btn" data-food="dal" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
-              <span style="display:block; font-weight:600; font-size:0.85rem;">Dal Chawal</span>
-              <span style="font-size:0.72rem; color:var(--muted);">350 kcal · 10g pro</span>
-            </button>
-            <button class="ghost-btn quick-food-btn" data-food="eggs" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
-              <span style="display:block; font-weight:600; font-size:0.85rem;">Eggs & Toast</span>
-              <span style="font-size:0.72rem; color:var(--muted);">280 kcal · 18g pro</span>
-            </button>
-            <button class="ghost-btn quick-food-btn" data-food="chicken" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
-              <span style="display:block; font-weight:600; font-size:0.85rem;">Chicken Rice</span>
-              <span style="font-size:0.72rem; color:var(--muted);">450 kcal · 35g pro</span>
-            </button>
-            <button class="ghost-btn quick-food-btn" data-food="chai" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
-              <span style="display:block; font-weight:600; font-size:0.85rem;">Chai / Tea</span>
-              <span style="font-size:0.72rem; color:var(--muted);">120 kcal · 3g pro</span>
-            </button>
+          <div id="ql-recent-foods-container" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:10px;">
+            <!-- Populated dynamically by renderRecentQuickFoods() -->
           </div>
 
           <details class="quick-log-advanced" style="margin-top:4px; margin-bottom:12px;">
@@ -1235,11 +1230,34 @@
           </details>
 
           <form id="custom-food-form" style="display:flex; gap:8px;">
-            <input id="custom-food-input" placeholder="Type what you ate e.g. 2 eggs..." aria-label="Food name" style="flex:1; padding:9px 12px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.84rem;" />
+            <input id="custom-food-input" placeholder="Type what you ate e.g. 2 eggs..." aria-label="Food name" style="flex:1; padding:9px 12px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:16px;" />
             <button class="primary-btn" type="submit" style="padding:0 14px; font-size:0.84rem; border-radius:12px;">Log</button>
           </form>
           <div style="display:flex; justify-content:flex-end; margin-top:6px;">
             <button id="undo-log-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:4px 8px; color:var(--muted);">↩ Undo Last Food</button>
+          </div>
+        </div>
+
+        <!-- Activity / Movement Panel (inline) -->
+        <div id="ql-panel-activity" style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
+          <strong style="font-size:0.8rem; color:var(--text); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Log Movement / Training:</strong>
+          <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:10px;">
+            <button class="ghost-btn log-activity-quick-btn" data-act="Strength / Gym" data-dur="45" data-xp="30" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">🏋️ Strength / Gym</span>
+              <span style="font-size:0.72rem; color:var(--muted);">45 min session</span>
+            </button>
+            <button class="ghost-btn log-activity-quick-btn" data-act="Brisk Walk" data-dur="30" data-xp="20" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">🚶 Brisk Walk</span>
+              <span style="font-size:0.72rem; color:var(--muted);">30 min outdoor</span>
+            </button>
+            <button class="ghost-btn log-activity-quick-btn" data-act="Cardio / Run" data-dur="20" data-xp="25" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">🏃 Cardio / Run</span>
+              <span style="font-size:0.72rem; color:var(--muted);">20 min run</span>
+            </button>
+            <button class="ghost-btn log-activity-quick-btn" data-act="Mobility / Yoga" data-dur="15" data-xp="15" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border);">
+              <span style="display:block; font-weight:600; font-size:0.85rem;">🧘 Mobility / Yoga</span>
+              <span style="font-size:0.72rem; color:var(--muted);">15 min recovery</span>
+            </button>
           </div>
         </div>
 
@@ -1253,7 +1271,7 @@
           </div>
 
           <form id="custom-hydration-form" style="display:flex; gap:8px;">
-            <input id="custom-hydration-input" type="number" placeholder="Custom ml (e.g. 350)" aria-label="Water ml" style="flex:1; padding:9px 12px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.84rem;" />
+            <input id="custom-hydration-input" type="number" placeholder="Custom ml (e.g. 350)" aria-label="Water ml" style="flex:1; padding:9px 12px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:16px;" />
             <button class="primary-btn" type="submit" style="padding:0 14px; font-size:0.84rem; border-radius:12px;">Add</button>
           </form>
           <div style="display:flex; justify-content:flex-end; margin-top:6px;">
