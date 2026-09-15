@@ -1285,6 +1285,41 @@ function syncProfileMeta() {
   if (els.geminiKeyInput) els.geminiKeyInput.value = state.geminiKey || '';
 }
 
+function openQuickLogModal() {
+  const modal = document.getElementById('quick-log-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeQuickLogModal() {
+  const modal = document.getElementById('quick-log-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+window.handleEssentialClick = function(id) {
+  if (id === 'water') {
+    state.consumedHydration += 250;
+    state.loggedHydrations.push({ ml: 250, timestamp: Date.now() });
+    saveState();
+    recordActivity('Hydration Essential Checked 💧', 10);
+    renderApp();
+    showToast('💧 250ml water logged! Essential complete.');
+  } else if (id === 'meal') {
+    openQuickLogModal();
+  } else if (id === 'protein') {
+    openQuickLogModal();
+  } else if (id === 'routine') {
+    switchView('routine');
+  }
+};
+
 function bindEvents() {
   const hardRefreshBtn = document.getElementById('hard-refresh-btn');
   if (hardRefreshBtn) {
@@ -1299,6 +1334,120 @@ function bindEvents() {
   els.tabs.forEach((tab) => {
     tab.addEventListener('click', () => switchView(tab.dataset.tab));
   });
+
+  // Floating Action Quick Log button & modal
+  const fabBtn = document.getElementById('fab-quick-log');
+  const todayOpenLogBtn = document.getElementById('today-open-log-btn');
+  const closeQuickLogBtn = document.getElementById('close-quick-log');
+  const quickLogModal = document.getElementById('quick-log-modal');
+
+  if (fabBtn) fabBtn.addEventListener('click', () => openQuickLogModal());
+  if (todayOpenLogBtn) todayOpenLogBtn.addEventListener('click', () => openQuickLogModal());
+  if (closeQuickLogBtn) closeQuickLogBtn.addEventListener('click', () => closeQuickLogModal());
+  if (quickLogModal) {
+    quickLogModal.addEventListener('click', (e) => {
+      if (e.target === quickLogModal) closeQuickLogModal();
+    });
+  }
+
+  // Quick Log Sheet Items
+  const qlMeal = document.getElementById('ql-meal');
+  if (qlMeal) {
+    qlMeal.addEventListener('click', () => {
+      closeQuickLogModal();
+      switchView('routine');
+      setTimeout(() => {
+        const input = document.getElementById('custom-food-input');
+        if (input) {
+          input.focus();
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+      showToast('🍽️ Enter what you ate or tap a quick-pick!');
+    });
+  }
+
+  const qlWater = document.getElementById('ql-water');
+  if (qlWater) {
+    qlWater.addEventListener('click', () => {
+      state.consumedHydration += 250;
+      state.loggedHydrations.push({ ml: 250, timestamp: Date.now() });
+      saveState();
+      recordActivity('Quick: Water 250ml 💧', 10);
+      renderApp();
+      closeQuickLogModal();
+      showToast('💧 250ml water logged!');
+    });
+  }
+
+  document.querySelectorAll('.ql-fast-water').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ml = Number(btn.dataset.ml) || 250;
+      state.consumedHydration += ml;
+      state.loggedHydrations.push({ ml, timestamp: Date.now() });
+      saveState();
+      recordActivity(`Quick: Water ${ml}ml 💧`, 10);
+      renderApp();
+      closeQuickLogModal();
+      showToast(`💧 ${ml}ml water logged!`);
+    });
+  });
+
+  const qlWeight = document.getElementById('ql-weight');
+  if (qlWeight) {
+    qlWeight.addEventListener('click', () => {
+      closeQuickLogModal();
+      switchView('progress');
+      showToast('⚖️ Update your weight progress');
+    });
+  }
+
+  const qlWorkout = document.getElementById('ql-workout');
+  if (qlWorkout) {
+    qlWorkout.addEventListener('click', () => {
+      recordActivity('Completed Daily Workout 🏋️', 30);
+      saveState();
+      renderApp();
+      closeQuickLogModal();
+      showToast('🏋️ Workout logged! +30 XP');
+    });
+  }
+
+  const qlSupplement = document.getElementById('ql-supplement');
+  if (qlSupplement) {
+    qlSupplement.addEventListener('click', () => {
+      recordActivity('Vitamins & Supplements Taken 💊', 15);
+      saveState();
+      renderApp();
+      closeQuickLogModal();
+      showToast('💊 Supplements logged! +15 XP');
+    });
+  }
+
+  const qlTell = document.getElementById('ql-tell');
+  if (qlTell) {
+    qlTell.addEventListener('click', () => {
+      closeQuickLogModal();
+      switchView('coach');
+      setTimeout(() => {
+        const input = document.getElementById('coach-input');
+        if (input) input.focus();
+      }, 200);
+    });
+  }
+
+  const openLabsBtn = document.getElementById('open-labs-btn');
+  if (openLabsBtn) {
+    openLabsBtn.addEventListener('click', () => {
+      switchView('coach');
+      const pdfZone = document.getElementById('pdf-academy-interface');
+      if (pdfZone) {
+        pdfZone.style.display = 'flex';
+        pdfZone.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      showToast('📚 Opened Reliv Labs PDF Academy');
+    });
+  }
 
   // Hormonal checklist assessment logic
   document.addEventListener('change', (e) => {
@@ -1753,6 +1902,11 @@ function parseLocalFoodIntake(text) {
   if (els.installModalAction) els.installModalAction.addEventListener('click', () => handleInstallAction());
   if (els.closeInstallModal) els.closeInstallModal.addEventListener('click', () => closeInstallPrompt());
   if (els.dismissInstallModal) els.dismissInstallModal.addEventListener('click', () => closeInstallPrompt());
+  if (els.installModal) {
+    els.installModal.addEventListener('click', (e) => {
+      if (e.target === els.installModal) closeInstallPrompt();
+    });
+  }
   if (els.enableNotificationsButton) els.enableNotificationsButton.addEventListener('click', () => handleNotificationPermission(true));
   if (els.dismissNotificationsButton) els.dismissNotificationsButton.addEventListener('click', () => handleNotificationPermission(false));
   if (els.closeNotificationModal) els.closeNotificationModal.addEventListener('click', () => closeNotificationPrompt());
@@ -2004,12 +2158,125 @@ function updateActionButtons() {
 }
 
 function renderDashboard() {
-  els.xpValue.textContent = state.xp;
+  if (els.xpValue) els.xpValue.textContent = state.xp;
   const levelPill = document.getElementById('level-pill');
   if (levelPill) levelPill.textContent = `Level ${state.level}`;
-  els.levelValue.textContent = state.level;
-  els.streakValue.textContent = state.streak;
-  els.scoreValue.textContent = state.dailyScore;
+  if (els.levelValue) els.levelValue.textContent = state.level;
+  if (els.streakValue) els.streakValue.textContent = state.streak;
+  if (els.scoreValue) els.scoreValue.textContent = state.dailyScore;
+
+  // Update Today Greeting & Name
+  const heroNameEl = document.getElementById('hero-name');
+  if (heroNameEl) {
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    heroNameEl.textContent = `${state.profileName || 'Friend'} 👋`;
+    const heroTitleP = document.querySelector('.hero-title p');
+    if (heroTitleP) heroTitleP.textContent = greeting;
+  }
+
+  // Update Goal Track Box
+  const goalTitleEl = document.getElementById('today-goal-title');
+  const currentWeightEl = document.getElementById('today-current-weight-val');
+  const targetWeightEl = document.getElementById('today-target-weight-val');
+  const goalTrackFillEl = document.getElementById('today-goal-track-fill');
+  const goalEtaEl = document.getElementById('today-goal-eta');
+
+  if (goalTitleEl) {
+    const goalName = state.goalType === 'muscle' ? 'GAIN TO ' : state.goalType === 'lose' ? 'TARGET ' : 'REACH ';
+    const targetKg = state.targetWeight || 70;
+    goalTitleEl.textContent = `${goalName} ${targetKg} KG`;
+    if (currentWeightEl) currentWeightEl.textContent = `Current: ${state.weight || '--'} kg`;
+    if (targetWeightEl) targetWeightEl.textContent = `Target: ${targetKg} kg`;
+    if (goalTrackFillEl) {
+      const current = Number(state.weight) || 65;
+      const target = Number(targetKg);
+      let pct = 50;
+      if (state.goalType === 'muscle') {
+        const start = target - 5;
+        pct = Math.min(100, Math.max(10, Math.round(((current - start) / (target - start)) * 100)));
+      } else if (state.goalType === 'lose') {
+        const start = target + 5;
+        pct = Math.min(100, Math.max(10, Math.round(((start - current) / (start - target)) * 100)));
+      }
+      goalTrackFillEl.style.width = `${pct}%`;
+    }
+    if (goalEtaEl) {
+      goalEtaEl.textContent = 'Estimated: ~6–8 weeks';
+    }
+  }
+
+  // Next Up Priority Action Card
+  const nextCard = document.getElementById('today-next-card');
+  const nextIcon = document.getElementById('next-action-icon');
+  const nextTitle = document.getElementById('next-action-title');
+  const nextDesc = document.getElementById('next-action-desc');
+  const nextBtn = document.getElementById('next-action-btn');
+  if (nextCard && nextBtn) {
+    const hour = new Date().getHours();
+    if (state.consumedHydration < 250) {
+      if (nextIcon) nextIcon.textContent = '💧';
+      if (nextTitle) nextTitle.textContent = 'Morning Hydration';
+      if (nextDesc) nextDesc.textContent = 'Drink a 250ml glass of water to kickstart metabolism.';
+      nextBtn.textContent = 'Log 250ml Water';
+      nextBtn.onclick = () => {
+        state.consumedHydration += 250;
+        state.loggedHydrations.push({ ml: 250, timestamp: Date.now() });
+        saveState();
+        recordActivity('Morning Water 250ml 💧', 10);
+        renderApp();
+        showToast('💧 250ml water logged!');
+      };
+    } else if (state.consumedCalories < (state.targetCalories * 0.4) && hour < 14) {
+      if (nextIcon) nextIcon.textContent = '🍳';
+      if (nextTitle) nextTitle.textContent = 'Fuel Up: Lunch / Meal';
+      if (nextDesc) nextDesc.textContent = `You still need ~${Math.max(0, state.targetCalories - state.consumedCalories)} kcal for today's benchmark.`;
+      nextBtn.textContent = 'Log Meal';
+      nextBtn.onclick = () => openQuickLogModal();
+    } else if (state.consumedProtein < (state.targetProtein * 0.7)) {
+      if (nextIcon) nextIcon.textContent = '🥩';
+      if (nextTitle) nextTitle.textContent = 'Hit Protein Target';
+      if (nextDesc) nextDesc.textContent = `${state.consumedProtein} / ${state.targetProtein}g protein logged. Add a high-protein snack.`;
+      nextBtn.textContent = 'Log Protein';
+      nextBtn.onclick = () => openQuickLogModal();
+    } else {
+      if (nextIcon) nextIcon.textContent = '✨';
+      if (nextTitle) nextTitle.textContent = 'Daily Flow';
+      if (nextDesc) nextDesc.textContent = "You're on track! Check off your evening routine.";
+      nextBtn.textContent = 'View Plan';
+      nextBtn.onclick = () => switchView('routine');
+    }
+  }
+
+  // Today's Essentials Checklist
+  const essentialsList = document.getElementById('today-essentials-list');
+  const essentialsProg = document.getElementById('today-essentials-progress');
+  if (essentialsList) {
+    const waterDone = state.consumedHydration >= 250;
+    const mealDone = state.loggedFoods.length > 0;
+    const proDone = state.consumedProtein >= (state.targetProtein * 0.5);
+    const routineDone = (state.routineProgress || 0) > 0;
+
+    const items = [
+      { id: 'water', label: 'Morning Hydration (250ml)', done: waterDone, icon: '💧' },
+      { id: 'meal', label: 'Balanced Nutrition Check', done: mealDone, icon: '🍳' },
+      { id: 'protein', label: `Hit Protein Benchmark (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' },
+      { id: 'routine', label: 'Daily Transformation Routine', done: routineDone, icon: '🧘' }
+    ];
+
+    const completed = items.filter(i => i.done).length;
+    if (essentialsProg) essentialsProg.textContent = `${completed} / ${items.length} done`;
+
+    essentialsList.innerHTML = items.map(item => `
+      <div class="today-essential-item ${item.done ? 'done' : ''}" onclick="handleEssentialClick('${item.id}')">
+        <div class="today-essential-left">
+          <span style="font-size:1.1rem;">${item.icon}</span>
+          <span style="font-size:0.85rem; font-weight:600; color:var(--text);">${item.label}</span>
+        </div>
+        <div class="today-essential-check">${item.done ? '✓' : ''}</div>
+      </div>
+    `).join('');
+  }
 
   if (els.calBar && els.proBar) {
     const calPercent = Math.min(100, Math.round((state.consumedCalories / state.targetCalories) * 100)) || 0;
@@ -5232,26 +5499,31 @@ function registerInstallPrompt() {
 function showInstallPrompt() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   if (installPrompt) {
-    installPrompt.prompt();
-    installPrompt.userChoice.then((choiceResult) => {
-      if (choiceResult.outcome === 'accepted') {
-        console.log('[PWA] User accepted install prompt');
-        installPrompt = null;
-        updateActionButtons();
-      }
-    });
+    try {
+      const p = installPrompt.prompt();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (err) {}
+    if (installPrompt.userChoice) {
+      installPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult && choiceResult.outcome === 'accepted') {
+          console.log('[PWA] User accepted install prompt');
+          installPrompt = null;
+          updateActionButtons();
+        }
+      }).catch(() => {});
+    }
     return;
   }
   
-  if (isIOS) {
-    if (els.installModal) {
-      if (els.installModalTitle) els.installModalTitle.textContent = 'Add to Home Screen';
-      if (els.installModalCopy) els.installModalCopy.textContent = 'Tap the Share button and choose Add to Home Screen to install Relix on your iPhone.';
-      if (els.installModalAction) els.installModalAction.textContent = 'Got it';
-      els.installModal.style.display = 'flex';
-      els.installModal.classList.add('open');
-      els.installModal.setAttribute('aria-hidden', 'false');
-    }
+  if (els.installModal) {
+    if (els.installModalTitle) els.installModalTitle.textContent = isIOS ? 'Add to Home Screen' : 'Install Reliv';
+    if (els.installModalCopy) els.installModalCopy.textContent = isIOS 
+      ? 'Tap the Share button and choose Add to Home Screen to install Reliv on your iPhone.'
+      : 'Add Reliv to your home screen for a faster, full-screen experience.';
+    if (els.installModalAction) els.installModalAction.textContent = isIOS ? 'Got it' : 'Install';
+    els.installModal.style.display = 'flex';
+    els.installModal.classList.add('open');
+    els.installModal.setAttribute('aria-hidden', 'false');
   } else {
     showToast('💡 Open your browser menu and select "Install" or "Add to Home screen" to install.');
   }
@@ -5259,13 +5531,18 @@ function showInstallPrompt() {
 
 function closeInstallPrompt() {
   if (!els.installModal) return;
+  els.installModal.style.display = 'none';
   els.installModal.classList.remove('open');
   els.installModal.setAttribute('aria-hidden', 'true');
 }
 
 function handleInstallAction() {
   if (installPrompt) {
-    installPrompt.prompt();
+    try {
+      const p = installPrompt.prompt();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (err) {}
+    closeInstallPrompt();
     return;
   }
   showToast('Open your browser menu and select "Install" or "Add to Home screen" to install.');
@@ -7282,31 +7559,33 @@ function generateRelivSvgCard() {
 }
 
 function shareRelivCard() {
-  const svgText = generateRelivSvgCard();
-  const shareText = `🔥 I'm on day ${state.streak || 0} of my health streak on Reliv! Track routines & hit goals: ${window.location.origin}`;
+  const shareData = {
+    title: 'Reliv - Daily Wellness Companion',
+    text: `🔥 I'm on day ${state.streak || 0} of my health streak on Reliv! Track routines & hit goals:`,
+    url: window.location.origin
+  };
+
+  const copyToClipboard = () => {
+    const fullText = `${shareData.text} ${shareData.url}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullText).then(() => {
+        showToast('📋 Share link copied to clipboard!');
+      }).catch(() => {
+        showToast('Link: ' + window.location.origin);
+      });
+    } else {
+      showToast('Link: ' + window.location.origin);
+    }
+  };
 
   if (navigator.share) {
-    try {
-      const blob = new Blob([svgText], { type: 'image/svg+xml' });
-      const file = new File([blob], 'reliv-progress.svg', { type: 'image/svg+xml' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({
-          title: 'Reliv Companion',
-          text: shareText,
-          files: [file]
-        }).catch(() => {});
-        return;
+    navigator.share(shareData).catch((err) => {
+      if (err.name !== 'AbortError') {
+        copyToClipboard();
       }
-    } catch(e) {}
-
-    navigator.share({
-      title: 'Reliv Companion',
-      text: shareText,
-      url: window.location.origin
-    }).catch(() => {});
+    });
   } else {
-    navigator.clipboard.writeText(shareText);
-    showToast('📋 Share link copied to clipboard!');
+    copyToClipboard();
   }
 }
 

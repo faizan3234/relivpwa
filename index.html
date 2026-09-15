@@ -78,16 +78,16 @@
     <div class="app-shell">
       <header class="top-bar">
         <div class="brand">
-          <img src="icons/icon-192.svg" alt="Reliv brand mark" style="width:36px; height:36px; border-radius:10px;" />
+          <img src="icons/icon-192.svg" alt="Reliv brand mark" style="width:34px; height:34px; border-radius:10px;" />
           <div>
-            <strong>Reliv Companion</strong>
-            <span>Premium wellness companion</span>
+            <strong>Reliv</strong>
+            <span style="font-size:0.7rem; color:var(--muted);">Wellness Companion</span>
           </div>
         </div>
         <div class="top-bar-actions">
-          <span id="connection-status" class="status-badge online" style="font-size:0.75rem; padding:4px 8px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:4px; border:1px solid var(--border); background:rgba(34,197,94,0.1); color:#22c55e;"><span class="dot" style="width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block;"></span>Online</span>
-          <div class="top-bar-badge" id="unread-badge">0</div>
-          <button id="install-button" class="install-button" type="button" aria-label="Install app" style="font-size: 0.72rem; font-weight: 700; background: var(--primary); color: white; border: none; padding: 6px 10px; border-radius: 10px; box-shadow: 0 2px 8px rgba(255, 122, 0, 0.2); align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s; white-space: nowrap; margin-right: 4px;">📥 Download App</button>
+          <span id="connection-status" class="status-badge online" style="display:none;"><span class="dot"></span>Online</span>
+          <div class="top-bar-badge" id="unread-badge" style="display:none;">0</div>
+          <button id="install-button" class="install-button" type="button" aria-label="Install app" style="display:none;">📥 Download App</button>
           <button class="icon-btn" id="theme-toggle-icon" type="button" aria-label="Toggle theme">🌙</button>
         </div>
       </header>
@@ -115,21 +115,41 @@
         <div class="hero-card">
           <div class="hero-head">
             <div class="hero-title">
-              <p>Good morning</p>
+              <p style="margin:0; font-size:0.85rem; color:var(--muted);">Welcome back</p>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <h1 id="hero-name" style="margin: 0;">Your Name</h1>
-                <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="font-size: 1.2rem;">↻</button>
+                <h1 id="hero-name" style="margin: 0; font-size:1.45rem;">Your Name 👋</h1>
+                <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="font-size: 1.1rem; opacity:0.6;">↻</button>
               </div>
             </div>
             <div class="hero-meta">
-              <span class="pill" id="level-pill">Level 1</span>
+              <span class="pill" id="level-pill" style="font-size:0.75rem;">Level 1</span>
             </div>
           </div>
-          <div class="hero-stats">
-            <div class="stat-chip"><strong id="xp-value">0</strong><span>XP earned</span></div>
-            <div class="stat-chip"><strong id="streak-value">0</strong><span>Daily streak</span></div>
-            <div class="stat-chip"><strong id="level-value">1</strong><span>Current level</span></div>
+
+          <!-- Goal Progress Tracker Strip -->
+          <div class="today-goal-box" id="today-goal-box">
+            <div class="today-goal-labels">
+              <strong id="today-goal-title">TARGET GOAL</strong>
+              <span id="today-goal-eta">Estimated: ~6 weeks</span>
+            </div>
+            <div class="today-goal-track-wrap">
+              <div class="today-goal-track-bar">
+                <span id="today-goal-track-fill" style="width: 45%;"></span>
+              </div>
+              <div class="today-goal-endpoints">
+                <span id="today-current-weight-val">Current: --</span>
+                <span id="today-target-weight-val">Target: --</span>
+              </div>
+            </div>
           </div>
+
+          <div class="hero-stats" style="margin-top:12px;">
+            <div class="stat-chip"><strong id="streak-value">0</strong><span>Daily streak 🔥</span></div>
+            <div class="stat-chip"><strong id="score-value">0</strong><span>Today's score</span></div>
+            <div class="stat-chip"><strong id="xp-value">0</strong><span>XP earned</span></div>
+            <span id="level-value" style="display:none;">1</span>
+          </div>
+
           <div id="streak-restore-banner" style="display:none; align-items:center; justify-content:space-between; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); padding:12px 16px; border-radius:18px; margin-top:14px;">
             <span style="font-size:0.85rem; color:#ef4444; font-weight:600;">⚠️ Streak lost! benchmark not met.</span>
             <button id="restore-streak-btn" class="primary-btn" type="button" style="padding:6px 12px; font-size:0.8rem; background:#ef4444; border:none; box-shadow:none; margin:0;">Restore</button>
@@ -141,186 +161,170 @@
               <div class="streak-break-emoji">💔</div>
               <h2 class="streak-break-title" id="streak-break-title">Your streak broke</h2>
               <p class="streak-break-subtitle" id="streak-break-subtitle"></p>
-
               <div class="streak-break-quote" id="streak-break-quote">
                 This money will be refunded when you complete your target. We're only holding it so you stay consistent. Don't let those days of hard work die.
               </div>
-
               <div class="streak-break-price" id="streak-break-price">₹5</div>
               <p class="streak-break-price-label">Commitment deposit — fully refundable on target completion</p>
-
               <label class="streak-break-consent" id="streak-break-consent-label">
                 <input type="checkbox" id="streak-break-consent" />
                 <span>I understand this is a refundable commitment deposit to help me stay consistent</span>
               </label>
-
-              <button id="streak-break-pay-btn" class="streak-break-pay-btn" type="button" disabled>
-                Restore My Streak
-              </button>
-
-              <button id="streak-break-dismiss" class="streak-break-dismiss" type="button">
-                I'll start fresh — reset to Day 0
-              </button>
-
-              <p class="streak-break-terms">
-                💡 This amount escalates with your streak length (Day 5 = ₹5, Day 10 = ₹10, max ₹25). Your deposit is returned when you hit your target. Need help? Contact support.
-              </p>
+              <button id="streak-break-pay-btn" class="streak-break-pay-btn" type="button" disabled>Restore My Streak</button>
+              <button id="streak-break-dismiss" class="streak-break-dismiss" type="button">I'll start fresh — reset to Day 0</button>
+              <p class="streak-break-terms">💡 This amount escalates with your streak length. Returned when you hit your target.</p>
             </div>
           </div>
+        </div>
 
-          <div id="daily-mission-container" style="margin-top: 14px;"></div>
-
-          <!-- WhatsApp Streak Challenge / Referral -->
-          <div class="card" style="padding:14px 18px; margin-top:14px; display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg, rgba(37,211,102,0.08), rgba(18,140,126,0.08)); border:1px solid rgba(37,211,102,0.25); border-radius:18px;">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <span style="font-size:1.6rem;">🔥</span>
-              <div>
-                <strong style="font-size:0.88rem; display:block; color:var(--text);">Challenge a Friend</strong>
-                <span style="font-size:0.75rem; color:var(--muted);">Friends who track together stay consistent 3x longer</span>
-              </div>
+        <!-- Next Up Priority Action Card -->
+        <div class="today-next-card" id="today-next-card">
+          <div class="next-card-badge">NEXT UP</div>
+          <div class="next-card-content">
+            <div class="next-card-icon" id="next-action-icon">💧</div>
+            <div>
+              <strong id="next-action-title">Morning Hydration</strong>
+              <p id="next-action-desc">Drink a 250ml glass of water to kickstart metabolism.</p>
             </div>
-            <button id="whatsapp-challenge-btn" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.8rem; background:#25D366; border:none; box-shadow:none; border-radius:12px; font-weight:600; white-space:nowrap;">Share 📲</button>
           </div>
+          <button id="next-action-btn" class="primary-btn" type="button">Log 250ml water</button>
+        </div>
 
-          <div class="rings-row">
-            <div class="ring-card">
-              <strong>Today’s score</strong>
-              <div class="ring-visual"></div>
-              <div class="ring-copy">
-                <strong id="score-value">0</strong>
-                <span>Consistency is your superpower.</span>
-              </div>
+        <!-- Today's Essentials Checklist -->
+        <div class="card today-essentials-card" style="margin-top:14px; padding:18px;">
+          <div class="hero-head" style="margin-bottom:12px;">
+            <div class="hero-title">
+              <p style="margin:0; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Today's Essentials</p>
+              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Daily Habit Loop</h3>
             </div>
-            <div id="nutrition-overview-card" class="ring-card" style="display:flex; flex-direction:column; gap:8px;">
-              <strong>Daily Overview</strong>
-              <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
-                <span style="font-size:0.9rem;">Calories</span>
-                <span id="cal-text" style="font-size:0.8rem; color:var(--muted);">0 / 2800 kcal</span>
+            <span class="pill" id="today-essentials-progress">0 / 4 done</span>
+          </div>
+          <div id="today-essentials-list" class="today-essentials-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Compact Nutrition & Water Summary -->
+        <div class="card today-metrics-card" style="margin-top:14px; padding:18px;">
+          <div class="hero-head" style="margin-bottom:12px; align-items:center;">
+            <div class="hero-title">
+              <p style="margin:0; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Nutrition & Hydration</p>
+              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Daily Balance</h3>
+            </div>
+            <button id="today-open-log-btn" class="ghost-btn" type="button" style="font-size:0.78rem; padding:4px 10px; border:1px solid var(--border); border-radius:10px;">+ Quick Log</button>
+          </div>
+          <div class="today-macro-bars">
+            <div class="today-macro-item">
+              <div class="macro-label-row">
+                <span>Calories</span>
+                <strong id="cal-text">0 / 2800 kcal</strong>
               </div>
               <div class="progress-track"><span id="cal-bar" style="width:0%"></span></div>
-              
-              <div style="display:flex; justify-content:space-between; margin-top:8px; margin-bottom:-4px;">
-                <span style="font-size:0.9rem;">Protein</span>
-                <span id="pro-text" style="font-size:0.8rem; color:var(--muted);">0 / 140g</span>
+            </div>
+            <div class="today-macro-item">
+              <div class="macro-label-row">
+                <span>Protein</span>
+                <strong id="pro-text">0 / 140g</strong>
               </div>
               <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
- 
-              <div style="display:flex; justify-content:space-between; margin-top:8px; gap:4px;">
-                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="100" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+100 kcal</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="500" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+500 kcal</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="10" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+10g Pro</button>
-                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="25" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+25g Pro</button>
+            </div>
+            <div class="today-macro-item">
+              <div class="macro-label-row">
+                <span>Hydration</span>
+                <strong id="hydration-text">0 / 3500 ml</strong>
               </div>
+              <div class="progress-track"><span id="hydration-bar" style="background:#2196F3; width:0%"></span></div>
+            </div>
+          </div>
+        </div>
 
-              <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
-                <strong>Quick-Pick Log</strong>
+        <!-- Progressive Disclosure: Detailed Food & Hydration Logging Details -->
+        <details style="margin-top:14px; background:rgba(255,255,255,0.01); border:1px dashed var(--border); border-radius:14px; padding:12px;">
+          <summary style="font-size:0.8rem; font-weight:600; color:var(--muted); cursor:pointer;">🔍 Detailed Food & Hydration Controls</summary>
+          <div style="margin-top:12px; display:flex; flex-direction:column; gap:14px;">
+            
+            <div id="nutrition-overview-card" style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong>Quick-Pick Foods & Increments</strong>
                 <div style="display:flex; gap:6px;">
                   <button id="undo-log-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
                   <button id="reset-daily-progress" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset Daily</button>
                 </div>
               </div>
-              <div id="last-logged-food-status" style="font-size:0.82rem; color:var(--muted); margin-top:-6px; margin-bottom:8px; font-style:italic; display:none;">Last Logged: None</div>
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍛</span>Dal Chawal</button>
-                <button class="ghost-btn quick-pick-btn" data-food="burger" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍔</span>Burger</button>
-                <button class="ghost-btn quick-pick-btn" data-food="coffee" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">☕</span>Coffee</button>
-                <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍪</span>Chai & Biscuit</button>
+              <div style="display:flex; justify-content:space-between; gap:4px;">
+                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="100" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+100 kcal</button>
+                <button class="ghost-btn adjust-macro-btn" data-type="cal" data-val="500" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+500 kcal</button>
+                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="10" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+10g Pro</button>
+                <button class="ghost-btn adjust-macro-btn" data-type="pro" data-val="25" type="button" style="font-size:0.75rem; padding:4px 6px; flex:1; border:1px solid var(--border);">+25g Pro</button>
               </div>
- 
-              <form id="custom-food-form" style="display:flex; gap:8px; margin-top:8px;">
+              <div id="last-logged-food-status" style="font-size:0.82rem; color:var(--muted); font-style:italic; display:none;">Last Logged: None</div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <button class="ghost-btn quick-pick-btn" data-food="dal" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍛</span>Dal Chawal</button>
+                <button class="ghost-btn quick-pick-btn" data-food="burger" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍔</span>Burger</button>
+                <button class="ghost-btn quick-pick-btn" data-food="coffee" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">☕</span>Coffee</button>
+                <button class="ghost-btn quick-pick-btn" data-food="chai" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍪</span>Chai & Biscuit</button>
+              </div>
+              <form id="custom-food-form" style="display:flex; gap:8px; margin-top:4px;">
                 <input type="text" id="custom-food-input" placeholder="Or type e.g. 1 slice of pizza..." aria-label="Custom food" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" required />
                 <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
               </form>
             </div>
 
-            <div id="skincare-overview-card" class="ring-card" style="display:none; flex-direction:column; gap:8px;">
-              <strong>Daily Hydration</strong>
-              <div style="display:flex; justify-content:space-between; margin-bottom:-4px;">
-                <span style="font-size:0.9rem;">Water Intake</span>
-                <span id="hydration-text" style="font-size:0.8rem; color:var(--muted);">0 / 3500 ml</span>
+            <!-- Hydration Manual Controls -->
+            <div id="skincare-overview-card" style="display:none; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong>Hydration Controls</strong>
+                <button id="undo-hydration-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
               </div>
-              <div class="progress-track"><span id="hydration-bar" style="width:0%; background:#2196F3;"></span></div>
-
-              <div style="display:flex; justify-content:space-between; margin-top:12px; align-items: center;">
-                <strong>Quick Hydration Log</strong>
-                <div style="display:flex; gap:6px;">
-                  <button id="undo-hydration-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border); display:none;">Undo Last</button>
-                  <button id="reset-hydration" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.8rem; border:1px solid var(--border);">Reset</button>
-                </div>
-              </div>
-              <div id="last-logged-hydration-status" style="font-size:0.82rem; color:var(--muted); margin-top:-6px; margin-bottom:8px; font-style:italic; display:none;">Last Logged: None</div>
+              <div id="last-logged-hydration-status" style="font-size:0.82rem; color:var(--muted); font-style:italic; display:none;">Last Logged: None</div>
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="ghost-btn log-hydration-btn" data-ml="250" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🥛</span>250 ml glass</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="500" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🥤</span>500 ml bottle</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">💧</span>1000 ml bottle</button>
-                <button class="ghost-btn log-hydration-btn" data-ml="150" type="button" style="font-size:0.9rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.5rem;">🍵</span>150 ml green tea</button>
+                <button class="ghost-btn log-hydration-btn" data-ml="250" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🥛</span>250 ml glass</button>
+                <button class="ghost-btn log-hydration-btn" data-ml="500" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🥤</span>500 ml bottle</button>
+                <button class="ghost-btn log-hydration-btn" data-ml="1000" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">💧</span>1000 ml bottle</button>
+                <button class="ghost-btn log-hydration-btn" data-ml="150" type="button" style="font-size:0.85rem; padding:8px; display:flex; flex-direction:column; gap:4px; align-items:center;"><span style="font-size:1.4rem;">🍵</span>150 ml green tea</button>
               </div>
-
-              <form id="custom-hydration-form" style="display:flex; gap:8px; margin-top:8px;">
+              <form id="custom-hydration-form" style="display:flex; gap:8px; margin-top:4px;">
                 <input type="number" id="custom-hydration-input" placeholder="Or enter specific ml..." aria-label="Custom hydration" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background: var(--card); color: var(--text);" min="1" max="5000" required />
                 <button type="submit" class="primary-btn" style="padding:8px 16px;">Log</button>
               </form>
             </div>
+
           </div>
-          <!-- Custom Habits (Dynamic AI Routines) -->
-          <div id="custom-habits-card" class="card" style="display:none; margin-top: 18px;">
-            <div class="hero-head" style="margin-bottom: 10px;">
-              <div class="hero-title">
-                <p>AI Detected</p>
-                <h3>Custom Routine</h3>
-              </div>
-            </div>
-            <div id="custom-habits-list" style="display:flex; flex-direction:column; gap:10px;">
-              <!-- Populated by app.js -->
+        </details>
+
+        <!-- Custom Habits (Dynamic AI Routines) -->
+        <div id="custom-habits-card" class="card" style="display:none; margin-top: 14px;">
+          <div class="hero-head" style="margin-bottom: 10px;">
+            <div class="hero-title">
+              <p>AI Detected</p>
+              <h3>Custom Routine</h3>
             </div>
           </div>
+          <div id="custom-habits-list" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
 
         <!-- Hitting Your Targets (Close the Gap) -->
-        <div id="close-the-gap-card" class="card" style="margin-top: 18px;">
+        <div id="close-the-gap-card" class="card" style="margin-top: 14px;">
           <div class="hero-head" style="margin-bottom: 10px;">
             <div class="hero-title">
               <p>Close the gap</p>
               <h3>Target Suggestions</h3>
             </div>
           </div>
-          <div id="gap-analytics" style="display:flex; flex-direction:column; gap:10px;">
-            <!-- Dynamically populated by app.js -->
-          </div>
+          <div id="gap-analytics" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
 
-        <div class="card reminder-panel" style="margin-top: 18px;">
+        <div class="card reminder-panel" style="margin-top: 14px;">
           <div class="hero-head">
             <div class="hero-title">
               <p>Gentle nudges</p>
               <h3>Daily check-ins</h3>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom: 8px;">
-              <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3; font-size:0.8rem; padding:8px;">▶ 45m Water</button>
-              <button id="server-water-stop" class="ghost-btn" type="button" style="font-size:0.8rem; padding:8px;">⏹ Stop Water</button>
-            </div>
-            
-            <div style="background: var(--card); padding: 8px; border-radius: 8px; border: 1px dashed var(--border); margin-bottom: 8px; width: 100%;">
-              <strong style="font-size: 0.8rem; color: var(--muted); display:block; margin-bottom: 4px;">Push Notification Sync</strong>
-              <div style="display:flex; gap: 8px;">
-                <button id="debug-push-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:4px 8px; flex:1;">System Status</button>
-                <button id="force-resub-btn" class="primary-btn" type="button" style="font-size:0.75rem; padding:4px 8px; flex:1; background: #9c27b0;">Force Resubscribe</button>
-              </div>
-            </div>
           </div>
           <div id="reminder-list" class="reminder-list"></div>
         </div>
 
-        <div class="quote-card" style="margin-bottom: 24px;">
-          <strong>Motivational quote</strong>
-          <p>“Small, repeatable actions build a life that feels calm and strong.”</p>
-          <div class="ring-copy">
-            <strong>Next reminder</strong>
-            <span id="reminder-value">Hydration check-in · 3:30 PM</span>
-          </div>
-        </div>
-
-        <div class="activity-card">
+        <div class="activity-card" style="margin-top: 14px;">
           <strong>Recent activity</strong>
           <ul id="recent-list"></ul>
         </div>
@@ -596,9 +600,23 @@
             <div class="setting-row"><span>Dark mode</span><label class="switch"><input id="dark-toggle" type="checkbox" /><span></span></label></div>
             <div class="setting-row"><span>Notifications</span><div style="display:flex; gap:8px; align-items:center;"><label class="switch"><input id="notify-toggle" type="checkbox" checked /><span></span></label><button id="settings-enable-alerts" class="ghost-btn" type="button">Allow alerts</button></div></div>
             <div class="setting-row"><span>Install app</span><button id="settings-install-button" class="ghost-btn install-action-btn" type="button">Install</button></div>
-            <div class="setting-row"><span>Language</span><select id="language-select"><option>English</option><option>Español</option><option>Français</option></select></div>
+            <div class="setting-row"><span>Reliv Labs</span><button id="open-labs-btn" class="ghost-btn" type="button" style="border:1px solid var(--border); color:var(--primary);">📚 PDF Academy</button></div>
             <div class="setting-row"><span>Export data</span><button id="export-data" class="ghost-btn" type="button">Export</button></div>
             <div class="setting-row"><span>Delete data</span><button id="delete-data" class="ghost-btn" type="button">Forget me</button></div>
+
+            <details style="margin-top:14px; background:rgba(255,255,255,0.02); border:1px dashed var(--border); border-radius:14px; padding:12px;">
+              <summary style="font-size:0.8rem; font-weight:700; color:var(--muted); cursor:pointer;">🛠️ Developer Diagnostics</summary>
+              <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                  <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3; font-size:0.75rem; padding:6px;">▶ 45m Water</button>
+                  <button id="server-water-stop" class="ghost-btn" type="button" style="font-size:0.75rem; padding:6px;">⏹ Stop Water</button>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button id="debug-push-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:6px; flex:1;">System Status</button>
+                  <button id="force-resub-btn" class="primary-btn" type="button" style="font-size:0.75rem; padding:6px; flex:1; background: #9c27b0;">Force Resubscribe</button>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       </section>
@@ -860,13 +878,69 @@
     </div>
 
     <nav class="bottom-nav" aria-label="Bottom navigation">
-      <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Dashboard</span></button>
+      <button class="nav-pill active" data-tab="dashboard" type="button">🏠<span>Today</span></button>
+      <button class="nav-pill" data-tab="routine" type="button">✓<span>Plan</span></button>
+      <button class="nav-fab" id="fab-quick-log" type="button" aria-label="Quick Log"><span>+</span></button>
+      <button class="nav-pill" data-tab="coach" type="button">✦<span>AI</span></button>
       <button class="nav-pill" data-tab="progress" type="button">📈<span>Progress</span></button>
-      <button class="nav-pill" data-tab="routine" type="button">🧘<span>Routine</span></button>
-      <button class="nav-pill" data-tab="natural" type="button">🍃<span>Natural</span></button>
-      <button class="nav-pill" data-tab="coach" type="button">🤖<span>Coach</span></button>
-      <button class="nav-pill" data-tab="profile" type="button">👤<span>Profile</span></button>
+      <button class="nav-pill" data-tab="profile" type="button">👤<span>Me</span></button>
     </nav>
+
+    <!-- Floating Action Quick-Log Modal -->
+    <div id="quick-log-modal" class="modal-overlay quick-log-overlay" aria-hidden="true" style="display:none; z-index:1000;">
+      <div class="quick-log-card">
+        <div class="quick-log-header">
+          <div>
+            <h3 style="margin:0; font-size:1.15rem; color:var(--text);">Quick Log</h3>
+            <span style="font-size:0.75rem; color:var(--muted);">What would you like to record?</span>
+          </div>
+          <button id="close-quick-log" class="icon-btn" type="button" aria-label="Close">✕</button>
+        </div>
+
+        <div class="quick-log-grid">
+          <button class="quick-log-item" id="ql-meal" type="button">
+            <span class="ql-icon">🍽️</span>
+            <strong class="ql-title">Meal</strong>
+            <span class="ql-sub">Track food</span>
+          </button>
+          <button class="quick-log-item" id="ql-water" type="button">
+            <span class="ql-icon">💧</span>
+            <strong class="ql-title">Water</strong>
+            <span class="ql-sub">+250ml / +500ml</span>
+          </button>
+          <button class="quick-log-item" id="ql-weight" type="button">
+            <span class="ql-icon">⚖️</span>
+            <strong class="ql-title">Weight</strong>
+            <span class="ql-sub">Check-in</span>
+          </button>
+          <button class="quick-log-item" id="ql-workout" type="button">
+            <span class="ql-icon">🏋️</span>
+            <strong class="ql-title">Workout</strong>
+            <span class="ql-sub">Activity</span>
+          </button>
+          <button class="quick-log-item" id="ql-supplement" type="button">
+            <span class="ql-icon">💊</span>
+            <strong class="ql-title">Vitamins</strong>
+            <span class="ql-sub">Daily dose</span>
+          </button>
+          <button class="quick-log-item" id="ql-tell" type="button">
+            <span class="ql-icon">🎙️</span>
+            <strong class="ql-title">Tell Reliv</strong>
+            <span class="ql-sub">Voice log</span>
+          </button>
+        </div>
+
+        <!-- 1-Tap Instant Water -->
+        <div style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
+          <strong style="font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Instant 1-Tap Hydration:</strong>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost-btn ql-fast-water" data-ml="250" type="button" style="flex:1; padding:8px; font-size:0.82rem; border-radius:10px;">+250 ml 🥛</button>
+            <button class="ghost-btn ql-fast-water" data-ml="500" type="button" style="flex:1; padding:8px; font-size:0.82rem; border-radius:10px;">+500 ml 🥤</button>
+            <button class="ghost-btn ql-fast-water" data-ml="1000" type="button" style="flex:1; padding:8px; font-size:0.82rem; border-radius:10px;">+1000 ml 💧</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div id="why-modal" class="modal-overlay" aria-hidden="true">
       <div class="modal-card">
