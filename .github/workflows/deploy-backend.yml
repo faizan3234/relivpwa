@@ -13,39 +13,62 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - name: Deploy backend to Oracle
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.ORACLE_HOST }}
-          username: ${{ secrets.ORACLE_USER }}
-          key: ${{ secrets.ORACLE_SSH_KEY }}
-          script_stop: true
-          script: |
-            set -e
+      - name: Prepare SSH key
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/oracle_key
+          chmod 600 ~/.ssh/oracle_key
 
-            echo "=== Going to Reliv repo ==="
-            cd /home/ubuntu/relivpwa
+      - name: Trust Oracle server
+        shell: bash
+        run: |
+          ssh-keyscan -H "${{ secrets.ORACLE_HOST }}" >> ~/.ssh/known_hosts
 
-            echo "=== Pulling latest main ==="
-            git fetch origin main
-            git checkout main
-            git pull --ff-only origin main
+      - name: Deploy backend
+        shell: bash
+        run: |
+          ssh \
+            -i ~/.ssh/oracle_key \
+            -o IdentitiesOnly=yes \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}" << 'EOF'
 
-            echo "=== Installing backend dependencies ==="
-            cd backend
-            npm ci --omit=dev
+          set -e
 
-            echo "=== Restarting backend ==="
-            pm2 restart relivpwa-backend --update-env
-            pm2 save
+          echo "================================"
+          echo "Reliv Backend Auto Deployment"
+          echo "================================"
 
-            echo "=== Waiting for backend ==="
-            sleep 3
+          cd /home/ubuntu/relivpwa
 
-            echo "=== Health check ==="
-            curl -fsS http://127.0.0.1:4000/health
+          echo "Fetching latest code..."
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
 
-            echo ""
-            echo "=== Deployment successful ==="
+          echo "Installing backend dependencies..."
+          cd backend
+          npm install --omit=dev
+
+          echo "Checking JavaScript syntax..."
+          node --check server.js
+
+          echo "Restarting backend..."
+          pm2 restart relivpwa-backend --update-env
+          pm2 save
+
+          echo "Waiting for backend..."
+          sleep 4
+
+          echo "Running health check..."
+          curl -fsS http://127.0.0.1:4000/health
+
+          echo ""
+          echo "================================"
+          echo "DEPLOYMENT SUCCESSFUL"
+          echo "================================"
+
+          EOF
