@@ -40,7 +40,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   // Don't cache API calls
-  if (event.request.url.includes('/api/')) return;
+  if (event.request.url.includes('/api/') || event.request.url.includes('/oracle-api/')) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {

@@ -5,6 +5,24 @@ const path = require('path');
 const PORT = 8000;
 
 http.createServer((req, res) => {
+  // Proxy /oracle-api to Oracle Cloud server (matches Netlify redirect)
+  if (req.url.startsWith('/oracle-api/')) {
+    const targetPath = req.url.replace(/^\/oracle-api/, '');
+    const proxyReq = http.request(`http://161.118.169.29:4000${targetPath}`, {
+      method: req.method,
+      headers: { ...req.headers, host: '161.118.169.29:4000' }
+    }, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    });
+    proxyReq.on('error', (err) => {
+      res.writeHead(502, { 'Content-Type': 'text/plain' });
+      res.end('Proxy error: ' + err.message);
+    });
+    req.pipe(proxyReq, { end: true });
+    return;
+  }
+
   // Parse URL to prevent directory traversal
   let safeUrl = req.url.split('?')[0];
   let filePath = path.join(__dirname, safeUrl);
