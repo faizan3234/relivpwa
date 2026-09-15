@@ -25,17 +25,23 @@ html {
   margin: 0;
   padding: 0;
   min-height: 100%;
+  height: 100%;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   touch-action: manipulation;
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
 }
 body {
   margin: 0;
   padding: clamp(10px, 2.5vw, 20px) 0 calc(96px + env(safe-area-inset-bottom, 0px));
   min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -43,13 +49,16 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent !important;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   touch-action: manipulation;
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
 }
 body::before {
   content: '';
@@ -336,24 +345,24 @@ body.strict-phone-frame .bottom-nav {
 
 
 /* ==========================================================================
-   TEXT SELECTION LOCK
-   Selection is off everywhere so long-press on a phone opens the app, not the
-   native "Copy / Share / Look Up" bubble. Inputs stay selectable because you
-   cannot type in a field you cannot put a cursor in - turning selection off
-   there would break every form in the app.
+   APP BEHAVIOR: TOTAL TEXT SELECTION & CALLOUT BUBBLE LOCK (NO COPY)
+   Native app feel: prevents all dragging, text highlight bars, and native
+   iOS/Android copy/lookup bubbles everywhere except real text input fields.
    ========================================================================== */
-body {
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+*, *::before, *::after {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
 }
 
-input, textarea, select, [contenteditable="true"] {
-  -webkit-user-select: text;
-  -ms-user-select: text;
-  user-select: text;
-  -webkit-touch-callout: default;
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
 }
 
 /* ==========================================================================

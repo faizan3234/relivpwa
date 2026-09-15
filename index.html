@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=10" />
     <script>
       // Runs before the body paints so a desktop visitor never sees a flash of
       // the phone UI behind the gate. Kept inline and tiny on purpose.
@@ -51,6 +51,49 @@
 
         window.RELIV_IS_PHONE = allowed;
         if (!allowed) document.documentElement.classList.add('reliv-desktop');
+
+        // ======================================================================
+        // 100% NATIVE APP BEHAVIOR: BLOCK ALL VIEWPORT ZOOMING, MINIMIZING & COPY
+        // ======================================================================
+        // Block multi-touch pinch zoom
+        document.addEventListener('touchstart', function (e) {
+          if (e.touches && e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
+
+        // Block iOS WebKit gesture scaling
+        document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+        document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+        document.addEventListener('gestureend', function (e) { e.preventDefault(); });
+
+        // Block double-tap to zoom
+        var lastTouchTime = 0;
+        document.addEventListener('touchend', function (e) {
+          var now = Date.now();
+          if (now - lastTouchTime <= 300) e.preventDefault();
+          lastTouchTime = now;
+        }, { passive: false });
+
+        // Block Ctrl/Cmd + wheel pinch zoom
+        document.addEventListener('wheel', function (e) {
+          if (e.ctrlKey) e.preventDefault();
+        }, { passive: false });
+
+        // Block keyboard zoom shortcuts
+        document.addEventListener('keydown', function (e) {
+          if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
+            e.preventDefault();
+          }
+        });
+
+        // Block context menu / copy callout bubble everywhere except text inputs
+        document.addEventListener('contextmenu', function (e) {
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
+        });
+
+        // Block drag text selection everywhere except text inputs
+        document.addEventListener('selectstart', function (e) {
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
+        });
       })();
     </script>
   </head>
@@ -1616,6 +1659,6 @@
       </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>
