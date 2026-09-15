@@ -139,7 +139,7 @@ self.addEventListener('notificationclick', (event) => {
           appClient.postMessage({ 
             type: 'reminder-action', 
             reminderKey, 
-            action: action === 'open' ? 'done' : action,
+            action: action,
             targetTab 
           });
           return appClient.focus();
