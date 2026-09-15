@@ -2,9 +2,8 @@ window.RELIX_GROQ_API_KEY = '';
 // ---------------------------------------------------------------------------
 // BACKEND
 // ---------------------------------------------------------------------------
-// CHANGE THIS ONE LINE when the API moves off Render to the Oracle box. It must
-// be https:// - a PWA on an https page cannot call an http API, the browser
-// Proxy via Netlify redirect: /oracle-api/* -> http://161.118.169.29:4000/:splat
+// Oracle Cloud Backend API accessed via Netlify reverse proxy (/oracle-api)
+// Proxies: /oracle-api/* -> http://161.118.169.29:4000/:splat
 const PRODUCTION_API = '/oracle-api';
 
 const BACKEND_URL = (() => {

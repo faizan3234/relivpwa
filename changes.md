@@ -7,7 +7,7 @@ Date: 2026-08-26
 - **The deployed app never called the backend.** `BACKEND_URL` in `app.js` was
   hardcoded to `''` for every non-localhost origin, so on Netlify the AI proxy,
   image analysis and push registration all silently fell back to client-only
-  mode. Pointed it at `https://relivpwa.onrender.com`. This is the direct cause
+  mode. Pointed it at Oracle Cloud (`http://161.118.169.29:4000` via `/oracle-api`). This is the direct cause
   of "image analysis not working" - vision fell back to a path that requires the
   user to paste their own Gemini key into Settings.
 - **Every push notification went to every device.** Subscriptions were one flat

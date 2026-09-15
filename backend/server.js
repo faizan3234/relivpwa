@@ -49,8 +49,8 @@ process.on('unhandledRejection', (reason) => {
 const ALLOWED_ORIGINS = [
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^https?:\/\/161\.118\.169\.29(:\d+)?$/,
   /\.netlify\.app$/,
-  /\.onrender\.com$/,
 ];
 
 app.use(cors({
@@ -148,7 +148,7 @@ function loadOrCreateVapidKeys() {
     console.log('[vapid] Your keys WILL change on next restart until you set env vars below.');
   }
   console.log('[vapid] Generated NEW VAPID keys. Set these as env vars on your host');
-  console.log('[vapid] (e.g. Render > Environment) to stop them from ever changing again:');
+  console.log('[vapid] (e.g. Oracle Cloud / Host .env) to stop them from ever changing again:');
   console.log(`VAPID_PUBLIC_KEY=${fresh.publicKey}`);
   console.log(`VAPID_PRIVATE_KEY=${fresh.privateKey}`);
   return fresh;
@@ -158,7 +158,7 @@ const vapidKeys = loadOrCreateVapidKeys();
 process.env.VAPID_PUBLIC_KEY = vapidKeys.publicKey;
 process.env.VAPID_PRIVATE_KEY = vapidKeys.privateKey;
 
-webpush.setVapidDetails('mailto:admin@relivpwa.onrender.com', vapidKeys.publicKey, vapidKeys.privateKey);
+webpush.setVapidDetails('mailto:admin@reliv.app', vapidKeys.publicKey, vapidKeys.privateKey);
 
 // ---------------------------------------------------------------------------
 // SUBSCRIPTIONS - persisted to disk so a restart doesn't silently drop every
@@ -397,7 +397,7 @@ function startSelfPing(url) {
   
   if (selfPingInterval) return;
 
-  console.log(`[ping] Starting self-ping loop to keep Render awake: ${url}`);
+  console.log(`[ping] Starting self-ping keep-alive loop: ${url}`);
   pingUrl(url);
 
   selfPingInterval = setInterval(() => {
@@ -469,7 +469,7 @@ app.post('/api/push/schedule', (req, res) => {
   saveSchedules();
   armSchedule(scheduleId, schedules[scheduleId]);
 
-  // Self-ping to keep Render container awake during pending reminders
+  // Self-ping to keep server container awake during pending reminders
   const selfUrl = `${req.protocol}://${req.get('host')}`;
   startSelfPing(selfUrl);
 
