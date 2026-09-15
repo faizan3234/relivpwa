@@ -261,7 +261,7 @@
             </div>
             <div class="today-macro-item">
               <div class="macro-label-row">
-                <span>AM Protocol & UV Shield</span>
+                <span>AM Routine & UV Shield</span>
                 <strong id="skin-am-text">Pending</strong>
               </div>
               <div class="progress-track"><span id="skin-am-bar" style="background:#ffae00; width:0%"></span></div>
@@ -280,81 +280,97 @@
       </section>
 
       <section class="view-section" data-view="routine">
-        <!-- Apple-Grade Phased Blueprint Card -->
-        <div class="plan-blueprint-card">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <span id="plan-phase-badge" class="plan-phase-badge">Phase 1 · Week 3 of 8</span>
-              <h2 id="plan-headline" style="margin:8px 0 2px 0; font-size:1.4rem;">Hypertrophy Blueprint</h2>
-              <p id="plan-subheadline" style="margin:0; font-size:0.84rem; color:var(--muted); line-height:1.4;">Progressive volume & metabolic recovery cycle</p>
-            </div>
-            <span class="pill" id="routine-days-pill" style="font-size:0.75rem; font-weight:700;">Day 18</span>
-          </div>
-
-          <!-- Weekly Day Strip -->
-          <div class="plan-week-strip" id="plan-week-strip">
-            <div class="plan-day-chip" data-day="0"><span class="day-name">Mon</span><span class="day-dot"></span></div>
-            <div class="plan-day-chip" data-day="1"><span class="day-name">Tue</span><span class="day-dot"></span></div>
-            <div class="plan-day-chip active" data-day="2"><span class="day-name">Wed</span><span class="day-dot"></span></div>
-            <div class="plan-day-chip" data-day="3"><span class="day-name">Thu</span><span class="day-dot"></span></div>
-            <div class="plan-day-chip" data-day="4"><span class="day-name">Fri</span><span class="day-dot"></span></div>
-            <div class="plan-day-chip" data-day="5"><span class="day-name">Sat</span><span class="day-dot"></span></div>
-            <div class="plan-day-chip" data-day="6"><span class="day-name">Sun</span><span class="day-dot"></span></div>
-          </div>
-        </div>
-
-        <!-- Adaptive Target Priority Capsule -->
-        <div class="plan-priority-capsule" id="plan-priority-capsule">
-          <span style="font-size:1.1rem;">⚡</span>
-          <div style="flex:1;">
-            <strong style="display:block; font-size:0.85rem;" id="plan-priority-title">Today's Focus: Push Volume</strong>
-            <span id="plan-priority-desc" style="font-size:0.78rem; color:var(--muted);">Hit 140g protein and complete upper chest/triceps session</span>
-          </div>
-        </div>
-
-        <!-- Phased Daily Timeline -->
-        <div class="plan-timeline" id="plan-timeline">
-          <!-- Morning Protocol Block -->
-          <div class="plan-timeline-block">
-            <div class="plan-block-header">
-              <div class="plan-block-title">
-                <span style="font-size:1.2rem;">🌅</span>
-                <strong>Morning Protocol</strong>
+        <!-- Reliv Adaptive Goal Plan -->
+        <div class="plan-adaptive-shell">
+          <!-- Adaptive Header -->
+          <div class="plan-adaptive-header">
+            <div class="plan-adaptive-top-row">
+              <span class="plan-date-label" id="plan-date-label">Wednesday, 16 September</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="pill" id="plan-progress-pill" style="font-size:0.75rem; font-weight:700; background:rgba(255,122,0,0.1); color:var(--primary);">3/5 done</span>
+                <button id="plan-adjust-btn" class="plan-adjust-pill" type="button">⚡ Adjust today</button>
               </div>
-              <span class="plan-block-badge">07:00 – 10:00 AM</span>
             </div>
-            <div class="plan-block-items" id="plan-morning-items">
-              <!-- Rendered dynamically -->
+
+            <h2 class="plan-goal-headline" id="plan-goal-headline">Gain to 70 kg</h2>
+
+            <div class="plan-reassurance-box" id="plan-reassurance-box">
+              <strong id="plan-reassurance-title">You're on track</strong>
+              <p id="plan-reassurance-text">2 things still matter today.</p>
+            </div>
+
+            <!-- Conditional Weekly Day Strip (Active for workout split goals, hidden for skincare/simple) -->
+            <div class="plan-week-strip" id="plan-week-strip" style="margin-top:14px;">
+              <div class="plan-day-chip" data-day="0"><span class="day-name">Mon</span><span class="day-dot"></span></div>
+              <div class="plan-day-chip" data-day="1"><span class="day-name">Tue</span><span class="day-dot"></span></div>
+              <div class="plan-day-chip active" data-day="2"><span class="day-name">Wed</span><span class="day-dot"></span></div>
+              <div class="plan-day-chip" data-day="3"><span class="day-name">Thu</span><span class="day-dot"></span></div>
+              <div class="plan-day-chip" data-day="4"><span class="day-name">Fri</span><span class="day-dot"></span></div>
+              <div class="plan-day-chip" data-day="5"><span class="day-name">Sat</span><span class="day-dot"></span></div>
+              <div class="plan-day-chip" data-day="6"><span class="day-name">Sun</span><span class="day-dot"></span></div>
             </div>
           </div>
 
-          <!-- Midday Performance Block -->
-          <div class="plan-timeline-block">
-            <div class="plan-block-header">
-              <div class="plan-block-title">
-                <span style="font-size:1.2rem;">☀️</span>
-                <strong>Midday Performance & Fuel</strong>
-              </div>
-              <span class="plan-block-badge">12:00 – 05:00 PM</span>
+          <!-- Dynamic Remaining Fuel & Macro Deduction Card -->
+          <div class="plan-fuel-card" id="plan-fuel-card">
+            <div class="plan-fuel-header">
+              <strong id="plan-fuel-title">Fuel & Target Remaining</strong>
+              <span id="plan-fuel-time-badge" class="pill" style="font-size:0.72rem; font-weight:600;">Lunch Window</span>
             </div>
-            <div class="plan-block-items" id="plan-midday-items">
-              <!-- Rendered dynamically -->
+            <div class="plan-fuel-chips">
+              <div class="plan-fuel-chip">
+                <span>Calories Remaining</span>
+                <strong id="plan-rem-cal">1,650 kcal</strong>
+              </div>
+              <div class="plan-fuel-chip">
+                <span>Protein Remaining</span>
+                <strong id="plan-rem-pro">92 g</strong>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span id="plan-fuel-hint" style="font-size:0.78rem; color:var(--muted);">Next meal: Aim for a substantial protein source</span>
+              <button id="plan-fuel-log-btn" class="primary-btn" type="button" style="padding:6px 14px; font-size:0.78rem; border-radius:10px;">Log meal</button>
             </div>
           </div>
 
-          <!-- Evening Recovery Block -->
-          <div class="plan-timeline-block">
-            <div class="plan-block-header">
-              <div class="plan-block-title">
-                <span style="font-size:1.2rem;">🌙</span>
-                <strong>Evening Recovery & Reset</strong>
-              </div>
-              <span class="plan-block-badge">08:00 – 11:00 PM</span>
-            </div>
-            <div class="plan-block-items" id="plan-evening-items">
-              <!-- Rendered dynamically -->
+          <!-- Next Best Action Card -->
+          <div class="plan-next-card" id="plan-next-card">
+            <div class="plan-next-tag">Next Best Action</div>
+            <div class="plan-next-title" id="plan-next-title">Hit your protein target</div>
+            <div class="plan-next-sub" id="plan-next-sub">44 g remaining</div>
+            <button id="plan-next-btn" class="primary-btn" type="button" style="padding:8px 16px; font-size:0.84rem; border-radius:12px;">Log food</button>
+          </div>
+
+          <!-- Today's Priorities Card (Goal-dependent layout) -->
+          <div class="plan-priorities-card" id="plan-priorities-card">
+            <div class="plan-priorities-title" id="plan-priorities-heading">Today's Priorities</div>
+            <div id="plan-priorities-list">
+              <!-- Dynamically populated per goal -->
             </div>
           </div>
+
+          <!-- Later / Recovery Card -->
+          <div class="plan-priorities-card" id="plan-later-card">
+            <div class="plan-priorities-title">Later</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:1.2rem;">🌙</span>
+              <div>
+                <strong style="display:block; font-size:0.86rem;" id="plan-later-title">Sleep target · 7h 30m</strong>
+                <span style="display:block; font-size:0.74rem; color:var(--muted);" id="plan-later-sub">Aim for your usual bedtime to support cellular recovery</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Earlier Today (Skipped / Completed items quietly fold here, ZERO guilt) -->
+          <details class="card" id="plan-earlier-today" style="margin-top:2px; border-radius:18px; padding:12px 16px;">
+            <summary style="cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--muted); list-style:none; display:flex; justify-content:space-between; align-items:center;">
+              <span>Earlier today</span>
+              <span style="font-size:0.75rem;">▾</span>
+            </summary>
+            <div id="plan-earlier-list" style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
+              <span style="font-size:0.76rem; color:var(--muted); font-style:italic;">No past items today.</span>
+            </div>
+          </details>
         </div>
 
         <!-- Compatibility Hidden Tracker Elements to preserve existing bindings -->
@@ -362,6 +378,15 @@
           <span id="routine-progress"></span>
           <div id="routine-list"></div>
           <div id="close-the-gap-card"><div id="gap-analytics"></div></div>
+          <span id="plan-phase-badge"></span>
+          <h2 id="plan-headline"></h2>
+          <p id="plan-subheadline"></p>
+          <strong id="plan-priority-title"></strong>
+          <span id="plan-priority-desc"></span>
+          <span id="routine-days-pill"></span>
+          <div id="plan-morning-items"></div>
+          <div id="plan-midday-items"></div>
+          <div id="plan-evening-items"></div>
         </div>
 
         <!-- Custom Habits (Dynamic AI Routines) -->
@@ -510,6 +535,29 @@
                   <span>Goal & Body Targets</span>
                 </div>
                 <button id="edit-stats-btn" class="ghost-btn" type="button" style="padding:4px 10px; font-size:0.8rem;">Edit</button>
+              </div>
+              <div class="settings-group-row">
+                <div class="settings-row-left">
+                  <span class="settings-row-icon">🍽️</span>
+                  <span>Eating Style</span>
+                </div>
+                <select id="eating-style-select" style="padding:4px 8px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.8rem;">
+                  <option value="regular">Regular meals</option>
+                  <option value="flexible">Times change a lot</option>
+                  <option value="two_meals">Usually 2 meals</option>
+                  <option value="fasting">Fasting / windows</option>
+                  <option value="simple">Simple (no calorie counting)</option>
+                </select>
+              </div>
+              <div class="settings-group-row">
+                <div class="settings-row-left">
+                  <span class="settings-row-icon">⏰</span>
+                  <span>Meal Reminders</span>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <span style="font-size:0.75rem; color:var(--muted); font-weight:600;">9 AM · 2 PM · 8 PM</span>
+                  <button id="configure-meal-times-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem;">Set</button>
+                </div>
               </div>
               <div class="settings-group-row">
                 <div class="settings-row-left">
@@ -1109,7 +1157,8 @@
           <button id="close-quick-log" class="icon-btn" type="button" aria-label="Close">✕</button>
         </div>
 
-        <div class="quick-log-grid">
+        <!-- Primary Goal-Aware Grid (Max 4 Actions) -->
+        <div class="quick-log-grid" id="quick-log-primary-grid">
           <button class="quick-log-item" id="ql-meal" type="button">
             <span class="ql-icon">🍽️</span>
             <strong class="ql-title">Food</strong>
@@ -1120,27 +1169,42 @@
             <strong class="ql-title">Water</strong>
             <span class="ql-sub">+250 / +500ml</span>
           </button>
-          <button class="quick-log-item" id="ql-weight" type="button">
-            <span class="ql-icon">⚖️</span>
-            <strong class="ql-title">Weight</strong>
-            <span class="ql-sub">Check-in</span>
-          </button>
           <button class="quick-log-item" id="ql-workout" type="button">
             <span class="ql-icon">🏋️</span>
             <strong class="ql-title">Workout</strong>
             <span class="ql-sub">Daily activity</span>
           </button>
-          <button class="quick-log-item" id="ql-sleep" type="button">
-            <span class="ql-icon">😴</span>
-            <strong class="ql-title">Sleep</strong>
-            <span class="ql-sub">Rest log</span>
-          </button>
-          <button class="quick-log-item" id="ql-supplement" type="button">
-            <span class="ql-icon">💊</span>
-            <strong class="ql-title">Supplement</strong>
-            <span class="ql-sub">Vitamins / creatine</span>
+          <button class="quick-log-item" id="ql-weight" type="button">
+            <span class="ql-icon">⚖️</span>
+            <strong class="ql-title">Weight</strong>
+            <span class="ql-sub">Check-in</span>
           </button>
         </div>
+
+        <!-- More Options Drawer (Progressive Disclosure) -->
+        <details class="quick-log-more-drawer" id="ql-more-drawer" style="margin-top:8px;">
+          <summary class="quick-log-more-btn">
+            <span>More Options</span>
+            <span style="font-size:0.75rem;">▾</span>
+          </summary>
+          <div class="quick-log-more-content" id="ql-more-grid">
+            <button class="quick-log-item" id="ql-sleep" type="button" style="padding:10px;">
+              <span class="ql-icon" style="font-size:1.1rem;">😴</span>
+              <strong class="ql-title" style="font-size:0.8rem;">Sleep</strong>
+              <span class="ql-sub" style="font-size:0.7rem;">Rest log</span>
+            </button>
+            <button class="quick-log-item" id="ql-supplement" type="button" style="padding:10px;">
+              <span class="ql-icon" style="font-size:1.1rem;">💊</span>
+              <strong class="ql-title" style="font-size:0.8rem;">Supplement</strong>
+              <span class="ql-sub" style="font-size:0.7rem;">Vitamins</span>
+            </button>
+            <button class="quick-log-item" id="ql-custom-note" type="button" style="padding:10px;" onclick="showToast('📝 Note logged')">
+              <span class="ql-icon" style="font-size:1.1rem;">📝</span>
+              <strong class="ql-title" style="font-size:0.8rem;">Note</strong>
+              <span class="ql-sub" style="font-size:0.7rem;">Daily journal</span>
+            </button>
+          </div>
+        </details>
 
         <div style="margin-top:12px; border-top:1px solid var(--border); padding-top:12px;">
           <button id="ql-tell-btn" class="ghost-btn" type="button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; font-weight:700; color:var(--primary); border:1px solid rgba(255,122,0,0.3); border-radius:14px; background:rgba(255,122,0,0.05);">
@@ -1257,6 +1321,55 @@
         </div>
       </div>
     </div>
+    <!-- Adjust Day Modal -->
+    <div id="adjust-day-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:1001;">
+      <div class="modal-card" style="max-width:380px;">
+        <div class="hero-head">
+          <div class="hero-title">
+            <p>Adaptive Plan</p>
+            <h3>How is today going?</h3>
+          </div>
+          <button id="close-adjust-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <p style="font-size:0.8rem; color:var(--muted); margin:4px 0 12px 0;">Reliv reorganizes the rest of your plan around your actual day.</p>
+        <div class="adjust-grid">
+          <button class="adjust-option-btn" data-type="low_energy" type="button">
+            <span style="font-size:1.3rem;">😴</span>
+            <strong>Low energy</strong>
+            <span>Scale back, focus on rest & water</span>
+          </button>
+          <button class="adjust-option-btn" data-type="busy" type="button">
+            <span style="font-size:1.3rem;">🕒</span>
+            <strong>Very busy</strong>
+            <span>Quick essentials only</span>
+          </button>
+          <button class="adjust-option-btn" data-type="travelling" type="button">
+            <span style="font-size:1.3rem;">✈️</span>
+            <strong>Travelling</strong>
+            <span>Flexible portable targets</span>
+          </button>
+          <button class="adjust-option-btn" data-type="missed_meals" type="button">
+            <span style="font-size:1.3rem;">🍽️</span>
+            <strong>Missed meals</strong>
+            <span>Work with rest of today, no stress</span>
+          </button>
+          <button class="adjust-option-btn" data-type="cant_workout" type="button">
+            <span style="font-size:1.3rem;">🏋️</span>
+            <strong>Can't workout</strong>
+            <span>Pause workout, focus on fuel</span>
+          </button>
+          <button class="adjust-option-btn" data-type="unwell" type="button">
+            <span style="font-size:1.3rem;">🤒</span>
+            <strong>Not feeling well</strong>
+            <span>Rest, immunity & hydration</span>
+          </button>
+          <button class="adjust-option-btn" data-type="normal" type="button" style="grid-column: span 2;">
+            <span style="font-size:1.3rem;">✓</span>
+            <strong>Normal day</strong>
+            <span>Restore standard full targets</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Onboarding Setup Modal -->

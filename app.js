@@ -446,6 +446,15 @@ const state = {
   kitchenIngredients: JSON.parse(localStorage.getItem('relix-kitchen') || '[]'),
   shakeIngredients: JSON.parse(localStorage.getItem('relix-shake-ingredients') || '[]'),
   pasteIngredients: JSON.parse(localStorage.getItem('relix-paste-ingredients') || '[]'),
+  eatingStyle: localStorage.getItem('relix-eating-style') || 'regular',
+  mealTimes: (() => {
+    try {
+      return JSON.parse(localStorage.getItem('relix-meal-times') || '{"breakfast":"09:00","lunch":"14:00","dinner":"20:00"}');
+    } catch (_) {
+      return { breakfast: '09:00', lunch: '14:00', dinner: '20:00' };
+    }
+  })(),
+  dayAdjustment: localStorage.getItem('relix-day-adjustment') || null,
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
@@ -1212,6 +1221,7 @@ function init() {
   }
   renderDashboard();
   initializeReminderSystem();
+  scheduleMealReminders();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       initializeReminderSystem();
@@ -1396,12 +1406,230 @@ function syncProfileMeta() {
   if (els.geminiKeyInput) els.geminiKeyInput.value = state.geminiKey || '';
 }
 
-function openQuickLogModal() {
+function renderGoalAwareQuickLog() {
+  const isSkin = state.goalType && state.goalType.startsWith('skin');
+  const isLose = state.goalType === 'lose';
+  const primaryGrid = document.getElementById('quick-log-primary-grid');
+  const moreGrid = document.getElementById('ql-more-grid');
+  if (!primaryGrid) return;
+
+  if (isSkin) {
+    primaryGrid.innerHTML = `
+      <button class="quick-log-item" id="ql-skin-am" type="button" onclick="handleEssentialClick('skincare-am'); closeQuickLogModal();">
+        <span class="ql-icon">☀️</span>
+        <strong class="ql-title">AM Routine</strong>
+        <span class="ql-sub">Cleanse & hydrate</span>
+      </button>
+      <button class="quick-log-item" id="ql-skin-spf" type="button" onclick="showToast('🧴 SPF 50 Shield applied!'); closeQuickLogModal();">
+        <span class="ql-icon">🧴</span>
+        <strong class="ql-title">Sunscreen</strong>
+        <span class="ql-sub">SPF 50 UV shield</span>
+      </button>
+      <button class="quick-log-item" id="ql-water" type="button">
+        <span class="ql-icon">💧</span>
+        <strong class="ql-title">Hydration</strong>
+        <span class="ql-sub">+250 / +500ml</span>
+      </button>
+      <button class="quick-log-item" id="ql-skin-pm" type="button" onclick="handleEssentialClick('skincare-pm'); closeQuickLogModal();">
+        <span class="ql-icon">🌙</span>
+        <strong class="ql-title">PM Routine</strong>
+        <span class="ql-sub">Barrier repair</span>
+      </button>
+    `;
+    if (moreGrid) {
+      moreGrid.innerHTML = `
+        <button class="quick-log-item" type="button" style="padding:10px;" onclick="showToast('📸 Photo saved to Skin Vault'); closeQuickLogModal();">
+          <span class="ql-icon" style="font-size:1.1rem;">📸</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Skin Photo</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Progress vault</span>
+        </button>
+        <button class="quick-log-item" type="button" style="padding:10px;" onclick="showToast('🔬 Skin barrier scanned: Healthy'); closeQuickLogModal();">
+          <span class="ql-icon" style="font-size:1.1rem;">🔬</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Skin Scan</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Barrier check</span>
+        </button>
+        <button class="quick-log-item" id="ql-sleep" type="button" style="padding:10px;">
+          <span class="ql-icon" style="font-size:1.1rem;">😴</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Sleep Log</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Cellular rest</span>
+        </button>
+        <button class="quick-log-item" type="button" style="padding:10px;" onclick="showToast('📝 Reaction note saved'); closeQuickLogModal();">
+          <span class="ql-icon" style="font-size:1.1rem;">📝</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Reaction Note</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Product review</span>
+        </button>
+      `;
+    }
+  } else if (isLose) {
+    primaryGrid.innerHTML = `
+      <button class="quick-log-item" id="ql-meal" type="button">
+        <span class="ql-icon">🍽️</span>
+        <strong class="ql-title">Food</strong>
+        <span class="ql-sub">Meal / snack</span>
+      </button>
+      <button class="quick-log-item" id="ql-water" type="button">
+        <span class="ql-icon">💧</span>
+        <strong class="ql-title">Water</strong>
+        <span class="ql-sub">+250 / +500ml</span>
+      </button>
+      <button class="quick-log-item" id="ql-activity" type="button" onclick="showToast('🚶 Activity logged: 20-min brisk walk'); closeQuickLogModal();">
+        <span class="ql-icon">🚶</span>
+        <strong class="ql-title">Activity</strong>
+        <span class="ql-sub">Walk / cardio</span>
+      </button>
+      <button class="quick-log-item" id="ql-weight" type="button">
+        <span class="ql-icon">⚖️</span>
+        <strong class="ql-title">Weight</strong>
+        <span class="ql-sub">Check-in</span>
+      </button>
+    `;
+    if (moreGrid) {
+      moreGrid.innerHTML = `
+        <button class="quick-log-item" id="ql-workout" type="button" style="padding:10px;">
+          <span class="ql-icon" style="font-size:1.1rem;">🏋️</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Workout</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Gym / lifting</span>
+        </button>
+        <button class="quick-log-item" id="ql-sleep" type="button" style="padding:10px;">
+          <span class="ql-icon" style="font-size:1.1rem;">😴</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Sleep</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Rest log</span>
+        </button>
+        <button class="quick-log-item" type="button" style="padding:10px;" onclick="showToast('📝 Note logged'); closeQuickLogModal();">
+          <span class="ql-icon" style="font-size:1.1rem;">📝</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Custom Note</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Journal entry</span>
+        </button>
+      `;
+    }
+  } else {
+    // Muscle
+    primaryGrid.innerHTML = `
+      <button class="quick-log-item" id="ql-meal" type="button">
+        <span class="ql-icon">🍽️</span>
+        <strong class="ql-title">Food</strong>
+        <span class="ql-sub">Meal / snack</span>
+      </button>
+      <button class="quick-log-item" id="ql-water" type="button">
+        <span class="ql-icon">💧</span>
+        <strong class="ql-title">Water</strong>
+        <span class="ql-sub">+250 / +500ml</span>
+      </button>
+      <button class="quick-log-item" id="ql-workout" type="button">
+        <span class="ql-icon">🏋️</span>
+        <strong class="ql-title">Workout</strong>
+        <span class="ql-sub">Resistance</span>
+      </button>
+      <button class="quick-log-item" id="ql-weight" type="button">
+        <span class="ql-icon">⚖️</span>
+        <strong class="ql-title">Weight</strong>
+        <span class="ql-sub">Check-in</span>
+      </button>
+    `;
+    if (moreGrid) {
+      moreGrid.innerHTML = `
+        <button class="quick-log-item" id="ql-sleep" type="button" style="padding:10px;">
+          <span class="ql-icon" style="font-size:1.1rem;">😴</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Sleep</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Rest log</span>
+        </button>
+        <button class="quick-log-item" id="ql-supplement" type="button" style="padding:10px;">
+          <span class="ql-icon" style="font-size:1.1rem;">💊</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Creatine</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">5g daily</span>
+        </button>
+        <button class="quick-log-item" type="button" style="padding:10px;" onclick="showToast('📝 Note logged'); closeQuickLogModal();">
+          <span class="ql-icon" style="font-size:1.1rem;">📝</span>
+          <strong class="ql-title" style="font-size:0.8rem;">Note</strong>
+          <span class="ql-sub" style="font-size:0.7rem;">Daily journal</span>
+        </button>
+      `;
+    }
+  }
+
+  // Bind food panel scroll
+  const qlMeal = document.getElementById('ql-meal');
+  const foodPanel = document.getElementById('ql-panel-food');
+  if (qlMeal && foodPanel) {
+    qlMeal.onclick = () => {
+      foodPanel.scrollIntoView({ behavior: 'smooth' });
+      const foodInp = document.getElementById('custom-food-input');
+      if (foodInp) foodInp.focus();
+    };
+  }
+
+  // Bind water panel scroll
+  const qlWater = document.getElementById('ql-water');
+  const waterPanel = document.getElementById('ql-panel-water');
+  if (qlWater && waterPanel) {
+    qlWater.onclick = () => {
+      waterPanel.scrollIntoView({ behavior: 'smooth' });
+    };
+  }
+
+  // Bind workout action
+  const qlWorkout = document.getElementById('ql-workout');
+  if (qlWorkout) {
+    qlWorkout.onclick = () => {
+      showToast('🏋️ Logged: Resistance training session');
+      recordActivity('Resistance Training Session', 25);
+      closeQuickLogModal();
+    };
+  }
+
+  // Bind weight action
+  const qlWeight = document.getElementById('ql-weight');
+  if (qlWeight) {
+    qlWeight.onclick = () => {
+      showToast(`⚖️ Weight check-in: ${state.weight || 65} kg`);
+      closeQuickLogModal();
+    };
+  }
+
+  // Bind sleep action
+  const qlSleep = document.getElementById('ql-sleep');
+  if (qlSleep) {
+    qlSleep.onclick = () => {
+      showToast('😴 Sleep logged: 7h 45m deep rest');
+      recordActivity('Sleep Logged: 7h 45m', 15);
+      closeQuickLogModal();
+    };
+  }
+
+  // Bind supplement action
+  const qlSupp = document.getElementById('ql-supplement');
+  if (qlSupp) {
+    qlSupp.onclick = () => {
+      showToast('💊 Creatine & Vitamins taken');
+      recordActivity('Supplements Taken', 10);
+      closeQuickLogModal();
+    };
+  }
+}
+
+function openQuickLogModal(panel) {
   const modal = document.getElementById('quick-log-modal');
   if (modal) {
+    renderGoalAwareQuickLog();
     modal.style.display = 'flex';
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
+
+    if (panel === 'meal') {
+      setTimeout(() => {
+        const foodPanel = document.getElementById('ql-panel-food');
+        if (foodPanel) {
+          foodPanel.scrollIntoView({ behavior: 'smooth' });
+          const foodInp = document.getElementById('custom-food-input');
+          if (foodInp) foodInp.focus();
+        }
+      }, 100);
+    } else if (panel === 'water') {
+      setTimeout(() => {
+        const waterPanel = document.getElementById('ql-panel-water');
+        if (waterPanel) waterPanel.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
   }
 }
 
@@ -1470,6 +1698,43 @@ function bindEvents() {
   if (quickLogModal) {
     quickLogModal.addEventListener('click', (e) => {
       if (e.target === quickLogModal) closeQuickLogModal();
+    });
+  }
+
+  // Adjust Day Modal Events
+  const planAdjustBtn = document.getElementById('plan-adjust-btn');
+  const closeAdjustModalBtn = document.getElementById('close-adjust-modal');
+  const adjustModal = document.getElementById('adjust-day-modal');
+  if (planAdjustBtn) planAdjustBtn.addEventListener('click', openAdjustDayModal);
+  if (closeAdjustModalBtn) closeAdjustModalBtn.addEventListener('click', closeAdjustDayModal);
+  if (adjustModal) {
+    adjustModal.addEventListener('click', (e) => {
+      if (e.target === adjustModal) closeAdjustDayModal();
+    });
+    adjustModal.querySelectorAll('.adjust-option-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectDayAdjustment(btn.dataset.type);
+      });
+    });
+  }
+
+  // Eating Style Setting Event
+  const eatingStyleSelect = document.getElementById('eating-style-select');
+  if (eatingStyleSelect) {
+    eatingStyleSelect.value = state.eatingStyle || 'regular';
+    eatingStyleSelect.addEventListener('change', (e) => {
+      state.eatingStyle = e.target.value;
+      saveState();
+      renderRoutine();
+      renderDashboard();
+      showToast('Eating style preference updated.');
+    });
+  }
+
+  const mealSchedBtn = document.getElementById('configure-meal-times-btn');
+  if (mealSchedBtn) {
+    mealSchedBtn.addEventListener('click', () => {
+      showToast('⏰ Reminders scheduled for 9:00 AM, 2:00 PM & 8:00 PM.');
     });
   }
 
@@ -2977,129 +3242,371 @@ function renderTodayLogs() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// RELIV ADAPTIVE GOAL PLAN & FUEL DEDUCTION ENGINE
+// ---------------------------------------------------------------------------
+
+function getRemainingFuelBreakdown() {
+  const targetCal = Number(state.targetCalories || 2800);
+  const targetPro = Number(state.targetProtein || 140);
+  const consumedCal = Number(state.consumedCalories || 0);
+  const consumedPro = Number(state.consumedProtein || 0);
+
+  const remCal = Math.max(0, targetCal - consumedCal);
+  const remPro = Math.max(0, targetPro - consumedPro);
+
+  let breakfastCal = 0, breakfastPro = 0;
+  let lunchCal = 0, lunchPro = 0;
+  let dinnerCal = 0, dinnerPro = 0;
+
+  const foods = Array.isArray(state.loggedFoods) ? state.loggedFoods : [];
+  foods.forEach(f => {
+    const d = f.timestamp ? new Date(f.timestamp) : new Date();
+    const hour = d.getHours();
+    const c = Number(f.calories || 0);
+    const p = Number(f.protein || 0);
+    if (hour < 12) {
+      breakfastCal += c;
+      breakfastPro += p;
+    } else if (hour < 17) {
+      lunchCal += c;
+      lunchPro += p;
+    } else {
+      dinnerCal += c;
+      dinnerPro += p;
+    }
+  });
+
+  const nowHour = new Date().getHours();
+  let windowName = 'Breakfast Window';
+  let windowHint = 'Start your morning with a nutritious, protein-dense meal.';
+
+  if (nowHour >= 17) {
+    windowName = 'Dinner Window';
+    windowHint = `Target - Breakfast & Lunch deducted (${remCal} kcal & ${remPro}g protein left). Close out your day!`;
+  } else if (nowHour >= 12) {
+    windowName = 'Lunch Window';
+    windowHint = `Target - Breakfast deducted (${remCal} kcal & ${remPro}g protein left). Aim for a substantial protein source.`;
+  }
+
+  return {
+    targetCal,
+    targetPro,
+    consumedCal,
+    consumedPro,
+    remCal,
+    remPro,
+    breakfastCal,
+    breakfastPro,
+    lunchCal,
+    lunchPro,
+    dinnerCal,
+    dinnerPro,
+    windowName,
+    windowHint
+  };
+}
+
+function scheduleMealReminders() {
+  if (!state.notifications || state.remindersPaused) return;
+
+  const mealTimes = state.mealTimes || { breakfast: '09:00', lunch: '14:00', dinner: '20:00' };
+  const now = new Date();
+
+  const scheduleForTime = (timeStr, title, getBody) => {
+    if (!timeStr) return;
+    const [h, m] = timeStr.split(':').map(Number);
+    const targetDate = new Date();
+    targetDate.setHours(h, m, 0, 0);
+
+    const delay = targetDate.getTime() - now.getTime();
+    if (delay > 0 && delay < 24 * 3600 * 1000) {
+      setTimeout(() => {
+        if (!state.notifications || state.remindersPaused) return;
+        const currentBreakdown = getRemainingFuelBreakdown();
+        const body = getBody(currentBreakdown);
+        showNotification(title, body, `meal-${timeStr}`);
+      }, delay);
+    }
+  };
+
+  scheduleForTime(mealTimes.breakfast || '09:00', '🌅 Breakfast Time', (b) =>
+    `Daily fuel target: ${b.targetCal} kcal & ${b.targetPro}g protein. Have a nutritious start to maintain your streak! 🔥`
+  );
+
+  scheduleForTime(mealTimes.lunch || '14:00', '☀️ Lunch Time', (b) =>
+    `${b.remCal} kcal & ${b.remPro}g protein remaining today. Fuel up to keep your energy high!`
+  );
+
+  scheduleForTime(mealTimes.dinner || '20:00', '🌙 Dinner Time', (b) =>
+    `${b.remCal} kcal & ${b.remPro}g protein left to close out today's target. You're on track!`
+  );
+}
+
+function openAdjustDayModal() {
+  const modal = document.getElementById('adjust-day-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+
+  modal.querySelectorAll('.adjust-option-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === (state.dayAdjustment || 'normal'));
+  });
+}
+
+function closeAdjustDayModal() {
+  const modal = document.getElementById('adjust-day-modal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function selectDayAdjustment(type) {
+  if (type === 'normal') {
+    state.dayAdjustment = null;
+    showToast('✓ Restored normal plan targets');
+  } else {
+    state.dayAdjustment = type;
+    const names = {
+      low_energy: 'Gentle recovery mode',
+      busy: 'Compact schedule mode',
+      travelling: 'Travel mode',
+      missed_meals: 'Simplified day mode',
+      cant_workout: 'Workout pause mode',
+      unwell: 'Immunity & rest mode'
+    };
+    showToast(`⚡ Plan updated: ${names[type] || 'Adjusted'}`);
+  }
+  saveState();
+  closeAdjustDayModal();
+  renderRoutine();
+  renderDashboard();
+}
+
 function renderRoutine() {
   const isSkin = state.goalType && state.goalType.startsWith('skin');
   const isLose = state.goalType === 'lose';
+  const isSimple = state.eatingStyle === 'simple';
 
-  // 1. Phased Blueprint Card Headers
-  const phaseBadgeEl = document.getElementById('plan-phase-badge');
-  const headlineEl = document.getElementById('plan-headline');
-  const subheadlineEl = document.getElementById('plan-subheadline');
-  const priorityTitleEl = document.getElementById('plan-priority-title');
-  const priorityDescEl = document.getElementById('plan-priority-desc');
+  // 1. Date Header
+  const dateLabel = document.getElementById('plan-date-label');
+  if (dateLabel) {
+    const d = new Date();
+    dateLabel.textContent = d.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
 
-  if (phaseBadgeEl && headlineEl && subheadlineEl) {
-    if (isSkin) {
-      phaseBadgeEl.textContent = 'Skin Renewal Cycle · Week 2 of 4';
-      headlineEl.textContent = 'Barrier Restore & Glass Skin';
-      subheadlineEl.textContent = 'Cellular hydration, active Korean serums & daily SPF 50 shield';
-      if (priorityTitleEl) priorityTitleEl.textContent = "Today's Focus: UV Shield & Hydration";
-      if (priorityDescEl) priorityDescEl.textContent = 'Apply SPF 50 before leaving and log 500ml water to plump skin cells';
-    } else if (isLose) {
-      phaseBadgeEl.textContent = 'Deficit & Tone · Phase 1 (Week 3 of 6)';
-      headlineEl.textContent = 'Metabolic Reset & Fat Loss';
-      subheadlineEl.textContent = 'Caloric deficit adherence, high protein satiety & daily 8k movement';
-      if (priorityTitleEl) priorityTitleEl.textContent = "Today's Focus: Deficit Adherence";
-      if (priorityDescEl) priorityDescEl.textContent = `Maintain ~${Math.max(0, state.targetCalories - state.consumedCalories)} kcal buffer and complete 15-min brisk walk`;
+  // 2. Goal Headline
+  const goalHeadline = document.getElementById('plan-goal-headline');
+  if (goalHeadline) {
+    if (isSkin) goalHeadline.textContent = 'Clearer Skin · Daily Plan';
+    else if (isLose) goalHeadline.textContent = `Lose to ${state.targetWeight || 72} kg`;
+    else goalHeadline.textContent = `Gain to ${state.targetWeight || 70} kg`;
+  }
+
+  // 3. Conditional Weekly Day Strip
+  const weekStrip = document.getElementById('plan-week-strip');
+  if (weekStrip) {
+    if (isSkin || isSimple) {
+      weekStrip.style.display = 'none';
     } else {
-      phaseBadgeEl.textContent = 'Hypertrophy Protocol · Week 3 of 8';
-      headlineEl.textContent = 'Hypertrophy Blueprint';
-      subheadlineEl.textContent = 'Progressive volume accumulation & metabolic recovery cycle';
-      if (priorityTitleEl) priorityTitleEl.textContent = "Today's Focus: Push Volume & Fuel";
-      if (priorityDescEl) priorityDescEl.textContent = `Hit ${state.targetProtein}g protein benchmark and log strength session`;
+      weekStrip.style.display = 'flex';
+      const jsDay = new Date().getDay();
+      const monDayIndex = (jsDay + 6) % 7;
+      const chips = weekStrip.querySelectorAll('.plan-day-chip');
+      chips.forEach((chip, i) => {
+        chip.classList.toggle('active', i === monDayIndex);
+        chip.onclick = () => {
+          chips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+          showToast(`📅 Viewing ${dayNames[i]}'s plan`);
+        };
+      });
     }
   }
 
-  // 2. Weekly Day Strip
-  const weekStrip = document.getElementById('plan-week-strip');
-  if (weekStrip) {
-    const jsDay = new Date().getDay(); // 0 = Sun, 1 = Mon ...
-    const monDayIndex = (jsDay + 6) % 7;
-    const chips = weekStrip.querySelectorAll('.plan-day-chip');
-    chips.forEach((chip, i) => {
-      chip.classList.toggle('active', i === monDayIndex);
-      chip.onclick = () => {
-        chips.forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        showToast(`📅 Viewing ${dayNames[i]}'s scheduled protocol`);
-      };
-    });
-  }
-
-  // 3. Define Phased Habits
-  let habits = [];
+  // 4. Priorities Structure (Goal-Dependent)
+  let priorities = [];
   if (isSkin) {
-    habits = [
-      { title: 'Morning Double Cleanse', description: 'Double cleanse with a gentle wash.', time: '8:00 AM', duration: '5 min', icon: '🧴', block: 'morning', why: 'Removes sebum, sunscreen, and overnight impurities.', scientific: 'Double cleansing keeps pores clean and ready for hydration.', benefits: 'Fewer breakouts, brighter skin tone, clean base.' },
-      { title: 'SPF 50 Shield Application', description: 'Apply generous layer of SPF 50 sunscreen.', time: '9:00 AM', duration: '2 min', icon: '☀️', block: 'morning', why: 'Protects the skin barrier from UV aging and damage.', scientific: 'Daily sunscreen reduces photoaging and hyperpigmentation.', benefits: 'Prevents dark spots, preserves collagen, healthy skin.' },
-      { title: 'Mid-day Skin Hydration Flush', description: 'Log a 500ml glass of water for dermal cells.', time: '2:30 PM', duration: '2 min', icon: '💧', block: 'midday', why: 'Maintains skin elasticity and flushes toxins.', scientific: 'Hydration supports skin cell repair and prevents dry patches.', benefits: 'Plump skin, natural glow, less skin tightness.' },
-      { title: 'Clean Antioxidant Snack', description: 'Fresh berries, green tea, or avocado.', time: '4:30 PM', duration: '10 min', icon: '🥑', block: 'midday', why: 'Provides vitamins C and E to neutralize free radicals.', scientific: 'Antioxidants prevent collagen degradation.', benefits: 'Radiant complexion, lowered oxidative stress.' },
-      { title: 'Evening Cleanse & Actives', description: 'Gentle cleanser + Hyaluronic or Niacinamide.', time: '9:00 PM', duration: '10 min', icon: '✨', block: 'evening', why: 'Restores skin barrier and treats target concerns.', scientific: 'Actives like Hyaluronic acid absorb better on damp skin.', benefits: 'Smoother texture, active acne reduction, skin repair.' },
-      { title: 'Barrier Repair Sleep Window', description: 'Night cream applied, screens off for 8h sleep.', time: '10:30 PM', duration: '10 min', icon: '😴', block: 'evening', why: 'Essential for cellular skin repair and collagen synthesis.', scientific: 'Growth hormone released during sleep repairs tissue.', benefits: 'Refreshed skin, fewer dark circles, youthful texture.' }
+    priorities = [
+      { id: 'skin_am', title: 'Morning Gentle Cleanse & Moisturizer', sub: 'Wash with gentle cleanser, hydrate damp skin', icon: '🧴' },
+      { id: 'skin_spf', title: 'Sunscreen SPF 50 UV Shield', sub: 'Generous layer to protect dermal barrier', icon: '☀️' },
+      { id: 'skin_hyd', title: 'Cellular Hydration Flush', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' },
+      { id: 'skin_pm', title: 'Evening Cleanse & Barrier Repair', sub: 'Gentle wash + active serum & night cream', icon: '🌙' }
+    ];
+  } else if (isSimple) {
+    priorities = [
+      { id: 'simple_meal1', title: 'Had a protein-rich meal', sub: 'Eggs, chicken, paneer, lentils, or tofu', icon: '🥩' },
+      { id: 'simple_meal2', title: 'Eat something nutritious later', sub: 'Wholesome fruits, vegetables, or nourishing snack', icon: '🥗' },
+      { id: 'simple_hyd', title: 'Stay hydrated through the day', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' },
+      { id: 'simple_move', title: 'Daily movement & fresh air', sub: 'Light walk or gentle stretching whenever ready', icon: '🚶' }
     ];
   } else if (isLose) {
-    habits = [
-      { title: 'Water Nudge & Sip', description: 'Drink 350ml water before first meal.', time: '8:00 AM', duration: '2 min', icon: '💧', block: 'morning', why: 'Fills stomach and helps boost calorie burning.', scientific: 'Pre-meal hydration naturally reduces portion sizes.', benefits: 'Reduced appetite, steady metabolism, active start.' },
-      { title: 'Green Tea Metabolic Boost', description: 'Sip unsweetened green tea or matcha.', time: '11:00 AM', duration: '5 min', icon: '🍵', block: 'morning', why: 'Boosts metabolic rate and fat oxidation.', scientific: 'Catechins in green tea aid in breakdown of fats.', benefits: 'Metabolic boost, clean energy, antioxidant rich.' },
-      { title: 'Lunch Calorie Deficit Check', description: 'High protein + voluminous vegetables (80% full).', time: '1:30 PM', duration: '15 min', icon: '🥗', block: 'midday', why: 'Prevents overeating and improves digestion.', scientific: 'Satiety signals take 20 minutes to reach the brain.', benefits: 'No post-lunch slump, steady deficit, better digestion.' },
-      { title: 'Daily 8k Step Movement', description: 'Brisk 15–20 min outdoor walk.', time: '5:30 PM', duration: '20 min', icon: '🏃', block: 'midday', why: 'Increases active calorie burn and cardiovascular health.', scientific: 'Low-intensity exercise burns fat stores for fuel.', benefits: 'Calorie deficit support, lower stress, better sleep.' },
-      { title: 'Lean Protein Dinner Log', description: 'Target 30g+ protein with low carb buffer.', time: '8:30 PM', duration: '15 min', icon: '🥩', block: 'evening', why: 'Helps track portions and prevents late-night cravings.', scientific: 'Distracted eating is linked to high calorie consumption.', benefits: 'Better portion control, satisfying meal, no overeating.' },
-      { title: 'Cortisol Dimming & Rest', description: 'Dim lights for deep recovery sleep.', time: '10:30 PM', duration: '10 min', icon: '🌙', block: 'evening', why: 'Optimizes fat loss hormones like melatonin.', scientific: 'Sufficient sleep supports muscle retention during deficit.', benefits: 'Steady fat burn, low cortisol, high morning energy.' }
+    priorities = [
+      { id: 'lose_nutr', title: 'Nutrition within target', sub: `${state.consumedCalories <= state.targetCalories ? 'Within today\'s target' : 'Over by ' + (state.consumedCalories - state.targetCalories) + ' kcal'} · ${state.consumedCalories}/${state.targetCalories} kcal`, icon: '🍽️' },
+      { id: 'lose_pro', title: 'Protein satiety benchmark', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
+      { id: 'lose_steps', title: 'Daily 8,000 steps movement', sub: '6,240 / 8,000 steps active', icon: '🚶' },
+      { id: 'lose_act', title: 'Active movement or cardio', sub: '30 min brisk walk or workout session', icon: '🏃' }
     ];
   } else {
-    habits = [
-      { title: 'High Protein Breakfast', description: 'Eggs, paneer, oats, or peanut butter (35g pro).', time: '8:30 AM', duration: '15 min', icon: '🍳', block: 'morning', why: 'Triggers muscle protein synthesis early in the day.', scientific: 'Breakfast protein helps prevent muscle breakdown.', benefits: 'Muscle building, sustained energy, no morning fatigue.' },
-      { title: 'Mid-Day Fuel Shake', description: 'High-calorie anabolic smoothie or Greek yogurt.', time: '11:00 AM', duration: '10 min', icon: '🥛', block: 'morning', why: 'Provides clean calories and protein for surplus.', scientific: 'Liquid calories are easier to consume for weight gain.', benefits: 'Easy calorie surplus, high protein, quick refueling.' },
-      { title: 'Strength & Hypertrophy Session', description: 'Progressive overload compound lift session.', time: '4:30 PM', duration: '45 min', icon: '🏋️', block: 'midday', why: 'Mechanical tension signals muscle hypertrophy.', scientific: 'Overload stimulus triggers micro-tear repair and growth.', benefits: 'Strength gains, muscle thickness, density.' },
-      { title: 'Post-Workout Anabolic Feed', description: 'Whey protein or high-protein recovery meal.', time: '6:00 PM', duration: '10 min', icon: '🥩', block: 'midday', why: 'Repairs muscle fibers torn during resistance training.', scientific: 'Protein intake post-workout triggers anabolic repair.', benefits: 'Fast recovery, muscle gain, reduced soreness.' },
-      { title: 'Overnight Protein Dinner', description: 'Slow-digesting protein (casein/curd/chicken).', time: '8:30 PM', duration: '15 min', icon: '🍗', block: 'evening', why: 'Provides steady protein flow during overnight fast.', scientific: 'Slow-digesting protein supports muscle repair while sleeping.', benefits: 'Sustained muscle building, deep recovery.' },
-      { title: 'Sleep Prep for Growth Hormone', description: 'Screens off for deep anabolic sleep cycles.', time: '10:30 PM', duration: '10 min', icon: '😴', block: 'evening', why: 'Ensures deep sleep for testosterone and growth hormone.', scientific: 'Melatonin and growth hormones spike during deep sleep.', benefits: 'Maximum muscle growth, high morning testosterone.' }
+    priorities = [
+      { id: 'muscle_pro', title: 'Protein benchmark', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
+      { id: 'muscle_cal', title: 'Daily fuel target', sub: `${state.consumedCalories} / ${state.targetCalories} kcal logged`, icon: '🍽️' },
+      { id: 'muscle_work', title: 'Strength session', sub: 'Push workout · ~35 min', icon: '🏋️' },
+      { id: 'muscle_hyd', title: 'Daily hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' }
     ];
   }
 
-  // 4. Render into 3 Phased Timeline Blocks
-  const morningContainer = document.getElementById('plan-morning-items');
-  const middayContainer = document.getElementById('plan-midday-items');
-  const eveningContainer = document.getElementById('plan-evening-items');
+  const doneCount = priorities.filter((_, idx) => state.completedTasks.includes(idx)).length;
+  const remCount = priorities.length - doneCount;
 
-  const renderTimelineBlock = (container, items, startIndex) => {
-    if (!container) return;
-    container.innerHTML = items.map((habit, offset) => {
-      const idx = startIndex + offset;
+  // 5. Reassurance Box
+  const reassurTitle = document.getElementById('plan-reassurance-title');
+  const reassurText = document.getElementById('plan-reassurance-text');
+  if (reassurTitle && reassurText) {
+    if (state.dayAdjustment === 'low_energy') {
+      reassurTitle.textContent = 'Taking it gentle today';
+      reassurText.textContent = 'Targets scaled back. Focus on rest, cellular hydration, and recovery.';
+    } else if (state.dayAdjustment === 'busy') {
+      reassurTitle.textContent = 'Compact schedule today';
+      reassurText.textContent = 'Focus on the top essentials: stay hydrated and get a high-protein meal.';
+    } else if (state.dayAdjustment === 'travelling') {
+      reassurTitle.textContent = 'Travel mode active';
+      reassurText.textContent = 'Flexible portable targets: stay hydrated and keep protein steady.';
+    } else if (state.dayAdjustment === 'missed_meals') {
+      reassurTitle.textContent = "I've simplified the rest of today";
+      reassurText.textContent = "Work with the rest of today — no stress. Have a substantial meal when you can.";
+    } else if (state.dayAdjustment === 'cant_workout') {
+      reassurTitle.textContent = 'Rest day activated';
+      reassurText.textContent = 'Workout paused for today. Focus comfortably on nutrition and recovery.';
+    } else if (state.dayAdjustment === 'unwell') {
+      reassurTitle.textContent = 'Recovery priority';
+      reassurText.textContent = 'Rest, immunity, and gentle hydration matter most today.';
+    } else {
+      const nowHour = new Date().getHours();
+      if (nowHour >= 15 && state.consumedCalories === 0 && !isSkin && !isSimple) {
+        reassurTitle.textContent = "You haven't logged food yet today";
+        reassurText.textContent = "That's okay — let's work with the rest of your day.";
+      } else {
+        reassurTitle.textContent = "You're on track";
+        reassurText.textContent = `${remCount} ${remCount === 1 ? 'thing still matters' : 'things still matter'} today.`;
+      }
+    }
+  }
+
+  // 6. Progress Pill
+  const progressPill = document.getElementById('plan-progress-pill');
+  if (progressPill) {
+    progressPill.textContent = `${doneCount}/${priorities.length} done`;
+  }
+
+  // 7. Dynamic Remaining Fuel & Macro Deduction Card
+  const fuelCard = document.getElementById('plan-fuel-card');
+  const fuelBreakdown = getRemainingFuelBreakdown();
+  if (fuelCard) {
+    if (isSkin || isSimple) {
+      fuelCard.style.display = 'none';
+    } else {
+      fuelCard.style.display = 'block';
+      const timeBadge = document.getElementById('plan-fuel-time-badge');
+      const remCalEl = document.getElementById('plan-rem-cal');
+      const remProEl = document.getElementById('plan-rem-pro');
+      const fuelHint = document.getElementById('plan-fuel-hint');
+      if (timeBadge) timeBadge.textContent = fuelBreakdown.windowName;
+      if (remCalEl) remCalEl.textContent = `${fuelBreakdown.remCal} kcal`;
+      if (remProEl) remProEl.textContent = `${fuelBreakdown.remPro} g`;
+      if (fuelHint) fuelHint.textContent = fuelBreakdown.windowHint;
+      const fuelLogBtn = document.getElementById('plan-fuel-log-btn');
+      if (fuelLogBtn) fuelLogBtn.onclick = () => openQuickLogModal('meal');
+    }
+  }
+
+  // 8. Next Best Action Card
+  const nextTitle = document.getElementById('plan-next-title');
+  const nextSub = document.getElementById('plan-next-sub');
+  const nextBtn = document.getElementById('plan-next-btn');
+  if (nextTitle && nextSub && nextBtn) {
+    if (isSkin) {
+      nextTitle.textContent = 'Protect the barrier';
+      nextSub.textContent = 'Apply evening active serums and ceramide repair cream';
+      nextBtn.textContent = 'Complete routine';
+      nextBtn.onclick = () => {
+        toggleTimelineHabit(1);
+        showToast('✨ Routine checked off');
+      };
+    } else if (isLose) {
+      nextTitle.textContent = 'Step movement';
+      nextSub.textContent = '1,760 steps remaining to reach 8k';
+      nextBtn.textContent = 'Start a walk';
+      nextBtn.onclick = () => showToast('🚶 Step tracking active');
+    } else if (isSimple) {
+      nextTitle.textContent = 'Nutritious meal';
+      nextSub.textContent = 'Include a quality protein source';
+      nextBtn.textContent = 'Log meal';
+      nextBtn.onclick = () => openQuickLogModal('meal');
+    } else {
+      if (fuelBreakdown.remPro > 0) {
+        nextTitle.textContent = 'Hit your protein target';
+        nextSub.textContent = `${fuelBreakdown.remPro} g remaining today`;
+        nextBtn.textContent = 'Log food';
+        nextBtn.onclick = () => openQuickLogModal('meal');
+      } else {
+        nextTitle.textContent = 'Strength session';
+        nextSub.textContent = 'Push workout · ~35 min';
+        nextBtn.textContent = 'Log workout';
+        nextBtn.onclick = () => openQuickLogModal('workout');
+      }
+    }
+  }
+
+  // 9. Priorities List
+  const prioritiesContainer = document.getElementById('plan-priorities-list');
+  if (prioritiesContainer) {
+    prioritiesContainer.innerHTML = priorities.map((p, idx) => {
       const done = state.completedTasks.includes(idx);
       return `
-        <div class="plan-timeline-item ${done ? 'done' : ''}" onclick="toggleTimelineHabit(${idx})">
-          <div class="plan-item-left">
-            <span class="plan-item-icon">${habit.icon}</span>
-            <div class="plan-item-info">
-              <strong>${habit.title}</strong>
-              <span>${habit.time} · ${habit.duration} · ${habit.description}</span>
+        <div class="plan-priority-item ${done ? 'done' : ''}" onclick="toggleTimelineHabit(${idx})">
+          <div class="plan-priority-left">
+            <span class="plan-priority-icon">${p.icon}</span>
+            <div class="plan-priority-info">
+              <strong>${p.title}</strong>
+              <span>${p.sub}</span>
             </div>
           </div>
-          <div class="plan-item-check">${done ? '✓' : ''}</div>
+          <div class="plan-priority-check">${done ? '✓' : ''}</div>
         </div>
       `;
     }).join('');
-  };
+  }
 
-  renderTimelineBlock(morningContainer, habits.slice(0, 2), 0);
-  renderTimelineBlock(middayContainer, habits.slice(2, 4), 2);
-  renderTimelineBlock(eveningContainer, habits.slice(4, 6), 4);
+  // 10. Earlier Today (Folded without red crosses)
+  const earlierList = document.getElementById('plan-earlier-list');
+  if (earlierList) {
+    const doneItems = priorities.filter((_, idx) => state.completedTasks.includes(idx));
+    if (doneItems.length === 0) {
+      earlierList.innerHTML = '<span style="font-size:0.76rem; color:var(--muted); font-style:italic;">No past items today.</span>';
+    } else {
+      earlierList.innerHTML = doneItems.map(item => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border); font-size:0.78rem;">
+          <span style="color:var(--text); text-decoration:line-through; opacity:0.8;">${item.icon} ${item.title}</span>
+          <span style="color:#22c55e; font-weight:700;">Completed</span>
+        </div>
+      `).join('');
+    }
+  }
 
-  // Keep compatibility list populated
+  // 11. Compatibility Elements (Preserve existing references)
   if (els.routineList) {
-    els.routineList.innerHTML = habits.map((habit, index) => `
+    els.routineList.innerHTML = priorities.map((p, index) => `
       <div data-index="${index}" style="display:none;"></div>
     `).join('');
   }
-
-  // Update progress numbers
-  const doneCount = state.completedTasks.filter((value) => typeof value === 'number').length;
-  const percent = habits.length > 0 ? Math.round((doneCount / habits.length) * 100) : 0;
-  if (els.routineProgress) els.routineProgress.style.width = `${percent}%`;
+  const pct = priorities.length > 0 ? Math.round((doneCount / priorities.length) * 100) : 0;
+  if (els.routineProgress) els.routineProgress.style.width = `${pct}%`;
   const copyEl = document.querySelector('.tracker-copy');
-  if (copyEl) copyEl.textContent = `${doneCount} of ${habits.length} complete · ${percent}%`;
+  if (copyEl) copyEl.textContent = `${doneCount} of ${priorities.length} complete · ${pct}%`;
   renderTodayLogs();
 }
 
@@ -3109,8 +3616,8 @@ window.toggleTimelineHabit = function(index) {
     state.completedTasks = state.completedTasks.filter((i) => i !== index);
   } else {
     state.completedTasks.push(index);
-    recordActivity('Plan ritual completed ✓', 20);
-    showToast('✓ Ritual checked off!');
+    recordActivity('Plan item completed ✓', 20);
+    showToast('✓ Checked off!');
   }
   saveState();
   renderRoutine();
@@ -6632,6 +7139,13 @@ function saveState() {
   localStorage.setItem('relix-historical-logs', JSON.stringify(state.historicalLogs));
   localStorage.setItem('relix-skin-type', state.skinType || 'oily');
   localStorage.setItem('relix-kitchen', JSON.stringify(state.kitchenIngredients || []));
+  localStorage.setItem('relix-eating-style', state.eatingStyle || 'regular');
+  localStorage.setItem('relix-meal-times', JSON.stringify(state.mealTimes || { breakfast: '09:00', lunch: '14:00', dinner: '20:00' }));
+  if (state.dayAdjustment) {
+    localStorage.setItem('relix-day-adjustment', state.dayAdjustment);
+  } else {
+    localStorage.removeItem('relix-day-adjustment');
+  }
 }
 
 function saveProfileName() {
