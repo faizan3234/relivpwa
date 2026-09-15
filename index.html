@@ -507,79 +507,6 @@
         </div>
       </section>
 
-      <section class="view-section" data-view="meal">
-        <div class="camera-card">
-          <div class="hero-head">
-            <div class="hero-title">
-              <p>Meal camera</p>
-              <h1>Snap your plate</h1>
-            </div>
-            <span class="pill" id="meal-counter">5 uploads left today</span>
-          </div>
-          <div id="meal-preview" class="meal-preview">
-            <div style="text-align: center; padding: 16px; color: var(--muted);">
-              <strong style="display: block; margin-bottom: 8px;">Upload a meal photo</strong>
-              <span>We protect your privacy and delete images immediately after analysis.</span>
-            </div>
-          </div>
-          <div class="camera-actions">
-            <label class="primary-btn" for="meal-input" style="display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin:0;">Upload image</label>
-            <input id="meal-input" type="file" accept="image/*" hidden />
-            <button id="analyze-meal" class="ghost-btn" type="button" style="margin:0;">Analyze meal</button>
-          </div>
-          <div id="meal-status" style="color: var(--muted); font-size: 0.9rem; margin-top: 4px;">Upload a photo to see real AI classification & analysis.</div>
-          <div id="meal-result-card" style="display:none; flex-direction:column; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:16px; border-radius:18px; margin-top:10px;">
-            <h4 id="meal-result-title" style="margin:0; font-size:1.1rem; color:var(--text);">Analyzing...</h4>
-            <p id="meal-result-desc" style="margin:0; font-size:0.88rem; color:var(--muted); line-height:1.4;"></p>
-            
-            <div id="meal-nutrition-grid" style="display:none; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:4px;">
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-cal-val" style="font-size:0.9rem; display:block; color:var(--text);">0</strong><span style="font-size:0.7rem; color:var(--muted);">kcal</span></div>
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-pro-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">protein</span></div>
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-carb-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">carbs</span></div>
-              <div style="background:var(--border); padding:8px; border-radius:10px; text-align:center;"><strong id="meal-fat-val" style="font-size:0.9rem; display:block; color:var(--text);">0g</strong><span style="font-size:0.7rem; color:var(--muted);">fat</span></div>
-            </div>
-            
-            <!-- Skin Analysis Container (only shown for Skincare goals) -->
-            <div id="skin-analysis-result" style="display:none; flex-direction:column; gap:12px;">
-              
-              <!-- 11 Overall Skin Scores -->
-              <h4 style="margin:8px 0 0 0; font-size:1.05rem; color:var(--text);">Overall Skin Health Scores</h4>
-              <div id="skin-scores-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
-                <!-- Dynamically filled -->
-              </div>
-              
-              <!-- Glass Skin Analysis -->
-              <div style="background:rgba(255,122,0,0.05); border:1px solid rgba(255,122,0,0.2); padding:10px; border-radius:12px; font-size:0.85rem; line-height:1.4;">
-                <strong>🇰🇷 Glass Skin & Smoothness Index:</strong>
-                <p id="skin-glass-analysis" style="margin:4px 0 0 0; color:var(--muted); font-size:0.8rem;"></p>
-              </div>
-
-              <!-- Issue Cards -->
-              <h4 style="margin:8px 0 0 0; font-size:1.05rem; color:var(--text);">Detected Issues & Concerns</h4>
-              <div id="skin-concerns-container" style="display:flex; flex-direction:column; gap:8px;">
-                <!-- Dynamic cards with Severity, causes, timeline, home care ingredients -->
-              </div>
-
-              <!-- What I DON'T See -->
-              <div style="background:rgba(34,197,94,0.05); border:1px dashed #22c55e; padding:10px; border-radius:12px; font-size:0.85rem;">
-                <strong style="color:#22c55e;">✓ What I DON'T See (Not Detected)</strong>
-                <ul id="skin-not-detected-list" style="margin:6px 0 0 0; padding-left:16px; color:var(--muted); font-size:0.8rem; line-height:1.4;">
-                </ul>
-              </div>
-
-              <!-- Progress Comparison Section -->
-              <div id="skin-progress-comparison" style="display:none; padding:10px; background:var(--border); border-radius:12px; font-size:0.85rem;">
-                <strong>📊 Progress vs Last Scan:</strong>
-                <p id="skin-progress-text" style="margin:4px 0 0 0; color:var(--muted); font-size:0.8rem;"></p>
-              </div>
-
-            </div>
-
-            <button id="log-meal-btn" class="primary-btn" type="button" style="margin-top:8px; width:100%; display:none;">Log this Meal</button>
-          </div>
-        </div>
-      </section>
-
       <section class="view-section" data-view="profile">
         <div class="profile-card">
           <div class="membership-card">
@@ -938,7 +865,6 @@
       <button class="nav-pill" data-tab="routine" type="button">🧘<span>Routine</span></button>
       <button class="nav-pill" data-tab="natural" type="button">🍃<span>Natural</span></button>
       <button class="nav-pill" data-tab="coach" type="button">🤖<span>Coach</span></button>
-      <button class="nav-pill" data-tab="meal" type="button">📸<span>Meal Cam</span></button>
       <button class="nav-pill" data-tab="profile" type="button">👤<span>Profile</span></button>
     </nav>
 

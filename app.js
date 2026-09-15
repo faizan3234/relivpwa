@@ -1335,8 +1335,8 @@ function bindEvents() {
     });
   }
 
-  els.mealInput.addEventListener('change', previewMeal);
-  els.mealButton.addEventListener('click', analyzeMeal);
+  if (els.mealInput) els.mealInput.addEventListener('change', previewMeal);
+  if (els.mealButton) els.mealButton.addEventListener('click', analyzeMeal);
 
   // Route through showInstallPrompt so the button always does SOMETHING. It
   // used to bail silently when `installPrompt` was null, which is exactly the
@@ -2535,6 +2535,7 @@ function renderWeightForecast() {
 }
 
 function renderMealCamState() {
+  if (!document.querySelector('[data-view="meal"]')) return;
   const isSkin = state.goalType.startsWith('skin');
   const mealNavPill = document.querySelector('.nav-pill[data-tab="meal"]');
   if (mealNavPill) {
@@ -3693,6 +3694,7 @@ function handleProfilePictureUpload(event) {
 }
 
 function renderMealCounter() {
+  if (!els.mealCounter) return;
   const remaining = Math.max(0, 5 - state.dailyMeals);
   els.mealCounter.textContent = `${remaining} uploads left today`;
 }
