@@ -286,13 +286,13 @@
           <div class="plan-adaptive-header">
             <div class="plan-adaptive-top-row">
               <span class="plan-date-label" id="plan-date-label">Wednesday, 16 September</span>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="pill" id="plan-progress-pill" style="font-size:0.75rem; font-weight:700; background:rgba(255,122,0,0.1); color:var(--primary);">3/5 done</span>
-                <button id="plan-adjust-btn" class="plan-adjust-pill" type="button">⚡ Adjust today</button>
-              </div>
+              <span class="pill" id="plan-progress-pill" style="font-size:0.75rem; font-weight:700; background:rgba(255,122,0,0.1); color:var(--primary);">3/5 done</span>
             </div>
 
-            <h2 class="plan-goal-headline" id="plan-goal-headline">Gain to 70 kg</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <h2 class="plan-goal-headline" id="plan-goal-headline" style="margin:0;">Gain to 70 kg</h2>
+              <button id="plan-adjust-btn" class="plan-adjust-pill" type="button" aria-label="Adjust today" title="Adjust today" style="padding:4px 10px; font-size:0.9rem; letter-spacing:0.1em; line-height:1;">•••</button>
+            </div>
 
             <div class="plan-reassurance-box" id="plan-reassurance-box">
               <strong id="plan-reassurance-title">You're on track</strong>
@@ -311,33 +311,14 @@
             </div>
           </div>
 
-          <!-- Dynamic Remaining Fuel & Macro Deduction Card -->
-          <div class="plan-fuel-card" id="plan-fuel-card">
-            <div class="plan-fuel-header">
-              <strong id="plan-fuel-title">Fuel & Target Remaining</strong>
-              <span id="plan-fuel-time-badge" class="pill" style="font-size:0.72rem; font-weight:600;">Lunch Window</span>
-            </div>
-            <div class="plan-fuel-chips">
-              <div class="plan-fuel-chip">
-                <span>Calories Remaining</span>
-                <strong id="plan-rem-cal">1,650 kcal</strong>
-              </div>
-              <div class="plan-fuel-chip">
-                <span>Protein Remaining</span>
-                <strong id="plan-rem-pro">92 g</strong>
-              </div>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span id="plan-fuel-hint" style="font-size:0.78rem; color:var(--muted);">Next meal: Aim for a substantial protein source</span>
-              <button id="plan-fuel-log-btn" class="primary-btn" type="button" style="padding:6px 14px; font-size:0.78rem; border-radius:10px;">Log meal</button>
-            </div>
-          </div>
-
-          <!-- Next Best Action Card -->
+          <!-- Unified Next Best Action Card -->
           <div class="plan-next-card" id="plan-next-card">
             <div class="plan-next-tag">Next Best Action</div>
-            <div class="plan-next-title" id="plan-next-title">Hit your protein target</div>
-            <div class="plan-next-sub" id="plan-next-sub">44 g remaining</div>
+            <div class="plan-next-title" id="plan-next-title">Have a protein-rich meal</div>
+            <div class="plan-next-sub" id="plan-next-sub">96 / 140 g protein · 1,502 kcal remaining today</div>
+            <div class="plan-next-suggestion" id="plan-next-suggestion" style="margin:8px 0 12px 0; font-size:0.8rem; color:var(--primary); font-weight:600; background:rgba(255,122,0,0.06); padding:6px 10px; border-radius:10px; border:1px solid rgba(255,122,0,0.15);">
+              Suggested next meal: ~35–45 g protein · ~700–800 kcal
+            </div>
             <button id="plan-next-btn" class="primary-btn" type="button" style="padding:8px 16px; font-size:0.84rem; border-radius:12px;">Log food</button>
           </div>
 
@@ -387,6 +368,14 @@
           <div id="plan-morning-items"></div>
           <div id="plan-midday-items"></div>
           <div id="plan-evening-items"></div>
+          <div id="plan-fuel-card">
+            <span id="plan-fuel-title"></span>
+            <span id="plan-fuel-time-badge"></span>
+            <span id="plan-rem-cal"></span>
+            <span id="plan-rem-pro"></span>
+            <span id="plan-fuel-hint"></span>
+            <button id="plan-fuel-log-btn"></button>
+          </div>
         </div>
 
         <!-- Custom Habits (Dynamic AI Routines) -->
@@ -1352,6 +1341,11 @@
             <span style="font-size:1.3rem;">🍽️</span>
             <strong>Missed meals</strong>
             <span>Work with rest of today, no stress</span>
+          </button>
+          <button class="adjust-option-btn" data-type="eating_differently" type="button">
+            <span style="font-size:1.3rem;">🍲</span>
+            <strong>Eating differently</strong>
+            <span>Dining out, event, flexible times</span>
           </button>
           <button class="adjust-option-btn" data-type="cant_workout" type="button">
             <span style="font-size:1.3rem;">🏋️</span>

@@ -1822,7 +1822,21 @@ input, textarea, select,
 .plan-next-sub {
   font-size: 0.8rem;
   color: var(--muted);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.plan-next-suggestion {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(255, 122, 0, 0.08);
+  border: 1px solid rgba(255, 122, 0, 0.2);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin: 6px 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Today's Priorities */
