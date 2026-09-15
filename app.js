@@ -680,6 +680,33 @@ function refreshTrackerViews() {
   if (typeof renderDailyMission === 'function') renderDailyMission();
 }
 
+function undoLastFoodLog() {
+  if (state.loggedFoods.length > 0) {
+    const last = state.loggedFoods.pop();
+    state.consumedCalories = Math.max(0, state.consumedCalories - (last.calories || 0));
+    state.consumedProtein = Math.max(0, state.consumedProtein - (last.protein || 0));
+    state.lastLog = null;
+    saveState();
+    refreshTrackerViews();
+    showToast(`🔄 Undone: ${last.name || 'food log'}!`);
+  } else {
+    showToast('No food logs to undo!');
+  }
+}
+
+function undoLastHydrationLog() {
+  if (state.loggedHydrations.length > 0) {
+    const last = state.loggedHydrations.pop();
+    state.consumedHydration = Math.max(0, state.consumedHydration - (last.ml || 0));
+    state.lastLog = null;
+    saveState();
+    refreshTrackerViews();
+    showToast(`🔄 Undone: ${last.ml}ml water!`);
+  } else {
+    showToast('No water logs to undo!');
+  }
+}
+
 function logFoodEntry(entry, options = {}) {
   if (!entry || !entry.name) return false;
   const fromChat = Boolean(options.fromChat);
@@ -729,7 +756,8 @@ function logFoodEntry(entry, options = {}) {
     refreshTrackerViews();
   }
 
-  if (options.toastMessage) showToast(options.toastMessage);
+  const toastMsg = options.toastMessage || `🍽️ Logged: ${entry.name} (+${entry.calories || 0} kcal)`;
+  showToast(toastMsg, '↩ Undo', undoLastFoodLog);
   return true;
 }
 
@@ -778,6 +806,15 @@ function applyTrackerCommandUpdates(result) {
   }
 
   return changed;
+}
+
+function triggerUiHighlight(selectorOrEl) {
+  const el = typeof selectorOrEl === 'string' ? document.querySelector(selectorOrEl) : selectorOrEl;
+  if (!el) return;
+  el.classList.remove('ui-pulse-highlight');
+  void el.offsetWidth;
+  el.classList.add('ui-pulse-highlight');
+  setTimeout(() => el.classList.remove('ui-pulse-highlight'), 1600);
 }
 
 function applyQuickCoachCommand(message) {
@@ -858,6 +895,14 @@ function applyQuickCoachCommand(message) {
   renderWeightForecast();
   if (typeof renderProgress === 'function') renderProgress();
   if (typeof renderDailyMission === 'function') renderDailyMission();
+
+  // Trigger Live UI Highlights
+  if (streakMatch || xpMatch) triggerUiHighlight('.hero-card');
+  if (calorieMatch || proteinMatch) triggerUiHighlight('#nutrition-overview-card');
+  if (waterMatch) triggerUiHighlight('#skincare-overview-card');
+  if (weightMatch) triggerUiHighlight('#progress-milestone-card');
+  if (lower.includes('student') || lower.includes('kiosk')) triggerUiHighlight('#progress-plan-banner');
+
   return updates.join(' · ');
 }
 
@@ -937,68 +982,70 @@ async function transcribeGroqVoiceNote(blob) {
 
 async function startVoiceNoteCapture() {
   if (voiceRecorder && voiceRecorder.state === 'recording') return;
+  if (speechRecognition) return;
 
-  if (!navigator.mediaDevices?.getUserMedia) {
-    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognitionImpl) {
-      try {
-        const recognition = new SpeechRecognitionImpl();
-        speechRecognition = recognition;
-        recognition.lang = 'en-US';
-        recognition.interimResults = true;
-        recognition.continuous = true;
-        let finalTranscript = '';
+  const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognitionImpl) {
+    try {
+      const recognition = new SpeechRecognitionImpl();
+      speechRecognition = recognition;
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      let finalTranscript = '';
 
-        updateVoiceUi('Listening... speak naturally, then wait or tap stop.', true);
+      updateVoiceUi('🎙️ Listening... speak now', true);
 
-        recognition.onresult = (event) => {
-          let interimTranscript = '';
-          for (let index = event.resultIndex; index < event.results.length; index += 1) {
-            const transcriptPart = event.results[index][0]?.transcript || '';
-            if (event.results[index].isFinal) {
-              finalTranscript += `${transcriptPart} `;
-            } else {
-              interimTranscript += transcriptPart;
-            }
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const transcriptPart = event.results[index][0]?.transcript || '';
+          if (event.results[index].isFinal) {
+            finalTranscript += `${transcriptPart} `;
+          } else {
+            interimTranscript += transcriptPart;
           }
-          const preview = `${finalTranscript}${interimTranscript}`.trim();
-          if (preview) updateVoiceUi(`Heard: ${preview}`);
-        };
+        }
+        const preview = `${finalTranscript}${interimTranscript}`.trim();
+        if (preview) {
+          updateVoiceUi(`Heard: "${preview}"`, true);
+          if (els.coachInput) els.coachInput.value = preview;
+        }
+      };
 
-        recognition.onerror = (event) => {
-          speechRecognition = null;
-          voiceTranscribing = false;
-          updateVoiceUi(event.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice listening failed.');
-          showToast(event.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice listening failed.');
-        };
-
-        recognition.onend = () => {
-          const transcript = finalTranscript.trim();
-          speechRecognition = null;
-          voiceTranscribing = false;
-          if (!transcript) {
-            updateVoiceUi('No speech detected. Try again.');
-            return;
-          }
-          if (els.coachInput) els.coachInput.value = transcript;
-          updateVoiceUi('Speech captured. Answering now...');
-          sendCoachMessage(transcript);
-        };
-
-        recognition.start();
-        voiceTranscribing = true;
-        return;
-      } catch (err) {
+      recognition.onerror = (event) => {
+        console.warn('SpeechRecognition error:', event.error);
         speechRecognition = null;
         voiceTranscribing = false;
-        updateVoiceUi('Microphone capture is not supported here.');
-        showToast('Microphone capture is not supported here.');
-        return;
-      }
-    }
+        updateVoiceUi(event.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice listening stopped.');
+      };
 
+      recognition.onend = () => {
+        const transcript = finalTranscript.trim() || (els.coachInput ? els.coachInput.value.trim() : '');
+        speechRecognition = null;
+        voiceTranscribing = false;
+        if (!transcript) {
+          updateVoiceUi('No speech detected. Try again.');
+          return;
+        }
+        if (els.coachInput) els.coachInput.value = transcript;
+        updateVoiceUi('Speech captured. Asking Reliv Coach...');
+        sendCoachMessage(transcript);
+      };
+
+      recognition.start();
+      voiceTranscribing = true;
+      return;
+    } catch (err) {
+      console.warn('SpeechRecognition failed, falling back to MediaRecorder...', err);
+      speechRecognition = null;
+      voiceTranscribing = false;
+    }
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
     updateVoiceUi('Microphone capture is not supported here.');
-    showToast('Microphone capture is not supported here.');
+    showToast('Microphone capture is not supported on this device.');
     return;
   }
 
@@ -1269,16 +1316,7 @@ function bindEvents() {
 
   if (els.inviteTeam) {
     els.inviteTeam.addEventListener('click', () => {
-      if (navigator.share) {
-        navigator.share({
-          title: 'Relix Companion',
-          text: 'Join my team on Relix!',
-          url: window.location.href
-        }).catch(() => { });
-      } else {
-        navigator.clipboard.writeText(window.location.href);
-        showToast('Link copied to clipboard!');
-      }
+      shareRelivCard();
     });
   }
 
@@ -1473,19 +1511,7 @@ function bindEvents() {
 
   const undoLogBtn = document.getElementById('undo-log-btn');
   if (undoLogBtn) {
-    undoLogBtn.addEventListener('click', () => {
-      if (state.loggedFoods.length > 0) {
-        const last = state.loggedFoods.pop();
-        state.consumedCalories = Math.max(0, state.consumedCalories - (last.calories || 0));
-        state.consumedProtein = Math.max(0, state.consumedProtein - (last.protein || 0));
-        state.lastLog = null; // clear single log indicator
-        saveState();
-        renderDashboard();
-        showToast(`🔄 Undone: ${last.name}!`);
-      } else {
-        showToast('No more food logs to undo!');
-      }
-    });
+    undoLogBtn.addEventListener('click', undoLastFoodLog);
   }
 
   document.querySelectorAll('.log-hydration-btn').forEach(btn => {
@@ -1495,7 +1521,7 @@ function bindEvents() {
       state.lastLog = { calories: 0, protein: 0, hydration: ml };
       state.loggedHydrations.push({ ml: ml, timestamp: Date.now() });
       recordActivity(`Water logged: ${ml}ml`, 10);
-      showToast(`✅ Logged ${ml}ml water!`);
+      showToast(`💧 Logged ${ml}ml water!`, '↩ Undo', undoLastHydrationLog);
     });
   });
 
@@ -1513,18 +1539,7 @@ function bindEvents() {
 
   const undoHydrationBtn = document.getElementById('undo-hydration-btn');
   if (undoHydrationBtn) {
-    undoHydrationBtn.addEventListener('click', () => {
-      if (state.loggedHydrations.length > 0) {
-        const last = state.loggedHydrations.pop();
-        state.consumedHydration = Math.max(0, state.consumedHydration - (last.ml || 0));
-        state.lastLog = null; // clear single log indicator
-        saveState();
-        renderDashboard();
-        showToast(`🔄 Undone: ${last.ml}ml water!`);
-      } else {
-        showToast('No more water logs to undo!');
-      }
-    });
+    undoHydrationBtn.addEventListener('click', undoLastHydrationLog);
   }
 
 function parseLocalFoodIntake(text) {
@@ -1615,7 +1630,7 @@ function parseLocalFoodIntake(text) {
       state.loggedHydrations.push({ ml: ml, timestamp: Date.now() });
       customHydrationInput.value = '';
       recordActivity(`Water logged: ${ml}ml`, 10);
-      showToast(`✅ Logged ${ml}ml water!`);
+      showToast(`💧 Logged ${ml}ml water!`, '↩ Undo', undoLastHydrationLog);
     });
   }
 
@@ -2005,16 +2020,21 @@ function renderDashboard() {
       const hydText = document.getElementById('hydration-text');
       if (hydBar) hydBar.style.width = `${hydPercent}%`;
       if (hydText) hydText.textContent = `${state.consumedHydration} / ${state.targetHydration} ml (${hydPercent}%)`;
-
-      if (undoHydrationBtn) undoHydrationBtn.style.display = state.loggedHydrations.length > 0 ? 'inline-block' : 'none';
-      if (undoLogBtn) undoLogBtn.style.display = 'none';
     } else {
       nutritionCard.style.display = 'flex';
       skincareCard.style.display = 'none';
-
-      if (undoLogBtn) undoLogBtn.style.display = state.loggedFoods.length > 0 ? 'inline-block' : 'none';
-      if (undoHydrationBtn) undoHydrationBtn.style.display = 'none';
     }
+  }
+
+  if (undoLogBtn) {
+    const hasFood = state.loggedFoods && state.loggedFoods.length > 0;
+    undoLogBtn.style.display = hasFood ? 'inline-block' : 'none';
+    if (hasFood) undoLogBtn.textContent = `↩ Undo (${state.loggedFoods[state.loggedFoods.length - 1].name.slice(0, 14)})`;
+  }
+  if (undoHydrationBtn) {
+    const hasWater = state.loggedHydrations && state.loggedHydrations.length > 0;
+    undoHydrationBtn.style.display = hasWater ? 'inline-block' : 'none';
+    if (hasWater) undoHydrationBtn.textContent = `↩ Undo (${state.loggedHydrations[state.loggedHydrations.length - 1].ml}ml)`;
   }
 
   renderCloseTheGap();
@@ -5954,16 +5974,40 @@ function createConfetti() {
   setTimeout(() => burst.remove(), 1400);
 }
 
-function showToast(message) {
+function showToast(message, actionLabel = null, onAction = null) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.textContent = message;
+  
+  if (actionLabel && typeof onAction === 'function') {
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.justifyContent = 'space-between';
+    toast.style.gap = '12px';
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    toast.appendChild(textSpan);
+
+    const actionBtn = document.createElement('button');
+    actionBtn.type = 'button';
+    actionBtn.textContent = actionLabel;
+    actionBtn.style.cssText = 'background: rgba(255,255,255,0.22); border: 1px solid rgba(255,255,255,0.45); color: white; border-radius: 8px; padding: 4px 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;';
+    actionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onAction();
+      toast.remove();
+    });
+    toast.appendChild(actionBtn);
+  } else {
+    toast.textContent = message;
+  }
+
   document.body.appendChild(toast);
   setTimeout(() => {
     toast.classList.add('hide');
     setTimeout(() => toast.remove(), 250);
-  }, 2500);
+  }, actionLabel ? 4500 : 2500);
 }
 // --- INTERACTIVE PDF ACADEMY GLOBAL STATE ---
 let academyState = {
@@ -6602,32 +6646,91 @@ function renderDailyMission() {
   if (!container) return;
   
   const today = new Date().toDateString();
-  const missionDone = localStorage.getItem('relix-mission-date') === today;
+  const missionDone = localStorage.getItem('reliv-mission-date') === today;
   
   if (missionDone) {
-    container.innerHTML = '';
+    container.innerHTML = `
+      <div class="daily-mission-card" style="background:linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.04)); border-color:rgba(34,197,94,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.2rem;">⚡</span>
+            <div>
+              <strong style="font-size:0.85rem; color:#22c55e;">Today's 30-Second Mission Complete!</strong>
+              <p style="margin:2px 0 0 0; font-size:0.75rem; color:var(--muted);">Streak locked · +25 XP awarded · Great job!</p>
+            </div>
+          </div>
+          <button class="mission-explainer-badge" id="mission-info-btn" type="button" style="background:transparent; border-color:var(--border); color:var(--muted);">ℹ️ Guide</button>
+        </div>
+      </div>
+    `;
+    const infoBtn = document.getElementById('mission-info-btn');
+    if (infoBtn) {
+      infoBtn.addEventListener('click', () => {
+        const modal = document.getElementById('mission-explainer-modal');
+        if (modal) modal.style.display = 'flex';
+      });
+    }
     return;
   }
   
   const waterDone = state.consumedHydration >= 250;
   const mealDone = state.loggedFoods.length > 0;
+  const moodDone = localStorage.getItem('reliv-mission-mood-date') === today;
+
+  let completedCount = (waterDone ? 1 : 0) + (mealDone ? 1 : 0) + (moodDone ? 1 : 0);
+  const progressPct = Math.round((completedCount / 3) * 100);
   
   container.innerHTML = `
     <div class="daily-mission-card">
-      <div class="daily-mission-title">⚡ Your 30-Second Mission</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:1.1rem;">⚡</span>
+          <strong class="daily-mission-title" style="margin:0; font-size:0.82rem;">Your 30-Second Morning Mission</strong>
+        </div>
+        <button class="mission-explainer-badge" id="mission-info-btn" type="button">ℹ️ What is this?</button>
+      </div>
+      <p style="margin:2px 0 8px 0; font-size:0.75rem; color:var(--muted); line-height:1.35;">3 micro-habits in under 30s to secure your streak & unlock <strong>+25 XP</strong>!</p>
+
+      <div class="mission-progress-bar">
+        <div class="mission-progress-fill" style="width: ${progressPct}%;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--muted); margin-bottom:8px;">
+        <span>${completedCount}/3 Habits Done</span>
+        <span>~${Math.max(10, (3 - completedCount) * 10)}s left</span>
+      </div>
+
       <div class="daily-mission-actions">
         <button class="mission-btn ${waterDone ? 'done' : ''}" id="mission-water" type="button">
-          ${waterDone ? '✅' : '💧'} Water
+          ${waterDone ? '✅' : '💧'} 1. Water (250ml)
         </button>
         <button class="mission-btn ${mealDone ? 'done' : ''}" id="mission-meal" type="button">
-          ${mealDone ? '✅' : '🍽️'} Meal
+          ${mealDone ? '✅' : '🍽️'} 2. Log Meal
         </button>
-        <button class="mission-btn" id="mission-mood" type="button">
-          😊 Mood
+        <button class="mission-btn ${moodDone ? 'done' : ''}" id="mission-mood" type="button">
+          ${moodDone ? '✅' : '😊'} 3. Mood
         </button>
       </div>
     </div>
   `;
+  
+  const infoBtn = document.getElementById('mission-info-btn');
+  if (infoBtn) {
+    infoBtn.addEventListener('click', () => {
+      const modal = document.getElementById('mission-explainer-modal');
+      if (modal) modal.style.display = 'flex';
+    });
+  }
+
+  const closeMissionModal = document.getElementById('close-mission-modal');
+  const dismissMissionModal = document.getElementById('dismiss-mission-modal');
+  [closeMissionModal, dismissMissionModal].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const modal = document.getElementById('mission-explainer-modal');
+        if (modal) modal.style.display = 'none';
+      });
+    }
+  });
   
   const waterBtn = document.getElementById('mission-water');
   const mealBtn = document.getElementById('mission-meal');
@@ -6638,8 +6741,9 @@ function renderDailyMission() {
       state.consumedHydration += 250;
       state.loggedHydrations.push({ ml: 250, timestamp: Date.now() });
       recordActivity('Mission: Water logged 250ml', 15);
-      showToast('💧 250ml logged! Mission progress!');
+      showToast('💧 250ml logged! Mission progress!', '↩ Undo', undoLastHydrationLog);
       renderDailyMission();
+      renderDashboard();
       checkMissionComplete();
     });
   }
@@ -6650,15 +6754,17 @@ function renderDailyMission() {
     });
   }
   
-  if (moodBtn) {
+  if (moodBtn && !moodDone) {
     moodBtn.addEventListener('click', () => {
-      const moods = ['😊 Great', '😐 Okay', '😔 Low', '💪 Motivated'];
+      const moods = ['😊 Energized', '💪 Motivated', '🧘 Calm', '🎯 Focused'];
       const mood = moods[Math.floor(Math.random() * moods.length)];
       moodBtn.classList.add('done');
       moodBtn.textContent = '✅ Mood';
+      localStorage.setItem('reliv-mission-mood-date', today);
       state.xpManualDelta = (Number(state.xpManualDelta) || 0) + 10;
       saveState();
       showToast(`Mood logged: ${mood} (+10 XP)`);
+      renderDailyMission();
       renderDashboard();
       checkMissionComplete();
     });
@@ -6669,10 +6775,11 @@ function checkMissionComplete() {
   const today = new Date().toDateString();
   const waterDone = state.consumedHydration >= 250;
   const mealDone = state.loggedFoods.length > 0;
+  const moodDone = localStorage.getItem('reliv-mission-mood-date') === today;
   
-  if (waterDone && mealDone) {
-    localStorage.setItem('relix-mission-date', today);
-    showToast('🎉 Daily mission complete! +25 XP');
+  if (waterDone && mealDone && moodDone) {
+    localStorage.setItem('reliv-mission-date', today);
+    showToast('🎉 Daily 30-Second Mission complete! +25 XP');
     state.xpManualDelta = (Number(state.xpManualDelta) || 0) + 25;
     saveState();
     createConfetti();
@@ -7016,6 +7123,152 @@ async function claimStreakRefund() {
   }
 }
 
+window.deleteWeightLog = function(index) {
+  if (!state.progressProfile || !state.progressProfile.weightLogs) return;
+  const removed = state.progressProfile.weightLogs.splice(index, 1);
+  if (state.progressProfile.weightLogs.length > 0) {
+    state.weight = state.progressProfile.weightLogs[state.progressProfile.weightLogs.length - 1].weight;
+  }
+  saveState();
+  renderProgress();
+  renderDashboard();
+  renderWeightForecast();
+  showToast(`🗑️ Removed entry (${removed[0]?.weight || ''} kg)`);
+};
+
+function initPhotoVaultEvents() {
+  ['start', 'current'].forEach(slot => {
+    const input = document.getElementById(`photo-input-${slot}`);
+    const img = document.getElementById(`photo-img-${slot}`);
+    const placeholder = document.getElementById(`photo-placeholder-${slot}`);
+    const key = `reliv-photo-${slot}`;
+
+    if (input && !input.dataset.bound) {
+      input.dataset.bound = 'true';
+      input.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const dataUrl = event.target.result;
+          try {
+            localStorage.setItem(key, dataUrl);
+            if (img) {
+              img.src = dataUrl;
+              img.style.display = 'block';
+            }
+            if (placeholder) placeholder.style.display = 'none';
+            showToast('📸 Progress photo saved securely on device!');
+          } catch (err) {
+            showToast('Storage limit reached for local photo.');
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const saved = localStorage.getItem(key);
+    if (saved && img && placeholder) {
+      img.src = saved;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+    }
+  });
+
+  const slotStart = document.getElementById('photo-slot-start');
+  const slotCurrent = document.getElementById('photo-slot-current');
+  if (slotStart && !slotStart.dataset.bound) {
+    slotStart.dataset.bound = 'true';
+    slotStart.addEventListener('click', () => {
+      const input = document.getElementById('photo-input-start');
+      if (input) input.click();
+    });
+  }
+  if (slotCurrent && !slotCurrent.dataset.bound) {
+    slotCurrent.dataset.bound = 'true';
+    slotCurrent.addEventListener('click', () => {
+      const input = document.getElementById('photo-input-current');
+      if (input) input.click();
+    });
+  }
+}
+
+function generateRelivSvgCard() {
+  const streak = state.streak || 0;
+  const level = state.level || 1;
+  const xp = state.xp || 0;
+  const currW = Number(state.weight || 65);
+  const targetW = Number(state.targetWeight || 70);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" width="480" height="320">
+  <defs>
+    <linearGradient id="cardBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#1f2937"/>
+    </linearGradient>
+    <linearGradient id="relivGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FF7A00"/>
+      <stop offset="100%" stop-color="#FFB347"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="320" rx="28" fill="url(#cardBg)"/>
+  <rect x="2" y="2" width="476" height="316" rx="26" fill="none" stroke="url(#relivGlow)" stroke-width="2" stroke-opacity="0.6"/>
+  <g transform="translate(32, 28)">
+    <rect width="50" height="50" rx="14" fill="#FF7A00"/>
+    <path d="M14 14h13c9 0 16 7 16 16s-7 16-16 16H14z" fill="#111111"/>
+    <circle cx="34" cy="30" r="4.5" fill="#FFB347"/>
+  </g>
+  <text x="96" y="50" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" letter-spacing="0.5">RELIV COMPANION</text>
+  <text x="96" y="68" fill="#9CA3AF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">Consistent Daily Wellness</text>
+  <g transform="translate(32, 105)">
+    <rect width="126" height="82" rx="16" fill="rgba(255,122,0,0.12)" stroke="rgba(255,122,0,0.3)" stroke-width="1"/>
+    <text x="63" y="40" fill="#FF7A00" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="800" text-anchor="middle">🔥 ${streak}</text>
+    <text x="63" y="62" fill="#E5E7EB" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" text-anchor="middle">Day Streak</text>
+  </g>
+  <g transform="translate(176, 105)">
+    <rect width="126" height="82" rx="16" fill="rgba(34,197,94,0.12)" stroke="rgba(34,197,94,0.3)" stroke-width="1"/>
+    <text x="63" y="40" fill="#22C55E" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" text-anchor="middle">⭐ ${xp}</text>
+    <text x="63" y="62" fill="#E5E7EB" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" text-anchor="middle">Level ${level} XP</text>
+  </g>
+  <g transform="translate(320, 105)">
+    <rect width="126" height="82" rx="16" fill="rgba(59,130,246,0.12)" stroke="rgba(59,130,246,0.3)" stroke-width="1"/>
+    <text x="63" y="40" fill="#60A5FA" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" text-anchor="middle">${currW} kg</text>
+    <text x="63" y="62" fill="#E5E7EB" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" text-anchor="middle">Target: ${targetW} kg</text>
+  </g>
+  <text x="32" y="235" fill="#E5E7EB" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Join the consistency challenge on Reliv!</text>
+  <text x="32" y="258" fill="#FF7A00" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">${window.location.origin}</text>
+</svg>`;
+}
+
+function shareRelivCard() {
+  const svgText = generateRelivSvgCard();
+  const shareText = `🔥 I'm on day ${state.streak || 0} of my health streak on Reliv! Track routines & hit goals: ${window.location.origin}`;
+
+  if (navigator.share) {
+    try {
+      const blob = new Blob([svgText], { type: 'image/svg+xml' });
+      const file = new File([blob], 'reliv-progress.svg', { type: 'image/svg+xml' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+          title: 'Reliv Companion',
+          text: shareText,
+          files: [file]
+        }).catch(() => {});
+        return;
+      }
+    } catch(e) {}
+
+    navigator.share({
+      title: 'Reliv Companion',
+      text: shareText,
+      url: window.location.origin
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(shareText);
+    showToast('📋 Share link copied to clipboard!');
+  }
+}
+
 function renderProgress() {
   initProgressEvents();
 
@@ -7079,6 +7332,110 @@ function renderProgress() {
       : `Fastest safe date limits surplus to 0.45 kg/week to ensure clean lean tissue gain rather than excess fat.`;
   }
 
+  // Target & Milestone Roadmap calculation
+  const startWeight = Number((profile.weightLogs && profile.weightLogs[0] ? profile.weightLogs[0].weight : state.weight) || 65);
+  const currentWeight = Number(state.weight || 65);
+  const targetWeight = Number(state.targetWeight || 70);
+  const isGain = targetWeight > startWeight;
+  const totalGap = Math.abs(targetWeight - startWeight);
+  const achieved = isGain ? (currentWeight - startWeight) : (startWeight - currentWeight);
+  const percent = totalGap > 0 ? Math.max(0, Math.min(100, Math.round((achieved / totalGap) * 100))) : 100;
+  const remainingGap = Math.abs(targetWeight - currentWeight);
+
+  const goalHeadline = document.getElementById('progress-goal-headline');
+  const pctBadge = document.getElementById('progress-pct-badge');
+  const targetBar = document.getElementById('progress-target-bar');
+  const startVal = document.getElementById('progress-start-val');
+  const currVal = document.getElementById('progress-curr-val');
+  const targetVal = document.getElementById('progress-target-val');
+
+  if (goalHeadline) {
+    const sign = achieved >= 0 ? '+' : '';
+    goalHeadline.textContent = `${sign}${achieved.toFixed(1)} kg (${isGain ? 'gained' : 'lost'}) toward ${targetWeight} kg target`;
+  }
+  if (pctBadge) pctBadge.textContent = `${percent}% Reached`;
+  if (targetBar) targetBar.style.width = `${percent}%`;
+  if (startVal) startVal.textContent = `${startWeight.toFixed(1)} kg`;
+  if (currVal) currVal.textContent = `${currentWeight.toFixed(1)} kg`;
+  if (targetVal) targetVal.textContent = `${targetWeight.toFixed(1)} kg`;
+
+  // Milestone Checkpoints
+  const stepsContainer = document.getElementById('progress-milestone-steps');
+  if (stepsContainer) {
+    const s1 = startWeight;
+    const s2 = Number((startWeight + (targetWeight - startWeight) * 0.35).toFixed(1));
+    const s3 = Number((startWeight + (targetWeight - startWeight) * 0.70).toFixed(1));
+    const s4 = targetWeight;
+
+    const isStepDone = (w) => isGain ? currentWeight >= w : currentWeight <= w;
+    const steps = [
+      { label: `${s1} kg`, sub: 'Start', done: isStepDone(s1) },
+      { label: `${s2} kg`, sub: 'Checkpoint 1', done: isStepDone(s2) },
+      { label: `${s3} kg`, sub: 'Checkpoint 2', done: isStepDone(s3) },
+      { label: `${s4} kg`, sub: 'Target Goal', done: isStepDone(s4) }
+    ];
+
+    stepsContainer.innerHTML = steps.map((s, i) => `
+      <div class="milestone-step ${s.done ? 'achieved' : (i === 1 || !steps[i-1]?.done ? '' : 'current')}">
+        <div class="milestone-dot">${s.done ? '✓' : (i + 1)}</div>
+        <span class="milestone-label">${s.label}</span>
+        <span class="milestone-sub">${s.sub}</span>
+      </div>
+    `).join('');
+  }
+
+  // AI Velocity & Advice text
+  const insightEl = document.getElementById('progress-velocity-insight');
+  if (insightEl) {
+    const weeklyRate = trends.ratePerWeek || 0;
+    let advice = '';
+    if (Math.abs(remainingGap) <= 0.3) {
+      advice = `🎉 Target Reached! You have attained your goal of ${targetWeight} kg. Transition into maintenance calories to stabilize your new physique.`;
+    } else if (isGain) {
+      if (weeklyRate > 0.45) {
+        advice = `⚡ Rapid Gain (+${weeklyRate.toFixed(2)} kg/wk): You're gaining faster than the standard clean muscle limit. Some of this is initial water & glycogen. Keep protein high (${state.targetProtein || 120}g) to maximize lean mass. Estimated goal arrival: <strong>${trends.etaPaceStr}</strong>!`;
+      } else {
+        advice = `📈 Steady Muscle Building (+${Math.max(0.1, weeklyRate).toFixed(2)} kg/wk): Excellent lean progression! You're on track to reach your target by <strong>${trends.etaPaceStr}</strong>.`;
+      }
+    } else {
+      if (weeklyRate < -0.75) {
+        advice = `⚡ Rapid Deficit (${weeklyRate.toFixed(2)} kg/wk): High-speed weight loss. Drink plenty of water and keep protein high to preserve muscle tone. Estimated goal arrival: <strong>${trends.etaPaceStr}</strong>!`;
+      } else {
+        advice = `🎯 Sustainable Fat Loss (${Math.min(-0.1, weeklyRate).toFixed(2)} kg/wk): Perfect pace to maintain energy and tone. Estimated to reach your target by <strong>${trends.etaPaceStr}</strong>.`;
+      }
+    }
+    insightEl.innerHTML = advice;
+  }
+
+  // History List
+  const historyList = document.getElementById('progress-history-list');
+  const historyCount = document.getElementById('progress-history-count');
+  const logs = (profile.weightLogs || []).slice();
+  if (historyCount) historyCount.textContent = `${logs.length} ${logs.length === 1 ? 'entry' : 'entries'}`;
+  if (historyList) {
+    if (logs.length === 0) {
+      historyList.innerHTML = '<p style="font-size:0.78rem; color:var(--muted); margin:4px 0;">No entries yet. Log above to start tracking!</p>';
+    } else {
+      historyList.innerHTML = logs.map((log, idx) => {
+        const d = new Date(log.date);
+        const dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Logged';
+        const waistStr = log.waist ? ` · 📏 ${log.waist}cm` : '';
+        return `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:rgba(0,0,0,0.02); border:1px solid var(--border); border-radius:12px; font-size:0.8rem;">
+            <div>
+              <strong>⚖️ ${log.weight} kg</strong>${waistStr}
+              <span style="font-size:0.7rem; color:var(--muted); margin-left:6px;">${dateStr}</span>
+            </div>
+            <button type="button" class="ghost-btn" style="padding:2px 6px; font-size:0.72rem; color:#ef4444; border:none;" onclick="deleteWeightLog(${idx})">🗑️ Delete</button>
+          </div>
+        `;
+      }).reverse().join('');
+    }
+  }
+
+  // Photo Vault check
+  initPhotoVaultEvents();
+
   // Render Chart
   const canvas = document.getElementById('progress-weight-canvas');
   if (canvas) {
@@ -7102,8 +7459,6 @@ function initWhatsAppChallenge() {
   const btn = document.getElementById('whatsapp-challenge-btn');
   if (!btn) return;
   btn.addEventListener('click', () => {
-    const text = `🔥 I'm on day ${state.streak} of my health streak on Reliv! Challenge me to see who stays consistent longer: ${window.location.origin}`;
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    shareRelivCard();
   });
 }

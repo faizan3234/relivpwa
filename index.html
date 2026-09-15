@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#ff7a00" />
-    <meta name="description" content="Relix Companion is a premium wellness companion that helps you build routines, track progress, and stay on top of your health goals." />
-    <meta property="og:title" content="Relix Companion" />
+    <meta name="description" content="Reliv Companion is a premium wellness companion that helps you build routines, track progress, and stay on top of your health goals." />
+    <meta property="og:title" content="Reliv Companion" />
     <meta property="og:description" content="A premium wellness PWA with routines, coaching, nutrition insights, and progress tracking." />
     <meta property="og:type" content="website" />
     <meta property="twitter:card" content="summary_large_image" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Relix" />
-    <title>Relix Companion</title>
+    <meta name="apple-mobile-web-app-title" content="Reliv" />
+    <title>Reliv Companion</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192" />
@@ -78,9 +78,9 @@
     <div class="app-shell">
       <header class="top-bar">
         <div class="brand">
-          <img src="file.jpg" alt="Relix brand mark" />
+          <img src="icons/icon-192.svg" alt="Reliv brand mark" style="width:36px; height:36px; border-radius:10px;" />
           <div>
-            <strong>Relix Companion</strong>
+            <strong>Reliv Companion</strong>
             <span>Premium wellness companion</span>
           </div>
         </div>
@@ -102,7 +102,7 @@
 
       <div id="install-banner">
         <div>
-          <strong style="margin-bottom: 4px;">📱 Install Relix</strong>
+          <strong style="margin-bottom: 4px;">📱 Install Reliv</strong>
           <p style="font-size:0.85rem; line-height: 1.4;">Enjoy offline support, faster loads, and a full-screen experience.</p>
         </div>
         <div style="display:flex; flex-direction:column; gap:8px;">
@@ -371,7 +371,7 @@
             <div class="hero-head">
               <div class="hero-title">
                 <p>Health coach</p>
-                <h1>Relix AI</h1>
+                <h1>Reliv AI</h1>
               </div>
               <span class="pill">Offline ready</span>
             </div>
@@ -382,7 +382,7 @@
               <button class="suggestion-pill" data-prompt="How do I recover after a workout?" type="button">Recovery tips</button>
             </div>
             <form id="coach-form" class="coach-form" style="margin-top: 12px;">
-              <input id="coach-input" placeholder="Ask Relix about health and wellness" aria-label="Ask Relix" />
+              <input id="coach-input" placeholder="Ask Reliv about nutrition, workouts, or goals" aria-label="Ask Reliv" />
               <button id="coach-voice-btn" class="ghost-btn voice-btn" type="button" style="white-space:nowrap; min-width:92px;">🎙️ Voice</button>
               <button class="primary-btn" type="submit">Send</button>
             </form>
@@ -597,7 +597,7 @@
             <div class="profile-grid">
               <div class="chip"><strong id="member-id">REL-2048</strong><span>Member ID</span></div>
               <div class="chip"><strong id="access-code">A7Q-84X</strong><span>Access code</span></div>
-              <div class="chip"><strong id="referral-code">RELIX-Ava</strong><span>Referral code</span></div>
+              <div class="chip"><strong id="referral-code">RELIV-Ava</strong><span>Referral code</span></div>
             </div>
           </div>
 
@@ -760,7 +760,8 @@
             </div>
 
             <div>
-              <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:6px;">5. Can you take private check-in photos?</label>
+              <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:4px;">5. Can you take private check-in photos?</label>
+              <span style="display:block; font-size:0.75rem; color:var(--muted); margin-bottom:8px; line-height:1.4;">🔒 <strong>100% Private on this phone:</strong> Visual progress photos (front/side) never leave your device. They let you see real muscle definition and body recomposition when the scale doesn't tell the whole story.</span>
               <div class="progress-option-group" data-name="canTakePhotos">
                 <button type="button" class="progress-option-btn selected" data-value="true">📸 Yes, weekly</button>
                 <button type="button" class="progress-option-btn" data-value="false">No photos</button>
@@ -847,6 +848,80 @@
             </div>
           </div>
 
+          <!-- Live Target & Milestone Roadmap Card -->
+          <div class="card" id="progress-milestone-card" style="padding:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.04em;">Live Target Tracking</span>
+                <h3 style="margin:2px 0 0 0; font-size:1.1rem;" id="progress-goal-headline">Tracking to Target</h3>
+              </div>
+              <span class="pill" id="progress-pct-badge">0% Reached</span>
+            </div>
+
+            <div style="margin-top:12px; background:rgba(0,0,0,0.06); border-radius:999px; height:8px; overflow:hidden;">
+              <div id="progress-target-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #ff7a00, #22c55e); transition:width 500ms ease;"></div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted); margin-top:6px;">
+              <span>Start: <strong id="progress-start-val">--</strong></span>
+              <span>Current: <strong id="progress-curr-val" style="color:var(--text);">--</strong></span>
+              <span>Target: <strong id="progress-target-val" style="color:var(--primary);">--</strong></span>
+            </div>
+
+            <div class="milestone-roadmap" id="progress-milestone-steps">
+              <!-- Rendered dynamically in app.js -->
+            </div>
+
+            <div id="progress-velocity-insight" style="font-size:0.8rem; background:rgba(255,122,0,0.07); border:1px solid rgba(255,122,0,0.18); border-radius:14px; padding:10px 12px; margin-top:10px; color:var(--text); line-height:1.4;">
+              <!-- Live AI insight text -->
+            </div>
+          </div>
+
+          <!-- Private Check-in Photos Vault -->
+          <div class="photo-vault-card" id="progress-photo-vault">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div>
+                <strong style="font-size:0.92rem; display:block;">📸 Private Progress Photo Vault</strong>
+                <span style="font-size:0.75rem; color:var(--muted);">Weekly visual proof of muscle & recomposition</span>
+              </div>
+              <span class="photo-privacy-tag">🔒 On-Device Only</span>
+            </div>
+
+            <div class="photo-vault-grid">
+              <div class="photo-slot" id="photo-slot-start">
+                <img id="photo-img-start" src="" style="display:none; width:100%; height:100%; object-fit:cover;" />
+                <div id="photo-placeholder-start" style="text-align:center; padding:10px;">
+                  <span style="font-size:1.6rem; display:block;">📷</span>
+                  <span class="photo-slot-label">Week 1 / Before</span>
+                  <span style="font-size:0.65rem; color:var(--muted); display:block;">Tap to add</span>
+                </div>
+                <input type="file" id="photo-input-start" accept="image/*" style="display:none;" />
+              </div>
+
+              <div class="photo-slot" id="photo-slot-current">
+                <img id="photo-img-current" src="" style="display:none; width:100%; height:100%; object-fit:cover;" />
+                <div id="photo-placeholder-current" style="text-align:center; padding:10px;">
+                  <span style="font-size:1.6rem; display:block;">✨</span>
+                  <span class="photo-slot-label">Current Week</span>
+                  <span style="font-size:0.65rem; color:var(--muted); display:block;">Tap to update</span>
+                </div>
+                <input type="file" id="photo-input-current" accept="image/*" style="display:none;" />
+              </div>
+            </div>
+            <p style="font-size:0.72rem; color:var(--muted); margin:8px 0 0 0; text-align:center;">Photos are stored solely on this device's memory. Never uploaded to any server or cloud.</p>
+          </div>
+
+          <!-- Measurement History with Delete/Undo -->
+          <div class="card" style="padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <strong style="font-size:0.9rem;">Weight History</strong>
+              <span style="font-size:0.75rem; color:var(--muted);" id="progress-history-count">0 entries</span>
+            </div>
+            <div id="progress-history-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto;">
+              <!-- History items with delete buttons rendered dynamically -->
+            </div>
+          </div>
+
           <!-- Retake Button -->
           <div style="text-align:center; margin-top:8px; margin-bottom:80px;">
             <button id="progress-retake-btn" class="ghost-btn" type="button" style="font-size:0.78rem; padding:6px 12px;">
@@ -889,7 +964,7 @@
           </div>
           <button id="close-notification-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
         </div>
-        <p>Relix can nudge you for water, skin care, and nutrition check-ins. Allow notifications to keep these reminders active.</p>
+        <p>Reliv can nudge you for water, skin care, and nutrition check-ins. Allow notifications to keep these reminders active.</p>
         <p style="font-size: 0.8rem; color: var(--muted); margin-top: 8px;"><strong>iPhone users:</strong> Apple requires you to add this app to your Home Screen first. Tap the Share icon &gt; 'Add to Home Screen', then open it from there to enable notifications!</p>
         <div class="modal-actions">
           <button id="enable-notifications" class="primary-btn" type="button">Allow notifications</button>
@@ -902,12 +977,12 @@
       <div class="modal-card">
         <div class="hero-head">
           <div class="hero-title">
-            <p>Install Relix</p>
+            <p>Install Reliv</p>
             <h3 id="install-modal-title">Add to your home screen</h3>
           </div>
           <button id="close-install-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
         </div>
-        <p id="install-modal-copy">Add Relix to your home screen for a faster, app-like experience.</p>
+        <p id="install-modal-copy">Add Reliv to your home screen for a faster, app-like experience.</p>
         <div class="modal-actions">
           <button id="install-modal-action" class="primary-btn" type="button">Install now</button>
           <button id="dismiss-install-modal" class="ghost-btn" type="button">Later</button>
@@ -1096,6 +1171,38 @@
         <div style="display:flex; gap:10px; width: 100%;">
           <button id="confirm-shake-yes" class="primary-btn" type="button" style="flex:1; padding: 12px; font-weight: 700; border:none; border-radius:12px; color:white; cursor:pointer;">Yes, consumed!</button>
           <button id="confirm-shake-no" class="ghost-btn" type="button" style="flex:1; padding: 12px; font-weight: 700; border:1px solid var(--border); border-radius:12px; cursor:pointer;">No, not yet</button>
+        </div>
+      </div>
+    <!-- 30-Second Mission Explainer Modal -->
+    <div id="mission-explainer-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:10000; background:rgba(0,0,0,0.6);">
+      <div class="modal-card" style="max-width:380px; padding:22px; border-radius:24px;">
+        <div class="hero-head" style="margin-bottom:12px;">
+          <div class="hero-title">
+            <p style="color:var(--primary); font-weight:700; text-transform:uppercase; font-size:0.72rem; letter-spacing:0.05em; margin:0;">Daily Micro-Habit</p>
+            <h3 style="margin:2px 0 0 0; font-size:1.2rem;">⚡ 30-Second Mission</h3>
+          </div>
+          <button id="close-mission-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div style="font-size:0.86rem; line-height:1.5; color:var(--text);">
+          <p style="margin:0 0 10px 0;">Build consistency effortlessly! Every morning, spend just <strong>30 seconds</strong> to complete 3 quick kickstart habits:</p>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.03); padding:8px 12px; border-radius:14px; border:1px solid var(--border);">
+              <span style="font-size:1.3rem;">💧</span>
+              <div><strong>1. Drink Water</strong><br><span style="font-size:0.75rem; color:var(--muted);">Tap 'Water' to log 250ml instantly</span></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.03); padding:8px 12px; border-radius:14px; border:1px solid var(--border);">
+              <span style="font-size:1.3rem;">🍽️</span>
+              <div><strong>2. First Meal Log</strong><br><span style="font-size:0.75rem; color:var(--muted);">Log your breakfast, shake, or bite</span></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.03); padding:8px 12px; border-radius:14px; border:1px solid var(--border);">
+              <span style="font-size:1.3rem;">😊</span>
+              <div><strong>3. 1-Tap Mood Check</strong><br><span style="font-size:0.75rem; color:var(--muted);">Check in on your mindset and focus</span></div>
+            </div>
+          </div>
+          <p style="margin:12px 0 0 0; font-size:0.8rem; color:var(--primary); font-weight:700;">🎉 Completing all three locks in your daily streak and awards +25 XP!</p>
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+          <button id="dismiss-mission-modal" class="primary-btn" type="button" style="width:100%; padding:12px; font-weight:700;">Got it! Let's Start 🚀</button>
         </div>
       </div>
     </div>
