@@ -1,5 +1,21 @@
-const CACHE_NAME = 'reliv-v8';
-const CORE_ASSETS = ['./', './index.html', './style.css', './app.js', './service-worker.js', './manifest.json', './file.jpg', './icons/favicon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'];
+const CACHE_NAME = 'reliv-v9';
+const CORE_ASSETS = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './service-worker.js',
+  './manifest.json',
+  './file.jpg',
+  './icons/favicon.svg',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg',
+  './icons/reliv-wordmark.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon.png'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)));
@@ -7,8 +23,18 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME && key !== 'reliv-actions').map((key) => caches.delete(key)))));
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== CACHE_NAME && key !== 'reliv-actions').map((key) => caches.delete(key)))
+    )
+  );
   self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'skipWaiting')) {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {

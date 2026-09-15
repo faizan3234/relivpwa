@@ -1186,18 +1186,57 @@ function init() {
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
+    // Listen for controller changes (automatic refresh when new version is activated)
+    let isRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      console.log('[Reliv] Service worker controller changed. Refreshing to activate new update...');
+      if (typeof showToast === 'function') {
+        showToast('🚀 App updated to the latest version! Refreshing...');
+      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 700);
+    });
+
+    navigator.serviceWorker.register('./service-worker.js')
       .then((reg) => {
         console.log('Service Worker registered successfully.', reg);
-        // Update detection: when new SW available, notify user
+
+        // Immediate check for updates on launch
+        reg.update().catch(() => {});
+
+        // Periodic check for new updates every 30 seconds
+        setInterval(() => {
+          reg.update().catch(() => {});
+        }, 30000);
+
+        // Check for updates when user returns to the tab/app
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            reg.update().catch(() => {});
+          }
+        });
+        window.addEventListener('focus', () => {
+          reg.update().catch(() => {});
+        });
+
+        // If a new worker is already waiting, trigger skipWaiting
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+
+        // When a new worker is installing, activate it immediately once installed
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           if (!newWorker) return;
           newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-              showToast('🔄 Update available! Tap to reload.');
-              // Auto-reload after brief delay so user sees the toast
-              setTimeout(() => window.location.reload(), 2500);
+            if (newWorker.state === 'installed') {
+              if (navigator.serviceWorker.controller) {
+                console.log('[Reliv] New SW installed! Sending SKIP_WAITING to activate...');
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+              }
             }
           });
         });
@@ -7213,10 +7252,12 @@ function generateRelivSvgCard() {
   </defs>
   <rect width="480" height="320" rx="28" fill="url(#cardBg)"/>
   <rect x="2" y="2" width="476" height="316" rx="26" fill="none" stroke="url(#relivGlow)" stroke-width="2" stroke-opacity="0.6"/>
-  <g transform="translate(32, 28)">
-    <rect width="50" height="50" rx="14" fill="#FF7A00"/>
-    <path d="M14 14h13c9 0 16 7 16 16s-7 16-16 16H14z" fill="#111111"/>
-    <circle cx="34" cy="30" r="4.5" fill="#FFB347"/>
+  <g transform="translate(32, 26)">
+    <rect width="52" height="52" rx="14" fill="#ffffff"/>
+    <g transform="scale(0.10156)">
+      <path d="M77.23 305.00 L46.21 305.00 L46.21 174.04 L99.82 174.04 Q114.58 174.04 125.31 179.36 Q136.03 184.68 141.79 194.43 Q147.54 204.19 147.54 217.55 L147.54 217.55 Q147.54 231.00 141.65 240.53 Q135.77 250.07 124.87 254.99 Q113.97 259.91 98.94 259.91 L98.94 259.91 L64.75 259.91 L64.75 235.39 L93.31 235.39 Q100.61 235.39 105.49 233.46 Q110.37 231.52 112.87 227.57 Q115.38 223.61 115.38 217.55 L115.38 217.55 Q115.38 211.40 112.87 207.35 Q110.37 203.31 105.44 201.25 Q100.52 199.18 93.23 199.18 L93.23 199.18 L77.23 199.18 L77.23 305.00 Z M152.11 305.00 L118.10 305.00 L86.20 245.15 L119.42 245.15 L152.11 305.00 Z M211.09 306.85 L211.09 306.85 Q195.71 306.85 184.54 300.74 Q173.38 294.63 167.45 283.29 Q161.52 271.95 161.52 256.22 L161.52 256.22 Q161.52 241.10 167.45 229.68 Q173.38 218.25 184.28 211.88 Q195.18 205.51 209.95 205.51 L209.95 205.51 Q220.32 205.51 228.97 208.76 Q237.63 212.01 244.00 218.38 Q250.38 224.76 253.85 234.07 Q257.32 243.39 257.32 255.61 L257.32 255.61 L257.32 263.34 L172.42 263.34 L172.42 245.50 L242.73 245.50 L228.40 249.72 Q228.40 242.86 226.34 237.94 Q224.27 233.02 220.23 230.38 Q216.19 227.74 210.21 227.74 L210.21 227.74 Q204.23 227.74 200.10 230.42 Q195.97 233.11 193.82 237.90 Q191.66 242.69 191.66 249.10 L191.66 249.10 L191.66 261.93 Q191.66 269.49 194.17 274.55 Q196.67 279.60 201.16 282.10 Q205.64 284.61 211.62 284.61 L211.62 284.61 Q215.75 284.61 219.13 283.47 Q222.51 282.32 224.93 280.04 Q227.35 277.75 228.58 274.50 L228.58 274.50 L255.91 278.98 Q253.45 287.42 247.43 293.71 Q241.41 299.99 232.23 303.42 Q223.04 306.85 211.09 306.85 Z M339.67 195.22 L339.67 195.22 Q333.17 195.22 328.51 190.87 Q323.85 186.52 323.85 180.46 L323.85 180.46 Q323.85 174.31 328.51 170.00 Q333.17 165.69 339.67 165.69 L339.67 165.69 Q346.26 165.69 350.92 169.96 Q355.58 174.22 355.58 180.46 L355.58 180.46 Q355.58 186.61 350.92 190.92 Q346.26 195.22 339.67 195.22 Z" fill="#FF7A00"/>
+      <path d="M273.40 174.04 L304.08 174.04 L304.08 305.00 L273.40 305.00 L273.40 174.04 Z M355.05 305.00 L324.38 305.00 L324.38 206.74 L355.05 206.74 L355.05 305.00 Z M438.29 305.00 L402.78 305.00 L367.18 206.74 L399.53 206.74 L414.20 254.81 Q417.19 264.48 419.39 274.59 Q421.59 284.70 423.87 295.95 L423.87 295.95 L418.25 295.95 Q420.44 284.70 422.60 274.63 Q424.75 264.57 427.65 254.81 L427.65 254.81 L442.06 206.74 L474.06 206.74 L438.29 305.00 Z" fill="#111111"/>
+    </g>
   </g>
   <text x="96" y="50" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" letter-spacing="0.5">RELIV COMPANION</text>
   <text x="96" y="68" fill="#9CA3AF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">Consistent Daily Wellness</text>
