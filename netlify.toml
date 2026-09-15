@@ -3,7 +3,7 @@
 
 [[redirects]]
   from = "/oracle-api/*"
-  to = "http://161.118.169.29:4000/:splat"
+  to = "/.netlify/functions/oracle-api/:splat"
   status = 200
   force = true
 

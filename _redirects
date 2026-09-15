@@ -1,2 +1,2 @@
-/oracle-api/*  http://161.118.169.29:4000/:splat  200!
+/oracle-api/*  /.netlify/functions/oracle-api/:splat  200!
 /*  /index.html  200
