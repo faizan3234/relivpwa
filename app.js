@@ -685,6 +685,7 @@ function refreshTrackerViews() {
   renderProfilePicture();
   if (typeof renderProgress === 'function') renderProgress();
   if (typeof renderDailyMission === 'function') renderDailyMission();
+  if (typeof renderRecentQuickFoods === 'function') renderRecentQuickFoods();
 }
 
 function undoLastFoodLog() {
@@ -717,7 +718,7 @@ function undoLastHydrationLog() {
 function logFoodEntry(entry, options = {}) {
   if (!entry || !entry.name) return false;
   const fromChat = Boolean(options.fromChat);
-  if (!confirmFoodLog(entry, fromChat)) {
+  if (!options.skipDuplicateCheck && !confirmFoodLog(entry, fromChat)) {
     if (fromChat) {
       const dup = findSimilarFoodLog(entry);
       showToast(`⚠️ ${entry.name} was already logged recently (${dup ? dup.name : 'similar item'}). Skipped duplicate.`);
@@ -1641,7 +1642,70 @@ function renderGoalAwareQuickLog() {
   bindDynamicQuickLogEvents();
 }
 
+function renderRecentQuickFoods() {
+  const container = document.getElementById('ql-recent-foods-container');
+  if (!container) return;
+
+  const logged = (state.loggedFoods || []).slice().reverse();
+  const seen = new Set();
+  const recents = [];
+
+  for (const item of logged) {
+    if (!item || !item.name) continue;
+    const nameStr = String(item.name).trim();
+    if (nameStr.startsWith('Manual') || seen.has(nameStr.toLowerCase())) continue;
+    seen.add(nameStr.toLowerCase());
+    recents.push({
+      name: nameStr,
+      calories: Number(item.calories) || 0,
+      protein: Number(item.protein) || 0
+    });
+    if (recents.length >= 4) break;
+  }
+
+  const defaults = [
+    { name: 'Dal Chawal', calories: 350, protein: 10 },
+    { name: 'Eggs & Toast', calories: 280, protein: 18 },
+    { name: 'Chicken Rice', calories: 450, protein: 35 },
+    { name: 'Chai / Tea', calories: 120, protein: 3 }
+  ];
+
+  for (const def of defaults) {
+    if (recents.length >= 4) break;
+    if (!seen.has(def.name.toLowerCase())) {
+      recents.push(def);
+      seen.add(def.name.toLowerCase());
+    }
+  }
+
+  container.innerHTML = recents.map(food => `
+    <button class="ghost-btn quick-food-btn" data-name="${escapeHtml(food.name)}" data-cals="${food.calories}" data-pro="${food.protein}" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card);">
+      <span style="display:block; font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(food.name)}</span>
+      <span style="font-size:0.72rem; color:var(--muted);">${food.calories} kcal · ${food.protein}g pro</span>
+    </button>
+  `).join('');
+
+  container.querySelectorAll('.quick-food-btn').forEach(btn => {
+    btn.onclick = () => {
+      const foodName = btn.dataset.name;
+      const cals = Number(btn.dataset.cals) || 0;
+      const pro = Number(btn.dataset.pro) || 0;
+
+      logFoodEntry({ name: foodName, calories: cals, protein: pro }, {
+        skipDuplicateCheck: true,
+        activityLabel: `Quick Log: ${foodName}`,
+        points: 20,
+        toastMessage: `✅ Logged: ${foodName} (+${cals} kcal, +${pro}g pro)`
+      });
+
+      renderRecentQuickFoods();
+    };
+  });
+}
+
 function bindDynamicQuickLogEvents() {
+  renderRecentQuickFoods();
+
   // Bind food panel scroll
   const qlMeal = document.getElementById('ql-meal');
   const foodPanel = document.getElementById('ql-panel-food');
@@ -1662,22 +1726,57 @@ function bindDynamicQuickLogEvents() {
     };
   }
 
-  // Bind workout action
+  // Bind workout action -> scroll to activity panel
   const qlWorkout = document.getElementById('ql-workout');
+  const actPanel = document.getElementById('ql-panel-activity');
   if (qlWorkout) {
     qlWorkout.onclick = () => {
-      showToast('🏋️ Logged: Resistance training session');
-      recordActivity('Resistance Training Session', 25);
-      closeQuickLogModal();
+      if (actPanel) {
+        actPanel.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        recordActivity('Daily Movement Session', 25);
+        if (!state.completedEssentials) state.completedEssentials = [];
+        if (!state.completedEssentials.includes('movement')) state.completedEssentials.push('movement');
+        saveState();
+        renderApp();
+        showToast('🏋️ Movement logged: +25 XP');
+        closeQuickLogModal();
+      }
     };
   }
+
+  // Bind activity quick buttons in #ql-panel-activity
+  document.querySelectorAll('.log-activity-quick-btn').forEach(btn => {
+    btn.onclick = () => {
+      const act = btn.dataset.act || 'Workout';
+      const dur = Number(btn.dataset.dur) || 30;
+      const xp = Number(btn.dataset.xp) || 25;
+      recordActivity(`${act} (${dur} min)`, xp);
+      if (!state.completedEssentials) state.completedEssentials = [];
+      if (!state.completedEssentials.includes('movement')) {
+        state.completedEssentials.push('movement');
+      }
+      saveState();
+      renderApp();
+      showToast(`✅ Logged: ${act} (${dur}m) · +${xp} XP`);
+      closeQuickLogModal();
+    };
+  });
 
   // Bind weight action
   const qlWeight = document.getElementById('ql-weight');
   if (qlWeight) {
     qlWeight.onclick = () => {
-      showToast(`⚖️ Weight check-in: ${state.weight || 65} kg`);
-      closeQuickLogModal();
+      const curW = state.weight || 65;
+      const newW = prompt(`⚖️ Enter today's weight check-in (kg):`, curW);
+      if (newW !== null && !isNaN(Number(newW)) && Number(newW) > 20) {
+        state.weight = Number(newW);
+        recordActivity(`Weight Check-in: ${newW} kg`, 20);
+        saveState();
+        renderApp();
+        showToast(`⚖️ Weight logged: ${newW} kg!`);
+        closeQuickLogModal();
+      }
     };
   }
 
@@ -1706,6 +1805,7 @@ function openQuickLogModal(panel) {
   const modal = document.getElementById('quick-log-modal');
   if (modal) {
     renderGoalAwareQuickLog();
+    renderRecentQuickFoods();
     modal.style.display = 'flex';
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
@@ -1724,6 +1824,11 @@ function openQuickLogModal(panel) {
         const waterPanel = document.getElementById('ql-panel-water');
         if (waterPanel) waterPanel.scrollIntoView({ behavior: 'smooth' });
       }, 100);
+    } else if (panel === 'activity' || panel === 'workout') {
+      setTimeout(() => {
+        const actPanel = document.getElementById('ql-panel-activity');
+        if (actPanel) actPanel.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   }
 }
@@ -1737,6 +1842,9 @@ function closeQuickLogModal() {
   }
 }
 
+window.openQuickLogModal = openQuickLogModal;
+window.closeQuickLogModal = closeQuickLogModal;
+
 window.handleEssentialClick = function(id) {
   if (id === 'water') {
     state.consumedHydration += 250;
@@ -1746,15 +1854,17 @@ window.handleEssentialClick = function(id) {
     renderApp();
     showToast('💧 250ml water logged! Essential complete.');
   } else if (id === 'meal' || id === 'nutrition') {
-    openQuickLogModal();
+    openQuickLogModal('meal');
   } else if (id === 'protein') {
-    openQuickLogModal();
-  } else if (id === 'skincare-am' || id === 'skincare-pm' || id === 'movement') {
+    openQuickLogModal('meal');
+  } else if (id === 'movement') {
+    openQuickLogModal('activity');
+  } else if (id === 'skincare-am' || id === 'skincare-pm') {
     if (!state.completedEssentials) state.completedEssentials = [];
     if (!state.completedEssentials.includes(id)) {
       state.completedEssentials.push(id);
       saveState();
-      const label = id === 'movement' ? 'Daily Movement / Workout' : id === 'skincare-am' ? 'Morning Skincare & UV Shield' : 'Evening Cleanse & Barrier Repair';
+      const label = id === 'skincare-am' ? 'Morning Skincare & UV Shield' : 'Evening Cleanse & Barrier Repair';
       recordActivity(`${label} Complete ✓`, 15);
       renderApp();
       showToast(`✓ ${label} checked off!`);
@@ -1833,85 +1943,21 @@ function bindEvents() {
     });
   }
 
-  // Quick Log Sheet Items
-  const qlMeal = document.getElementById('ql-meal');
-  if (qlMeal) {
-    qlMeal.addEventListener('click', () => {
-      const foodPanel = document.getElementById('ql-panel-food');
-      if (foodPanel) {
-        foodPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        const input = document.getElementById('custom-food-input');
-        if (input) input.focus();
-      }
-    });
-  }
-
-  const qlWater = document.getElementById('ql-water');
-  if (qlWater) {
-    qlWater.addEventListener('click', () => {
-      const waterPanel = document.getElementById('ql-panel-water');
-      if (waterPanel) {
-        waterPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        const input = document.getElementById('custom-hydration-input');
-        if (input) input.focus();
-      }
-    });
-  }
-
-  document.querySelectorAll('.ql-fast-water').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const ml = Number(btn.dataset.ml) || 250;
-      state.consumedHydration += ml;
-      state.loggedHydrations.push({ ml, timestamp: Date.now() });
+  // Track Workouts & Movement Setting Event
+  const trackWorkoutToggle = document.getElementById('track-workout-toggle');
+  if (trackWorkoutToggle) {
+    trackWorkoutToggle.checked = state.trackWorkouts !== false;
+    trackWorkoutToggle.addEventListener('change', (e) => {
+      state.trackWorkouts = e.target.checked;
       saveState();
-      recordActivity(`Quick: Water ${ml}ml 💧`, 10);
-      renderApp();
-      closeQuickLogModal();
-      showToast(`💧 ${ml}ml water logged!`);
-    });
-  });
-
-  const qlWeight = document.getElementById('ql-weight');
-  if (qlWeight) {
-    qlWeight.addEventListener('click', () => {
-      closeQuickLogModal();
-      switchView('progress');
-      showToast('⚖️ Update your weight progress');
+      renderRoutine();
+      renderDashboard();
+      showToast(state.trackWorkouts ? 'Movement & workouts tracking enabled.' : 'Movement & workouts tracking paused.');
     });
   }
 
-  const qlWorkout = document.getElementById('ql-workout');
-  if (qlWorkout) {
-    qlWorkout.addEventListener('click', () => {
-      recordActivity('Completed Daily Workout 🏋️', 30);
-      saveState();
-      renderApp();
-      closeQuickLogModal();
-      showToast('🏋️ Workout logged! +30 XP');
-    });
-  }
-
-  const qlSupplement = document.getElementById('ql-supplement');
-  if (qlSupplement) {
-    qlSupplement.addEventListener('click', () => {
-      recordActivity('Vitamins & Supplements Taken 💊', 15);
-      saveState();
-      renderApp();
-      closeQuickLogModal();
-      showToast('💊 Supplements logged! +15 XP');
-    });
-  }
-
-  const qlSleep = document.getElementById('ql-sleep');
-  if (qlSleep) {
-    qlSleep.addEventListener('click', () => {
-      recordActivity('Sleep & Rest Logged 😴', 20);
-      saveState();
-      renderApp();
-      closeQuickLogModal();
-      showToast('😴 Restful sleep logged! +20 XP');
-    });
-  }
+  // Unified dynamic quick log bindings
+  bindDynamicQuickLogEvents();
 
   const qlTell = document.getElementById('ql-tell-btn') || document.getElementById('ql-tell');
   if (qlTell) {
@@ -2840,20 +2886,26 @@ function renderDashboard() {
     const routineDone = (state.routineProgress || 0) > 0;
 
     let items = [];
+    const trackWorkouts = state.trackWorkouts !== false;
+
     if (state.goalType === 'muscle') {
       items = [
         { id: 'water', label: 'Morning Hydration (250ml)', done: waterDone, icon: '💧' },
         { id: 'meal', label: 'Calorie & Meal Fuel Check', done: mealDone, icon: '🍳' },
-        { id: 'protein', label: `Hit Protein Benchmark (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' },
-        { id: 'movement', label: 'Strength & Hypertrophy Session', done: completedCust.includes('movement') || routineDone, icon: '🏋️' }
+        { id: 'protein', label: `Hit Protein Benchmark (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' }
       ];
+      if (trackWorkouts) {
+        items.push({ id: 'movement', label: 'Daily Movement & Training', done: completedCust.includes('movement') || routineDone, icon: '🏋️' });
+      }
     } else if (state.goalType === 'lose') {
       items = [
         { id: 'water', label: 'Hydration & Satiety Flush', done: waterDone, icon: '💧' },
         { id: 'meal', label: 'Calorie Deficit Check', done: mealDone, icon: '🥗' },
-        { id: 'protein', label: `Protein Satiety Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '🥩' },
-        { id: 'movement', label: 'Daily Movement / Cardio', done: completedCust.includes('movement') || routineDone, icon: '🏃' }
+        { id: 'protein', label: `Protein Satiety Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '🥩' }
       ];
+      if (trackWorkouts) {
+        items.push({ id: 'movement', label: 'Daily Movement / Cardio', done: completedCust.includes('movement') || routineDone, icon: '🏃' });
+      }
     } else if (state.goalType && state.goalType.startsWith('skin')) {
       items = [
         { id: 'water', label: 'Cellular Hydration (500ml+)', done: state.consumedHydration >= 500, icon: '💧' },
@@ -2865,9 +2917,11 @@ function renderDashboard() {
       items = [
         { id: 'water', label: 'Daily Hydration (250ml+)', done: waterDone, icon: '💧' },
         { id: 'meal', label: 'Balanced Nutrition Check', done: mealDone, icon: '🍳' },
-        { id: 'protein', label: `Protein Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' },
-        { id: 'routine', label: 'Daily Transformation Routine', done: routineDone, icon: '🧘' }
+        { id: 'protein', label: `Protein Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '💪' }
       ];
+      if (trackWorkouts) {
+        items.push({ id: 'movement', label: 'Daily Movement & Training', done: completedCust.includes('movement') || routineDone, icon: '🏋️' });
+      }
     }
 
     const completed = items.filter(i => i.done).length;
@@ -3748,6 +3802,9 @@ function renderRoutine() {
 
   const fuelBreakdown = getRemainingFuelBreakdown();
 
+  const movementDone = (state.completedEssentials || []).includes('movement');
+  const movementSub = movementDone ? 'Completed today ✓' : 'Log gym, walk, or cardio when done';
+
   // 4. Priorities Structure (Goal and Style Dependent)
   let priorities = [];
   if (isSkin) {
@@ -3764,7 +3821,7 @@ function renderRoutine() {
       { id: 'simple_hyd', title: 'Stay hydrated through the day', sub: 'Sip water steadily', icon: '💧' },
       { id: 'simple_meal1', title: 'Eat something nourishing', sub: 'Include a good protein source', icon: '🥗' },
       { id: 'simple_pro', title: 'Protein-rich food', sub: 'Eggs, paneer, chicken, lentils, or tofu', icon: '🥩' },
-      { id: 'simple_move', title: 'Daily movement & fresh air', sub: 'Light walk or gentle stretching', icon: '🚶' }
+      { id: 'simple_move', title: 'Daily movement & fresh air', sub: movementDone ? 'Completed today ✓' : 'Light walk, stretch, or gym session', icon: '🚶' }
     ];
   } else if (state.dayAdjustment === 'missed_meals' || (state.consumedCalories === 0 && nowHour >= 15)) {
     // Reorganized without red failures
@@ -3772,14 +3829,14 @@ function renderRoutine() {
       { id: 'skip_hyd', title: 'Hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' },
       { id: 'skip_nourish', title: 'Eat something nourishing', sub: 'Wholesome meal when you can', icon: '🥗' },
       { id: 'skip_pro', title: 'Protein-rich food', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
-      { id: 'skip_work', title: 'Workout — optional today', sub: 'Push workout · listen to your energy', icon: '🏋️' }
+      { id: 'skip_work', title: 'Movement — optional today', sub: movementDone ? 'Completed today ✓' : 'Rest day · listen to your body', icon: '🏋️' }
     ];
   } else if (style === '2_meals') {
     // Meal 1 / Meal 2: zero breakfast/lunch terminology
     priorities = [
       { id: 'meal1', title: 'Meal 1 fuel', sub: 'High-protein substantial nourishment', icon: '🍽️' },
       { id: 'meal2', title: 'Meal 2 target', sub: 'Complete daily nutritional benchmark', icon: '🥩' },
-      { id: 'm2_work', title: 'Strength session', sub: 'Push workout · ~35 min', icon: '🏋️' },
+      { id: 'm2_work', title: 'Daily Movement / Training', sub: movementSub, icon: '🏋️' },
       { id: 'm2_hyd', title: 'Daily hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' }
     ];
   } else if (style === 'fasting') {
@@ -3795,15 +3852,14 @@ function renderRoutine() {
     priorities = [
       { id: 'irreg_meal1', title: 'Next meal', sub: 'Wholesome protein and calories', icon: '🍽️' },
       { id: 'irreg_meal2', title: 'Later meal', sub: 'Evening nourishment when ready', icon: '🍲' },
-      { id: 'irreg_work', title: 'Strength session', sub: 'Workout when time permits', icon: '🏋️' },
+      { id: 'irreg_work', title: 'Daily Movement / Training', sub: movementSub, icon: '🏋️' },
       { id: 'irreg_hyd', title: 'Daily hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' }
     ];
   } else if (isLose) {
     priorities = [
       { id: 'lose_nutr', title: 'Nutrition within target', sub: `${state.consumedCalories <= state.targetCalories ? 'Within today\'s target' : 'Over by ' + (state.consumedCalories - state.targetCalories) + ' kcal'} · ${state.consumedCalories}/${state.targetCalories} kcal`, icon: '🍽️' },
       { id: 'lose_pro', title: 'Protein satiety benchmark', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
-      { id: 'lose_steps', title: 'Daily 8,000 steps movement', sub: '6,240 / 8,000 steps active', icon: '🚶' },
-      { id: 'lose_act', title: 'Active movement or cardio', sub: '30 min brisk walk or workout session', icon: '🏃' }
+      { id: 'lose_steps', title: 'Daily active movement', sub: movementDone ? 'Active session completed ✓' : 'Brisk walk, cardio, or workout', icon: '🚶' }
     ];
   } else {
     // Standard regular
@@ -3811,8 +3867,12 @@ function renderRoutine() {
       { id: 'reg_hyd', title: 'Daily hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' },
       { id: 'reg_first', title: 'First meal (Breakfast)', sub: 'Nutritious morning start', icon: '🍳' },
       { id: 'reg_pro', title: 'Protein target', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
-      { id: 'reg_work', title: 'Strength session', sub: 'Push workout · ~35 min', icon: '🏋️' }
+      { id: 'reg_work', title: 'Daily Movement / Training', sub: movementSub, icon: '🏋️' }
     ];
+  }
+
+  if (state.trackWorkouts === false) {
+    priorities = priorities.filter(p => !p.id.includes('work') && !p.id.includes('act') && !p.id.includes('steps') && !p.id.includes('move'));
   }
 
   const doneCount = priorities.filter((_, idx) => state.completedTasks.includes(idx)).length;

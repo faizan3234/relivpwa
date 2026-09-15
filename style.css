@@ -20,15 +20,36 @@
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; min-height: 100%; font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+* { box-sizing: border-box; touch-action: manipulation; }
+html {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
 body {
-  padding: 20px 8px calc(110px + env(safe-area-inset-bottom, 0px));
-  padding-left: calc(8px + env(safe-area-inset-left, 0px));
-  padding-right: calc(8px + env(safe-area-inset-right, 0px));
+  margin: 0;
+  padding: clamp(10px, 2.5vw, 20px) 0 calc(96px + env(safe-area-inset-bottom, 0px));
+  min-height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
   transition: background 240ms ease, color 240ms ease;
-  display: flex; justify-content: center; align-items: flex-start;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 body::before {
   content: '';
@@ -39,9 +60,28 @@ body::before {
   pointer-events: none;
 }
 a { color: inherit; text-decoration: none; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
+
+/* CRITICAL: Auto-zoom prevention on iOS & Android */
+input, select, textarea {
+  font-size: 16px !important;
+  font-family: inherit;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+button, a, .icon-btn, .ghost-btn, .primary-btn, .nav-pill, .card, .quick-log-item, .essential-pill {
+  touch-action: manipulation;
+}
+
 img { max-width: 100%; display: block; }
-.app-shell { max-width: 480px; width: 100%; display: grid; gap: 18px; }
+.app-shell {
+  width: 100%;
+  max-width: min(480px, 100vw);
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(12px, 2.5vw, 18px);
+  padding: 0 clamp(8px, 2.5vw, 16px);
+}
 .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-radius: 24px; background: var(--card); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border); }
 .top-bar .brand { display: flex; align-items: center; gap: 10px; }
 .top-bar .brand img { width: 34px; height: 34px; border-radius: 10px; object-fit: cover; }
@@ -199,24 +239,24 @@ body.strict-phone-frame .desktop-gate { display: none !important; }
 html.strict-phone-frame .app-shell,
 body.strict-phone-frame .app-shell {
   display: grid !important;
-  max-width: 430px;
+  max-width: min(440px, 96vw);
   width: 100%;
-  margin: 20px auto;
-  border-radius: 46px;
-  border: 10px solid #1f2937;
+  margin: 10px auto;
+  border-radius: clamp(24px, 5vw, 46px);
+  border: 4px solid #1f2937;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
   overflow: hidden;
   background: var(--bg);
-  min-height: 840px;
+  min-height: 80vh;
   position: relative;
-  padding: 14px;
+  padding: clamp(10px, 2.5vw, 14px);
 }
 html.strict-phone-frame .bottom-nav,
 body.strict-phone-frame .bottom-nav {
   display: flex !important;
   position: fixed;
-  max-width: 390px;
-  bottom: 24px;
+  width: min(calc(100vw - 24px), 420px);
+  bottom: clamp(12px, 2vh, 24px);
 }
 .install-button { display: none; }
 .install-button.visible { display: inline-flex; }
@@ -1126,8 +1166,13 @@ input, textarea, select,
 }
 .quick-log-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(6px, 1.8vw, 10px);
+}
+@media (max-width: 360px) {
+  .quick-log-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .quick-log-item {
   background: rgba(255, 255, 255, 0.03);
