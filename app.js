@@ -4,8 +4,9 @@ window.RELIX_GROQ_API_KEY = '';
 // ---------------------------------------------------------------------------
 // Oracle Cloud Backend API accessed via Netlify Function proxy
 const PRODUCTION_API = '/.netlify/functions/oracle-api';
+const ORACLE_BACKEND_URL = 'http://161.118.169.29:4000';
 
-const BACKEND_URL = (() => {
+let BACKEND_URL = (() => {
   // Lets you point a phone at a laptop or a staging box without a rebuild:
   //   localStorage.setItem('reliv-api-url', 'https://1.2.3.4')
   try {
@@ -15,8 +16,38 @@ const BACKEND_URL = (() => {
 
   const origin = window.location.origin;
   const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.startsWith('file://');
-  return isLocal ? 'http://localhost:4000' : PRODUCTION_API;
+  // Default to live Oracle Cloud backend if on local/file, or use Netlify proxy with Oracle fallback
+  return isLocal ? ORACLE_BACKEND_URL : PRODUCTION_API;
 })();
+
+async function fetchWithBackendFallback(path, options = {}) {
+  const normPath = path.startsWith('/') ? path : '/' + path;
+  const candidates = [
+    BACKEND_URL,
+    'http://localhost:4000',
+    ORACLE_BACKEND_URL,
+    PRODUCTION_API
+  ].filter(Boolean);
+
+  const unique = [...new Set(candidates)];
+  let lastErr = null;
+  for (const base of unique) {
+    try {
+      const url = `${base}${normPath}`;
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(t);
+      if (res.ok) {
+        BACKEND_URL = base;
+        return res;
+      }
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('Backend services unavailable');
+}
 
 // ---------------------------------------------------------------------------
 // DEVICE / USER IDENTITY
@@ -455,6 +486,10 @@ const state = {
     }
   })(),
   dayAdjustment: localStorage.getItem('relix-day-adjustment') || null,
+  customTrackers: JSON.parse(localStorage.getItem('relix-custom-trackers') || '[]'),
+  foodFrequency: JSON.parse(localStorage.getItem('relix-food-frequency') || '{}'),
+  foodFrequencyDetails: JSON.parse(localStorage.getItem('relix-food-frequency-details') || '{}'),
+  lastTrackerUndo: null,
   reminders: (() => {
     const saved = JSON.parse(localStorage.getItem('relix-reminder-state') || 'null');
     const goal = localStorage.getItem('relix-goal') || 'muscle';
@@ -647,13 +682,576 @@ function findExactDuplicateFoodLog(entry) {
   return null;
 }
 
+function getFoodLogCountToday(foodName) {
+  if (!state.loggedFoods || !foodName) return 0;
+  const norm = normalizeFoodName(foodName);
+  let count = 0;
+  for (const f of state.loggedFoods) {
+    if (normalizeFoodName(f.name) === norm || areFoodNamesSimilar(f.name, foodName)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function flashButtonLogged(btn) {
+  if (!btn) return;
+  btn.classList.remove('btn-logged-success');
+  btn.classList.add('btn-just-logged');
+  setTimeout(() => {
+    btn.classList.remove('btn-just-logged');
+    btn.classList.add('btn-logged-success');
+  }, 450);
+}
+
+function pushUiAction(action) {
+  if (!state.uiActionHistory) state.uiActionHistory = [];
+  state.uiActionHistory.push(action);
+  state.uiRedoStack = [];
+  saveState();
+}
+
+function undoLastUiAction() {
+  if (!state.uiActionHistory || !state.uiActionHistory.length) return null;
+  const action = state.uiActionHistory.pop();
+  if (!state.uiRedoStack) state.uiRedoStack = [];
+  state.uiRedoStack.push(action);
+
+  if (action.type === 'createTracker') {
+    deleteCustomTracker(action.trackerId, false);
+    return `Removed "${action.name}" button`;
+  } else if (action.type === 'deleteTracker') {
+    if (action.tracker) {
+      if (!state.customTrackers) state.customTrackers = [];
+      state.customTrackers.push(action.tracker);
+      saveState();
+      renderCustomTrackers();
+      renderDashboard();
+      renderRoutine();
+      return `Restored "${action.tracker.name}" button`;
+    }
+  } else if (action.type === 'calories') {
+    state.targetCalories = action.prevVal;
+    saveState();
+    renderDashboard();
+    renderRoutine();
+    return `Calorie target reverted to ${action.prevVal} kcal`;
+  } else if (action.type === 'protein') {
+    state.targetProtein = action.prevVal;
+    saveState();
+    renderDashboard();
+    renderRoutine();
+    return `Protein target reverted to ${action.prevVal}g`;
+  } else if (action.type === 'mealTimes') {
+    state.mealTimes = action.prevVal;
+    saveState();
+    scheduleMealReminders();
+    updateMealTimesSummary();
+    return `Meal reminders reverted`;
+  }
+  return null;
+}
+
+function redoLastUiAction() {
+  if (!state.uiRedoStack || !state.uiRedoStack.length) return null;
+  const action = state.uiRedoStack.pop();
+  if (!state.uiActionHistory) state.uiActionHistory = [];
+  state.uiActionHistory.push(action);
+
+  if (action.type === 'createTracker') {
+    if (action.tracker) {
+      if (!state.customTrackers) state.customTrackers = [];
+      state.customTrackers.push(action.tracker);
+      saveState();
+      renderCustomTrackers();
+      renderDashboard();
+      renderRoutine();
+      return `Restored "${action.tracker.name}" button`;
+    }
+  } else if (action.type === 'deleteTracker') {
+    deleteCustomTracker(action.trackerId, false);
+    return `Removed "${action.name}" button`;
+  } else if (action.type === 'calories') {
+    state.targetCalories = action.newVal;
+    saveState();
+    renderDashboard();
+    renderRoutine();
+    return `Calorie target reapplied to ${action.newVal} kcal`;
+  } else if (action.type === 'protein') {
+    state.targetProtein = action.newVal;
+    saveState();
+    renderDashboard();
+    renderRoutine();
+    return `Protein target reapplied to ${action.newVal}g`;
+  } else if (action.type === 'mealTimes') {
+    state.mealTimes = action.newVal;
+    saveState();
+    scheduleMealReminders();
+    updateMealTimesSummary();
+    return `Meal reminders reapplied`;
+  }
+  return null;
+}
+
+function createCustomTracker(options = {}, addToHistory = true) {
+  const name = String(options.name || 'Custom Tracker').trim();
+  const icon = options.icon || (options.category === 'workout' ? '🏋️' : options.category === 'water' ? '💧' : options.category === 'symptom' ? '🩹' : '✦');
+  const category = options.category || 'food';
+  const calories = Number(options.calories || 0);
+  const protein = Number(options.protein || 0);
+  const waterMl = Number(options.waterMl || 0);
+  const xp = Number(options.xp || 20);
+
+  if (!state.customTrackers) state.customTrackers = [];
+
+  // Deduplicate by name
+  const existingIdx = state.customTrackers.findIndex(t => t.name.toLowerCase() === name.toLowerCase());
+  let tracker;
+  if (existingIdx !== -1) {
+    tracker = state.customTrackers[existingIdx];
+    tracker.icon = icon;
+    tracker.calories = calories;
+    tracker.protein = protein;
+    tracker.waterMl = waterMl;
+    tracker.xp = xp;
+  } else {
+    tracker = {
+      id: 'tracker_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name: name,
+      icon: icon,
+      category: category,
+      calories: calories,
+      protein: protein,
+      waterMl: waterMl,
+      xp: xp,
+      loggedToday: 0,
+      createdAt: Date.now()
+    };
+    state.customTrackers.push(tracker);
+  }
+
+  state.lastTrackerUndo = { type: 'create', trackerId: tracker.id };
+  if (addToHistory) {
+    pushUiAction({ type: 'createTracker', trackerId: tracker.id, name: tracker.name, tracker });
+  }
+
+  saveState();
+  renderCustomTrackers();
+  renderDashboard();
+  renderRoutine();
+  return tracker;
+}
+
+function deleteCustomTracker(idOrName, addToHistory = true) {
+  if (!state.customTrackers || !state.customTrackers.length) return null;
+  const lower = String(idOrName).toLowerCase().trim();
+  const idx = state.customTrackers.findIndex(t => t.id === idOrName || t.name.toLowerCase() === lower || t.name.toLowerCase().includes(lower));
+  if (idx === -1) return null;
+
+  const deleted = state.customTrackers.splice(idx, 1)[0];
+  state.lastTrackerUndo = { type: 'delete', tracker: deleted };
+  if (addToHistory) {
+    pushUiAction({ type: 'deleteTracker', trackerId: deleted.id, name: deleted.name, tracker: deleted });
+  }
+
+  saveState();
+  renderCustomTrackers();
+  renderDashboard();
+  renderRoutine();
+  return deleted;
+}
+
+function executeCustomTracker(trackerId, btnEl) {
+  const tracker = (state.customTrackers || []).find(t => t.id === trackerId);
+  if (!tracker) return;
+
+  if (btnEl) {
+    flashButtonLogged(btnEl);
+    let badge = btnEl.querySelector('.custom-tracker-badge');
+    const nextCount = (tracker.loggedToday || 0) + 1;
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'custom-tracker-badge';
+      btnEl.querySelector('div')?.appendChild(badge);
+    }
+    badge.textContent = `✓ Added (${nextCount}x)`;
+  }
+
+  if (tracker.category === 'food' || tracker.calories > 0 || tracker.protein > 0) {
+    logFoodEntry({
+      name: tracker.name,
+      calories: tracker.calories,
+      protein: tracker.protein
+    }, {
+      skipDuplicateCheck: true,
+      activityLabel: `Custom Log: ${tracker.name}`,
+      points: tracker.xp || 20,
+      toastMessage: `🍽️ Logged: ${tracker.icon} ${tracker.name} (+${tracker.calories} kcal, +${tracker.protein}g P)`
+    });
+  } else if (tracker.category === 'water' || tracker.waterMl > 0) {
+    const ml = tracker.waterMl || 250;
+    state.consumedHydration += ml;
+    state.loggedHydrations.push({ ml, timestamp: Date.now() });
+    recordActivity(`Water logged: ${tracker.name} (${ml}ml)`, tracker.xp || 10);
+    showToast(`💧 Logged ${ml}ml: ${tracker.name}!`);
+  } else if (tracker.category === 'symptom' || tracker.name.toLowerCase().includes('pain')) {
+    if (!state.symptomLogs) state.symptomLogs = [];
+    state.symptomLogs.push({ name: tracker.name, timestamp: Date.now() });
+    recordActivity(`Logged symptom/recovery: ${tracker.name}`, tracker.xp || 20);
+    showToast(`🩹 Recorded: ${tracker.icon} ${tracker.name} (+${tracker.xp || 20} XP)!`);
+  } else {
+    // Habit or movement or skincare
+    recordActivity(`Checked off: ${tracker.name}`, tracker.xp || 20);
+    showToast(`✓ Checked: ${tracker.icon} ${tracker.name} (+${tracker.xp || 20} XP)!`);
+  }
+
+  tracker.loggedToday = (tracker.loggedToday || 0) + 1;
+  saveState();
+
+  setTimeout(() => {
+    renderCustomTrackers();
+    renderDashboard();
+    renderRoutine();
+    renderRecentQuickFoods();
+  }, 500);
+}
+window.executeCustomTracker = executeCustomTracker;
+
+
+function renderCustomTrackers() {
+  const todayCard = document.getElementById('today-custom-trackers-card');
+  const todayList = document.getElementById('today-custom-trackers-list');
+  const todayCount = document.getElementById('today-custom-trackers-count');
+
+  const qlPanel = document.getElementById('ql-panel-custom-trackers');
+  const qlList = document.getElementById('ql-custom-trackers-container');
+  const qlCount = document.getElementById('ql-custom-trackers-count');
+
+  const trackers = state.customTrackers || [];
+
+  if (todayCount) todayCount.textContent = trackers.length;
+  if (qlCount) qlCount.textContent = trackers.length;
+
+  if (trackers.length === 0) {
+    if (todayCard) todayCard.style.display = 'none';
+    if (qlPanel) qlPanel.style.display = 'none';
+    return;
+  }
+
+  if (todayCard) todayCard.style.display = 'block';
+  if (qlPanel) qlPanel.style.display = 'block';
+
+  const renderButtonsHtml = (trackersList) => trackersList.map(t => {
+    const isLogged = (t.loggedToday || 0) > 0;
+    const badgeHtml = isLogged ? `<span class="custom-tracker-badge">✓ Added (${t.loggedToday}x)</span>` : '';
+    const successClass = isLogged ? 'btn-logged-success' : '';
+    
+    let subText = '';
+    if (t.calories > 0 || t.protein > 0) {
+      subText = `${t.calories} kcal · ${t.protein}g P`;
+    } else if (t.waterMl > 0) {
+      subText = `${t.waterMl}ml water`;
+    } else {
+      subText = `+${t.xp || 20} XP · Habit`;
+    }
+
+    return `
+      <button class="custom-tracker-btn ${successClass}" data-tracker-id="${t.id}" type="button">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px; width:100%;">
+          <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+            <span style="font-size:1.15rem; line-height:1;">${t.icon || '✦'}</span>
+            <strong style="font-size:0.84rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${escapeHtml(t.name)}</strong>
+          </div>
+          ${badgeHtml}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-top:4px;">
+          <span style="font-size:0.72rem; color:var(--muted);">${subText}</span>
+          <span style="font-size:0.68rem; color:var(--primary); font-weight:700;">+ TAP</span>
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  if (todayList) {
+    todayList.innerHTML = renderButtonsHtml(trackers);
+    todayList.querySelectorAll('.custom-tracker-btn').forEach(btn => {
+      btn.onclick = () => executeCustomTracker(btn.dataset.trackerId, btn);
+    });
+  }
+
+  if (qlList) {
+    qlList.innerHTML = renderButtonsHtml(trackers);
+    qlList.querySelectorAll('.custom-tracker-btn').forEach(btn => {
+      btn.onclick = () => executeCustomTracker(btn.dataset.trackerId, btn);
+    });
+  }
+}
+
+function openMealRemindersModal() {
+  const modal = document.getElementById('meal-reminders-modal');
+  if (!modal) return;
+
+  const times = state.mealTimes || { breakfast: '08:30', lunch: '13:30', dinner: '20:00' };
+
+  const bfTime = document.getElementById('meal-time-breakfast');
+  const lnTime = document.getElementById('meal-time-lunch');
+  const dnTime = document.getElementById('meal-time-dinner');
+
+  const bfEn = document.getElementById('meal-enable-breakfast');
+  const lnEn = document.getElementById('meal-enable-lunch');
+  const dnEn = document.getElementById('meal-enable-dinner');
+
+  if (bfTime) bfTime.value = times.breakfast || '08:30';
+  if (lnTime) lnTime.value = times.lunch || '13:30';
+  if (dnTime) dnTime.value = times.dinner || '20:00';
+
+  if (bfEn) bfEn.checked = times.breakfastEnabled !== false;
+  if (lnEn) lnEn.checked = times.lunchEnabled !== false;
+  if (dnEn) dnEn.checked = times.dinnerEnabled !== false;
+
+  modal.classList.add('open');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeMealRemindersModal() {
+  const modal = document.getElementById('meal-reminders-modal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function saveMealReminders() {
+  const bfTime = document.getElementById('meal-time-breakfast')?.value || '08:30';
+  const lnTime = document.getElementById('meal-time-lunch')?.value || '13:30';
+  const dnTime = document.getElementById('meal-time-dinner')?.value || '20:00';
+
+  const bfEn = document.getElementById('meal-enable-breakfast')?.checked !== false;
+  const lnEn = document.getElementById('meal-enable-lunch')?.checked !== false;
+  const dnEn = document.getElementById('meal-enable-dinner')?.checked !== false;
+
+  state.mealTimes = {
+    breakfast: bfTime,
+    lunch: lnTime,
+    dinner: dnTime,
+    breakfastEnabled: bfEn,
+    lunchEnabled: lnEn,
+    dinnerEnabled: dnEn
+  };
+
+  saveState();
+  scheduleMealReminders();
+  updateMealTimesSummary();
+  closeMealRemindersModal();
+  showToast('⏰ Meal reminder schedule saved and alerts scheduled!');
+}
+
+function updateMealTimesSummary() {
+  const summaryEl = document.getElementById('settings-meal-times-summary');
+  if (!summaryEl) return;
+  const times = state.mealTimes || { breakfast: '08:30', lunch: '13:30', dinner: '20:00' };
+
+  const formatT = (tStr) => {
+    if (!tStr) return '';
+    const parts = tStr.split(':').map(Number);
+    const h = parts[0];
+    const m = parts[1] || 0;
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const hr = h % 12 || 12;
+    return `${hr}:${m < 10 ? '0' : ''}${m} ${suffix}`;
+  };
+
+  const parts = [];
+  if (times.breakfastEnabled !== false) parts.push(formatT(times.breakfast || '08:30'));
+  if (times.lunchEnabled !== false) parts.push(formatT(times.lunch || '13:30'));
+  if (times.dinnerEnabled !== false) parts.push(formatT(times.dinner || '20:00'));
+
+  summaryEl.textContent = parts.length > 0 ? parts.join(' · ') : 'Reminders off';
+}
+
+function autoAlignMealTimesToWakeUp() {
+  const wake = state.wakeUpTime || '07:00';
+  const [wH, wM] = wake.split(':').map(Number);
+  const wakeMin = wH * 60 + wM;
+
+  const toTimeStr = (totalMin) => {
+    const normalized = (totalMin % 1440 + 1440) % 1440;
+    const h = Math.floor(normalized / 60);
+    const m = normalized % 60;
+    return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
+  };
+
+  const bfTime = toTimeStr(wakeMin + 90);  // Wake + 1.5h
+  const lnTime = toTimeStr(wakeMin + 390); // Wake + 6.5h
+  const dnTime = toTimeStr(wakeMin + 780); // Wake + 13h
+
+  const bfInp = document.getElementById('meal-time-breakfast');
+  const lnInp = document.getElementById('meal-time-lunch');
+  const dnInp = document.getElementById('meal-time-dinner');
+
+  if (bfInp) bfInp.value = bfTime;
+  if (lnInp) lnInp.value = lnTime;
+  if (dnInp) dnInp.value = dnTime;
+
+  state.mealTimes = {
+    breakfast: bfTime,
+    lunch: lnTime,
+    dinner: dnTime,
+    breakfastEnabled: true,
+    lunchEnabled: true,
+    dinnerEnabled: true
+  };
+  saveState();
+  scheduleMealReminders();
+  updateMealTimesSummary();
+  showToast(`⚡ Times auto-aligned: Breakfast ${bfTime}, Lunch ${lnTime}, Dinner ${dnTime}`);
+}
+
+function showDuplicateFoodModal(entry, existingCount, onConfirm, onCancel) {
+  const modal = document.getElementById('duplicate-food-modal');
+  if (!modal) {
+    if (confirm(`⚠️ Already added today (${existingCount}x):\n\n${entry.name} was already logged.\nDo you want to add another serving?`)) {
+      if (onConfirm) onConfirm();
+    } else {
+      if (onCancel) onCancel();
+    }
+    return;
+  }
+
+  const titleEl = document.getElementById('dup-modal-title');
+  const descEl = document.getElementById('dup-modal-desc');
+  const confirmBtn = document.getElementById('dup-modal-confirm-btn');
+  const cancelBtn = document.getElementById('dup-modal-cancel-btn');
+
+  if (titleEl) titleEl.textContent = `Already Added Today (${existingCount}x)`;
+  if (descEl) {
+    const cals = Number(entry.calories || 0);
+    const pro = Number(entry.protein || 0);
+    descEl.innerHTML = `You have already logged <strong>${escapeHtml(entry.name)}</strong> <strong>${existingCount} time${existingCount > 1 ? 's' : ''}</strong> today.<br><br>Do you want to add another serving (+${cals} kcal, +${pro}g protein)?`;
+  }
+
+  modal.classList.add('open');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+
+  const cleanup = () => {
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    if (confirmBtn) confirmBtn.onclick = null;
+    if (cancelBtn) cancelBtn.onclick = null;
+  };
+
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      cleanup();
+      if (onConfirm) onConfirm();
+    };
+  }
+
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      cleanup();
+      if (onCancel) onCancel();
+    };
+  }
+}
+
+function getTimeOfDayContext(customDate = new Date()) {
+  const wakeStr = state.wakeUpTime || '07:00';
+  const [wakeHour, wakeMin] = wakeStr.split(':').map(Number);
+  const wakeFraction = (wakeHour || 7) + (wakeMin || 0) / 60;
+
+  const currentHour = customDate.getHours();
+  const currentMin = customDate.getMinutes();
+  const currentFraction = currentHour + currentMin / 60;
+
+  let elapsedHours = currentFraction - wakeFraction;
+  if (elapsedHours < 0) elapsedHours += 24;
+
+  if (elapsedHours < 4.5) {
+    return {
+      period: 'morning',
+      badgeText: '☀️ Morning · Breakfast Time',
+      greeting: 'Good morning',
+      nextMealType: 'Breakfast',
+      actionTitle: 'Morning Fuel: Breakfast',
+      actionDesc: 'Kickstart energy & muscle protein synthesis with breakfast.',
+      icon: '🍳'
+    };
+  } else if (elapsedHours < 9.5) {
+    return {
+      period: 'midday',
+      badgeText: '🌤️ Midday · Lunch Time',
+      greeting: 'Good afternoon',
+      nextMealType: 'Lunch',
+      actionTitle: 'Midday Fuel: Lunch',
+      actionDesc: 'Refuel midday with balanced calories & lean protein.',
+      icon: '🥗'
+    };
+  } else if (elapsedHours < 14.5) {
+    return {
+      period: 'evening',
+      badgeText: '🌆 Evening · Dinner Time',
+      greeting: 'Good evening',
+      nextMealType: 'Dinner',
+      actionTitle: 'Evening Fuel: Dinner',
+      actionDesc: 'Hit remaining daily protein target with a nourishing dinner.',
+      icon: '🍲'
+    };
+  } else {
+    return {
+      period: 'night',
+      badgeText: '🌙 Night · Wind Down & Rest',
+      greeting: 'Rest well',
+      nextMealType: 'Recovery Snack',
+      actionTitle: 'Night Recovery & Hydration',
+      actionDesc: 'Wind down, sip water or herbal tea, and prepare for restorative sleep.',
+      icon: '🍵'
+    };
+  }
+}
+
+function renderHistoricalLogs() {
+  const container = document.getElementById('historical-records-list');
+  const countBadge = document.getElementById('history-count-badge');
+  const logs = state.historicalLogs || [];
+  if (countBadge) countBadge.textContent = logs.length;
+  if (!container) return;
+
+  if (logs.length === 0) {
+    container.innerHTML = `<p style="color:var(--muted); font-size:0.88rem; font-style:italic; text-align:center; padding:10px 0;">No previous 23-hour cycles archived yet.</p>`;
+    return;
+  }
+
+  container.innerHTML = logs.map((log) => `
+    <div class="historical-record-item">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:700; font-size:0.88rem; color:var(--text);">📅 ${escapeHtml(log.date || 'Past Cycle')}</span>
+        <span style="font-size:0.72rem; color:#ff6a00; font-weight:700; background:rgba(255,106,0,0.12); border:1px solid rgba(255,106,0,0.25); padding:2px 8px; border-radius:6px;">23h Cycle</span>
+      </div>
+      <div style="display:flex; gap:12px; font-size:0.78rem; color:var(--muted); margin-top:4px;">
+        <span>🔥 <strong style="color:var(--text);">${log.calories || 0}</strong> kcal</span>
+        <span>🥩 <strong style="color:var(--text);">${log.protein || 0}</strong>g protein</span>
+        <span>💧 <strong style="color:var(--text);">${((log.hydration || 0) / 1000).toFixed(1)}</strong>L water</span>
+      </div>
+      <div style="font-size:0.74rem; color:var(--muted); margin-top:4px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        🍽️ ${escapeHtml(log.foods || 'No food items logged')}
+      </div>
+    </div>
+  `).join('');
+}
+
 function confirmFoodLog(entry, fromChat = false) {
   const duplicate = findSimilarFoodLog(entry);
   if (!duplicate) return true;
   if (fromChat) {
     return false;
   }
-  return confirm(`⚠️ Similar meal already logged:\n\n${duplicate.name} was logged recently.\nDo you want to log ${entry.name} one more time?`);
+  const count = getFoodLogCountToday(entry.name);
+  return confirm(`⚠️ Similar meal already logged (${count}x):\n\n${duplicate.name} was logged recently.\nDo you want to log ${entry.name} one more time?`);
 }
 
 function getDeduplicatedFoodItems(foodName) {
@@ -829,6 +1427,299 @@ function applyQuickCoachCommand(message) {
   const lower = String(message || '').toLowerCase();
   const updates = [];
   let actionCard = null;
+
+  // Domain guard for button creation / UI modifications: Health & Fitness only
+  const nonHealthKeywords = ['bitcoin', 'crypto', 'stock', 'stocks', 'forex', 'movie', 'ticket', 'flight', 'car', 'game', 'gaming', 'dating', 'betting', 'casino'];
+  if (nonHealthKeywords.some(w => lower.includes(w)) && (lower.includes('button') || lower.includes('track') || lower.includes('add') || lower.includes('create'))) {
+    return {
+      text: "I can only create trackers and buttons for your health, fitness, weight journey, diet, hydration, and skincare habits.",
+      actionCard: {
+        icon: '🛡️',
+        title: 'Health & Wellness Focus Only',
+        canUndo: false
+      }
+    };
+  }
+
+  // Helper to parse 24h time strings like "8:30 pm", "13:30", "9 am"
+  const parseTimeString = (str) => {
+    if (!str) return null;
+    const isPm = str.toLowerCase().includes('pm');
+    const isAm = str.toLowerCase().includes('am');
+    const clean = str.replace(/[^\d:]/g, '');
+    const parts = clean.split(':');
+    let h = Number(parts[0]);
+    let m = parts[1] !== undefined ? Number(parts[1]) : 0;
+    if (isNaN(h)) return null;
+    if (isPm && h < 12) h += 12;
+    if (isAm && h === 12) h = 0;
+    return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
+  };
+
+  // Undo / Redo tracker commands
+  if (/^(?:undo|undo\s+that|undo\s+button|revert)\b/i.test(lower.trim())) {
+    const undoMsg = undoLastUiAction();
+    if (undoMsg) {
+      return {
+        text: `↩ Undone: ${undoMsg}.`,
+        actionCard: {
+          icon: '↩',
+          title: undoMsg,
+          canRedo: true,
+          redoAction: state.uiRedoStack && state.uiRedoStack.length ? state.uiRedoStack[state.uiRedoStack.length - 1] : null
+        }
+      };
+    }
+    return {
+      text: "There are no recent UI modifications to undo.",
+      actionCard: null
+    };
+  }
+
+  // Streak restore & payment commands: "restore streak", "restore my streak", "streak broke", "pay to restore", "open payment", "pay page"
+  if (
+    lower.includes('restore streak') ||
+    lower.includes('restore my streak') ||
+    lower.includes('streak broke') ||
+    lower.includes('streak restore') ||
+    lower.includes('pay to restore') ||
+    lower.includes('pay page') ||
+    lower.includes('open payment') ||
+    lower.includes('open pay') ||
+    lower.includes('emotional message') ||
+    (lower.includes('payment') && (lower.includes('streak') || lower.includes('restore') || lower.includes('open') || lower.includes('page') || lower.includes('message')))
+  ) {
+    const days = state.restorableStreak > 0 ? state.restorableStreak : (state.streak > 0 ? state.streak : 3);
+    showEmotionalStreakModal(days);
+    const price = Math.min(25, Math.max(5, days));
+    return {
+      text: `💔 I've opened the Streak Restore & Commitment Deposit modal.\n\nYour ${days}-day streak represents real discipline and momentum. The ₹${price} is NOT a penalty — it's a refundable commitment deposit that returns to you once you hit your goal. Don't let your progress slip away! Tap below to confirm and restore your streak.`,
+      actionCard: {
+        icon: '💔',
+        title: `Restore ${days}-Day Streak (₹${price} Deposit)`,
+        customButtonLabel: '💳 Open Streak Restore & Pay',
+        customButtonAction: `showEmotionalStreakModal(${days})`,
+        canUndo: false
+      }
+    };
+  }
+
+  if (/^(?:redo|redo\s+that|redo\s+button)\b/i.test(lower.trim()) || (/^restore\b/i.test(lower.trim()) && !lower.includes('streak'))) {
+    const redoMsg = redoLastUiAction();
+    if (redoMsg) {
+      return {
+        text: `🔄 Redone: ${redoMsg}.`,
+        actionCard: {
+          icon: '🔄',
+          title: redoMsg,
+          canUndo: true,
+          undoAction: state.uiActionHistory && state.uiActionHistory.length ? state.uiActionHistory[state.uiActionHistory.length - 1] : null
+        }
+      };
+    }
+    return {
+      text: "There are no undone UI modifications to redo.",
+      actionCard: null
+    };
+  }
+
+  // Meal reminders commands: "meal reminder set proper", "set meal reminders", "configure meal times"
+  if (lower.includes('meal reminder') || lower.includes('meal reminders') || lower.includes('reminder set proper') || lower.includes('configure meal times') || lower.includes('set meal times')) {
+    openMealRemindersModal();
+    const times = state.mealTimes || { breakfast: '08:30', lunch: '13:30', dinner: '20:00' };
+    return {
+      text: `⏰ Here is your Meal Reminder Schedule:\n• 🍳 Breakfast: ${times.breakfast || '08:30'} (${times.breakfastEnabled !== false ? 'Active' : 'Off'})\n• 🥗 Lunch: ${times.lunch || '13:30'} (${times.lunchEnabled !== false ? 'Active' : 'Off'})\n• 🍲 Dinner: ${times.dinner || '20:00'} (${times.dinnerEnabled !== false ? 'Active' : 'Off'})\n\nI've opened the Meal Reminders setup modal. You can edit any time or tap "Auto-Align to Wake-up Time" to align with your 23h cycle.`,
+      actionCard: {
+        icon: '⏰',
+        title: `Meal Reminders: ${times.breakfast || '8:30'} · ${times.lunch || '13:30'} · ${times.dinner || '20:00'}`,
+        canUndo: false
+      }
+    };
+  }
+
+  // Set specific meal time: "set breakfast to 8:30", "set lunch time to 1:30 pm", "set dinner reminder to 20:00"
+  const setMealMatch = lower.match(/(?:set|change|update)\s+(breakfast|lunch|dinner)\s*(?:reminder|time)?\s*(?:to|=)?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+  if (setMealMatch) {
+    const mealName = setMealMatch[1].toLowerCase();
+    const rawTime = setMealMatch[2].trim();
+    const normTime = parseTimeString(rawTime);
+    if (normTime) {
+      if (!state.mealTimes) state.mealTimes = { breakfast: '08:30', lunch: '13:30', dinner: '20:00' };
+      const prevTimes = { ...state.mealTimes };
+      state.mealTimes[mealName] = normTime;
+      saveState();
+      scheduleMealReminders();
+      updateMealTimesSummary();
+      pushUiAction({ type: 'mealTimes', prevVal: prevTimes, newVal: { ...state.mealTimes } });
+      return {
+        text: `⏰ Set ${mealName.charAt(0).toUpperCase() + mealName.slice(1)} reminder to ${normTime} and updated your alert schedule.`,
+        actionCard: {
+          icon: '⏰',
+          title: `${mealName.charAt(0).toUpperCase() + mealName.slice(1)}: ${normTime}`,
+          canUndo: true,
+          undoAction: { type: 'mealTimes', prevVal: prevTimes }
+        }
+      };
+    }
+  }
+
+  // Remove / Delete tracker button: "remove the leg piece button", "delete tracker leg piece"
+  const removeTrackerMatch = lower.match(/(?:remove|delete)\s+(?:the\s+)?(?:button|tracker)\s+(?:for\s+me\s+to\s+log\s+|to\s+log\s+|for\s+)?(.+)/i)
+    || lower.match(/(?:remove|delete)\s+(.+)\s+(?:button|tracker)/i);
+  if (removeTrackerMatch) {
+    const rawTarget = removeTrackerMatch[1].replace(/\b(?:button|tracker|shortcut|please)\b/gi, '').trim();
+    const deleted = deleteCustomTracker(rawTarget);
+    if (deleted) {
+      return {
+        text: `🗑️ Removed custom tracker button for "${deleted.name}".\n\nIt has been removed from your Today view and Quick Log.`,
+        actionCard: {
+          icon: '🗑️',
+          title: `Button Removed: ${deleted.name}`,
+          canUndo: true,
+          undoAction: { type: 'customTrackerRestore', tracker: deleted }
+        }
+      };
+    }
+  }
+
+  // Add / Create custom tracker button:
+  // Matches: "add a button for me to log my daily leg piece", "add a button fpor me to log my daily leg paice", "add a buitton or track", "add button to log leg pain"
+  const addTrackerMatch = lower.match(/(?:add|create|make|put|track)\s+(?:a\s+)?(?:buitton|button|tracker|shortcut|pill)?\s*(?:fpor|for|to)?\s*(?:me\s+to\s+)?(?:log|track|add|check)?\s*(?:my\s+)?(?:daily\s+)?(.+)/i);
+  if (addTrackerMatch) {
+    const rawQuery = addTrackerMatch[1].trim();
+    let trackerName = rawQuery
+      .replace(/\b(?:daily|for\s+me|fpor\s+me|please|button|buitton|tracker|shortcut)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    let icon = '✦';
+    let category = 'food';
+    let calories = 0;
+    let protein = 0;
+    let waterMl = 0;
+    let xp = 20;
+
+    const lowerQuery = rawQuery.toLowerCase();
+
+    // 1. Leg piece (and typo "leg paice" / "leg peice") vs Leg pain
+    const isLegPain = /leg\s*pain/i.test(lowerQuery) || /pain.*leg/i.test(lowerQuery) || /leg.*ache/i.test(lowerQuery) || /sore.*leg/i.test(lowerQuery);
+    const isLegPiece = /leg\s*(?:piece|peice|paice|pes)/i.test(lowerQuery) || (lowerQuery.includes('chicken') && lowerQuery.includes('leg'));
+
+    if (isLegPain) {
+      icon = '🦵';
+      category = 'symptom';
+      trackerName = 'Daily Leg Pain Log';
+      xp = 20;
+    } else if (isLegPiece) {
+      icon = '🍗';
+      category = 'food';
+      calories = 220;
+      protein = 26;
+      trackerName = 'Daily Chicken Leg Piece';
+      xp = 20;
+    } else if (/knee\s*pain|pain.*knee|knee.*ache/i.test(lowerQuery)) {
+      icon = '🩹';
+      category = 'symptom';
+      trackerName = 'Daily Knee Pain Check';
+      xp = 20;
+    } else if (/\b(?:back\s*pain|neck\s*pain|headache|body\s*pain|soreness)\b/i.test(lowerQuery)) {
+      icon = '🩹';
+      category = 'symptom';
+      trackerName = trackerName.toLowerCase().includes('pain') ? trackerName : `${trackerName} Pain Log`;
+      xp = 20;
+    } else if (lowerQuery.includes('creatine')) {
+      icon = '💊';
+      category = 'habit';
+      trackerName = '5g Creatine';
+      xp = 15;
+    } else if (lowerQuery.includes('dal chawal') || lowerQuery.includes('dal rice')) {
+      icon = '🍲';
+      category = 'food';
+      calories = 350;
+      protein = 10;
+      trackerName = 'Dal Chawal';
+    } else if (lowerQuery.includes('green tea') || lowerQuery.includes('herbal tea')) {
+      icon = '🍵';
+      category = 'water';
+      waterMl = 200;
+      calories = 2;
+      trackerName = 'Green Tea (200ml)';
+    } else if (lowerQuery.includes('egg')) {
+      icon = '🥚';
+      category = 'food';
+      calories = 140;
+      protein = 12;
+      trackerName = 'Boiled Eggs (2)';
+    } else if (lowerQuery.includes('shake') || lowerQuery.includes('whey')) {
+      icon = '🥤';
+      category = 'food';
+      calories = 250;
+      protein = 28;
+      trackerName = 'Protein Shake';
+    } else if (lowerQuery.includes('step') || lowerQuery.includes('walk')) {
+      icon = '🚶';
+      category = 'workout';
+      trackerName = '10k Steps Walk';
+      xp = 30;
+    } else if (lowerQuery.includes('gym') || lowerQuery.includes('workout') || lowerQuery.includes('stretch')) {
+      icon = lowerQuery.includes('stretch') ? '🧘' : '🏋️';
+      category = 'workout';
+      trackerName = lowerQuery.includes('stretch') ? 'Daily Stretch' : 'Daily Workout';
+      xp = 30;
+    } else if (lowerQuery.includes('face') || lowerQuery.includes('skin') || lowerQuery.includes('ice')) {
+      icon = '🧊';
+      category = 'skincare';
+      trackerName = 'Ice Rolling Routine';
+      xp = 15;
+    } else if (lowerQuery.includes('water') || lowerQuery.includes('hydrate')) {
+      icon = '💧';
+      category = 'water';
+      waterMl = 250;
+      trackerName = 'Water Glass (250ml)';
+      xp = 10;
+    } else {
+      // General format
+      trackerName = trackerName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      if (!trackerName || trackerName.length < 2) trackerName = 'Daily ' + rawQuery;
+    }
+
+    const calM = lower.match(/(\d+)\s*(?:kcal|calories|cal)/i);
+    if (calM) calories = Number(calM[1]);
+    const proM = lower.match(/(\d+)\s*(?:g\s*pro|g\s*protein|protein)/i);
+    if (proM) protein = Number(proM[1]);
+    const mlM = lower.match(/(\d+)\s*ml/i);
+    if (mlM) waterMl = Number(mlM[1]);
+
+    const created = createCustomTracker({
+      name: trackerName,
+      icon,
+      category,
+      calories,
+      protein,
+      waterMl,
+      xp
+    });
+
+    let macroDesc = '';
+    if (created.calories > 0 || created.protein > 0) {
+      macroDesc = ` (+${created.calories} kcal, +${created.protein}g protein)`;
+    } else if (created.waterMl > 0) {
+      macroDesc = ` (+${created.waterMl}ml water)`;
+    } else {
+      macroDesc = ` (+${created.xp} XP)`;
+    }
+
+    return {
+      text: `✦ Created functional tracker button for "${created.name}"${macroDesc}!\n\nIt is now live on your Today view and Quick Log. Tap it below or on your dashboard anytime to track it instantly!`,
+      actionCard: {
+        icon: created.icon,
+        title: `Button Created: ${created.name}`,
+        customTrackerId: created.id,
+        canUndo: true,
+        undoAction: { type: 'customTrackerCreate', id: created.id }
+      }
+    };
+  }
 
   // 1. Streak command
   const streakMatch = lower.match(/(?:set|change|update|make)\s+(?:my\s+)?streak\s*(?:to|=)?\s*(\d+)/i);
@@ -1279,6 +2170,7 @@ function init() {
   if (typeof renderDailyMission === 'function') renderDailyMission();
   if (typeof renderProgress === 'function') renderProgress();
   if (typeof initWhatsAppChallenge === 'function') initWhatsAppChallenge();
+  renderStreakBanner();
 
   if (shouldAutoSyncPush() && 'serviceWorker' in navigator && 'PushManager' in window) {
     subscribeToPushNotifications(false);
@@ -1646,65 +2538,175 @@ function renderRecentQuickFoods() {
   const container = document.getElementById('ql-recent-foods-container');
   if (!container) return;
 
-  const logged = (state.loggedFoods || []).slice().reverse();
   const seen = new Set();
   const recents = [];
 
-  for (const item of logged) {
+  // 1. Prioritize most-eaten foods by user frequency
+  const freq = state.foodFrequency || {};
+  const details = state.foodFrequencyDetails || {};
+  const freqKeys = Object.keys(details).sort((a, b) => (freq[b] || 0) - (freq[a] || 0));
+
+  for (const key of freqKeys) {
+    const item = details[key];
     if (!item || !item.name) continue;
-    const nameStr = String(item.name).trim();
-    if (nameStr.startsWith('Manual') || seen.has(nameStr.toLowerCase())) continue;
-    seen.add(nameStr.toLowerCase());
+    const norm = normalizeFoodName(item.name);
+    if (seen.has(norm)) continue;
+    seen.add(norm);
     recents.push({
-      name: nameStr,
+      name: item.name,
       calories: Number(item.calories) || 0,
-      protein: Number(item.protein) || 0
+      protein: Number(item.protein) || 0,
+      frequency: freq[key] || 1
     });
-    if (recents.length >= 4) break;
+    if (recents.length >= 6) break;
   }
 
-  const defaults = [
-    { name: 'Dal Chawal', calories: 350, protein: 10 },
-    { name: 'Eggs & Toast', calories: 280, protein: 18 },
-    { name: 'Chicken Rice', calories: 450, protein: 35 },
-    { name: 'Chai / Tea', calories: 120, protein: 3 }
-  ];
-
-  for (const def of defaults) {
-    if (recents.length >= 4) break;
-    if (!seen.has(def.name.toLowerCase())) {
-      recents.push(def);
-      seen.add(def.name.toLowerCase());
+  // 2. Supplement with recently logged foods from current cycle
+  if (recents.length < 6) {
+    const logged = (state.loggedFoods || []).slice().reverse();
+    for (const item of logged) {
+      if (!item || !item.name) continue;
+      const nameStr = String(item.name).trim();
+      const norm = normalizeFoodName(nameStr);
+      if (nameStr.startsWith('Manual') || seen.has(norm)) continue;
+      seen.add(norm);
+      recents.push({
+        name: nameStr,
+        calories: Number(item.calories) || 0,
+        protein: Number(item.protein) || 0,
+        frequency: 1
+      });
+      if (recents.length >= 6) break;
     }
   }
 
-  container.innerHTML = recents.map(food => `
-    <button class="ghost-btn quick-food-btn" data-name="${escapeHtml(food.name)}" data-cals="${food.calories}" data-pro="${food.protein}" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card);">
-      <span style="display:block; font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(food.name)}</span>
-      <span style="font-size:0.72rem; color:var(--muted);">${food.calories} kcal · ${food.protein}g pro</span>
-    </button>
-  `).join('');
+  // 3. Supplement with historical logs if still empty
+  if (recents.length < 6 && state.historicalLogs && state.historicalLogs.length > 0) {
+    for (const hist of state.historicalLogs) {
+      if (!hist.foods || hist.foods === 'No foods logged' || hist.foods === 'Not logged') continue;
+      const foodItems = hist.foods.split(',');
+      for (const raw of foodItems) {
+        const match = raw.match(/^([^(]+)(?:\((\d+)\s*kcal(?:,\s*(\d+)g)?\))?/i);
+        if (match) {
+          const fName = match[1].trim();
+          const norm = normalizeFoodName(fName);
+          if (!seen.has(norm) && fName.length > 1) {
+            seen.add(norm);
+            recents.push({
+              name: fName,
+              calories: Number(match[2]) || 250,
+              protein: Number(match[3]) || 10,
+              frequency: 1
+            });
+            if (recents.length >= 6) break;
+          }
+        }
+      }
+      if (recents.length >= 6) break;
+    }
+  }
+
+  // 4. Fill remaining slots up to 6 with starter staples (starting with Dal Chawal)
+  // As user logs foods, their real frequent foods take top priority and displace these!
+  const starterDefaults = [
+    { name: 'Dal Chawal', calories: 350, protein: 10 },
+    { name: 'Roti & Sabzi', calories: 280, protein: 8 },
+    { name: 'Boiled Eggs (2)', calories: 140, protein: 12 },
+    { name: 'Paneer Bhurji', calories: 290, protein: 18 },
+    { name: 'Oats with Milk', calories: 260, protein: 11 },
+    { name: 'Chicken Curry', calories: 380, protein: 28 }
+  ];
+
+  if (recents.length < 6) {
+    for (const starter of starterDefaults) {
+      const norm = normalizeFoodName(starter.name);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        recents.push({
+          name: starter.name,
+          calories: starter.calories,
+          protein: starter.protein,
+          frequency: freq[norm] || 0
+        });
+        if (recents.length >= 6) break;
+      }
+    }
+  }
+
+  if (recents.length === 0) {
+    container.innerHTML = `
+      <div class="empty-quick-foods-box">
+        <span style="font-size:1.5rem; display:block; margin-bottom:4px;">🍽️</span>
+        <strong style="color:var(--text); font-size:0.86rem; display:block;">No Frequent Foods Yet</strong>
+        <p style="margin:4px 0 0 0; font-size:0.75rem;">Your most-eaten foods will automatically appear here as quick-log buttons as you track.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = recents.map(food => {
+    const count = getFoodLogCountToday(food.name);
+    const badgeHtml = count > 0 ? `<span class="food-logged-badge">✓ Added (${count}x)</span>` : '';
+    const itemClass = count > 0 ? 'quick-food-btn food-logged-item btn-logged-success' : 'quick-food-btn';
+    return `
+      <button class="ghost-btn ${itemClass}" data-name="${escapeHtml(food.name)}" data-cals="${food.calories}" data-pro="${food.protein}" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card); position:relative;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">
+          <span style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(food.name)}</span>
+          ${badgeHtml}
+        </div>
+        <span style="font-size:0.72rem; color:var(--muted); display:block; margin-top:2px;">${food.calories} kcal · ${food.protein}g pro</span>
+      </button>
+    `;
+  }).join('');
 
   container.querySelectorAll('.quick-food-btn').forEach(btn => {
     btn.onclick = () => {
       const foodName = btn.dataset.name;
       const cals = Number(btn.dataset.cals) || 0;
       const pro = Number(btn.dataset.pro) || 0;
+      const count = getFoodLogCountToday(foodName);
 
-      logFoodEntry({ name: foodName, calories: cals, protein: pro }, {
-        skipDuplicateCheck: true,
-        activityLabel: `Quick Log: ${foodName}`,
-        points: 20,
-        toastMessage: `✅ Logged: ${foodName} (+${cals} kcal, +${pro}g pro)`
-      });
+      const executeLog = () => {
+        flashButtonLogged(btn);
+        logFoodEntry({ name: foodName, calories: cals, protein: pro }, {
+          skipDuplicateCheck: true,
+          activityLabel: `Quick Log: ${foodName}`,
+          points: 20,
+          toastMessage: `🍽️ Logged: ${foodName} (+${cals} kcal, +${pro}g pro)`
+        });
 
-      renderRecentQuickFoods();
+        // Update button in place immediately so user sees orange -> white transition
+        const newCount = getFoodLogCountToday(foodName);
+        let badgeEl = btn.querySelector('.food-logged-badge');
+        if (!badgeEl) {
+          badgeEl = document.createElement('span');
+          badgeEl.className = 'food-logged-badge';
+          btn.querySelector('div')?.appendChild(badgeEl);
+        }
+        badgeEl.textContent = `✓ Added (${newCount}x)`;
+        btn.classList.add('food-logged-item');
+
+        setTimeout(() => {
+          renderRecentQuickFoods();
+          renderRoutine();
+          renderDashboard();
+        }, 550);
+      };
+
+      if (count > 0) {
+        showDuplicateFoodModal({ name: foodName, calories: cals, protein: pro }, count, executeLog, () => {
+          showToast('Log cancelled.');
+        });
+      } else {
+        executeLog();
+      }
     };
   });
 }
 
 function bindDynamicQuickLogEvents() {
   renderRecentQuickFoods();
+  renderCustomTrackers();
 
   // Bind food panel scroll
   const qlMeal = document.getElementById('ql-meal');
@@ -1936,12 +2938,58 @@ function bindEvents() {
     });
   }
 
+  // Wake-up Time Setting Event (23-Hour Cycle Reset Anchor)
+  const wakeUpTimeSelect = document.getElementById('settings-wakeup-time');
+  if (wakeUpTimeSelect) {
+    wakeUpTimeSelect.value = state.wakeUpTime || '07:00';
+    wakeUpTimeSelect.addEventListener('change', (e) => {
+      state.wakeUpTime = e.target.value;
+      state.reminders = getRemindersForGoal(state.goalType, state.wakeUpTime);
+      saveState();
+      renderRoutine();
+      renderDashboard();
+      const selectedLabel = e.target.options[e.target.selectedIndex]?.text || e.target.value;
+      showToast(`🕢 Wake-up time set to ${selectedLabel}. 23h cycle synchronized.`);
+    });
+  }
+
   const mealSchedBtn = document.getElementById('configure-meal-times-btn');
   if (mealSchedBtn) {
     mealSchedBtn.addEventListener('click', () => {
-      showToast('⏰ Reminders scheduled for 9:00 AM, 2:00 PM & 8:00 PM.');
+      openMealRemindersModal();
     });
   }
+
+  const saveMealRemindersBtn = document.getElementById('save-meal-reminders-btn');
+  if (saveMealRemindersBtn) {
+    saveMealRemindersBtn.addEventListener('click', () => {
+      saveMealReminders();
+    });
+  }
+
+  const cancelMealRemindersBtn = document.getElementById('cancel-meal-reminders-btn');
+  if (cancelMealRemindersBtn) {
+    cancelMealRemindersBtn.addEventListener('click', () => {
+      closeMealRemindersModal();
+    });
+  }
+
+  const closeMealRemindersBtn = document.getElementById('close-meal-reminders-modal-btn');
+  if (closeMealRemindersBtn) {
+    closeMealRemindersBtn.addEventListener('click', () => {
+      closeMealRemindersModal();
+    });
+  }
+
+  const autoAnchorMealBtn = document.getElementById('meal-reminders-auto-anchor-btn');
+  if (autoAnchorMealBtn) {
+    autoAnchorMealBtn.addEventListener('click', () => {
+      autoAlignMealTimesToWakeUp();
+    });
+  }
+
+  updateMealTimesSummary();
+  renderCustomTrackers();
 
   // Track Workouts & Movement Setting Event
   const trackWorkoutToggle = document.getElementById('track-workout-toggle');
@@ -2226,6 +3274,7 @@ function bindEvents() {
 
   document.querySelectorAll('.quick-pick-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      flashButtonLogged(btn);
       const food = e.currentTarget.dataset.food;
       let cals = 0, pro = 0, foodName = '';
       if (food === 'dal') { cals = 350; pro = 10; foodName = 'Dal Chawal'; }
@@ -2243,6 +3292,7 @@ function bindEvents() {
 
   document.querySelectorAll('.adjust-macro-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      flashButtonLogged(btn);
       const type = e.currentTarget.dataset.type;
       const val = Number(e.currentTarget.dataset.val);
       let foodName = '';
@@ -2355,16 +3405,18 @@ function parseLocalFoodIntake(text) {
       try {
         if (!state.groqKey) {
           const localEst = parseLocalFoodIntake(foodItem);
-          logFoodEntry({ name: foodItem, calories: localEst.calories, protein: localEst.protein }, {
+          const logged = logFoodEntry({ name: foodItem, calories: localEst.calories, protein: localEst.protein }, {
             activityLabel: `Logged Custom Food: ${foodItem}`,
             points: 20,
             toastMessage: `✅ Logged: ${localEst.calories} kcal & ${localEst.protein}g protein! (Offline)`
           });
+          if (logged) flashButtonLogged(btn);
         } else {
           const reply = await getCoachReply(foodItem);
           if (typeof reply === 'string') {
             showToast('Error logging food. Check API key.');
           } else {
+            flashButtonLogged(btn);
             showToast(`✅ Custom food logged: +${reply.calories || 0} kcal, +${reply.protein || 0}g protein!`);
           }
         }
@@ -2385,6 +3437,8 @@ function parseLocalFoodIntake(text) {
       e.preventDefault();
       const ml = Number(customHydrationInput.value);
       if (ml <= 0 || isNaN(ml)) return;
+      const hydBtn = customHydrationForm.querySelector('button');
+      if (hydBtn) flashButtonLogged(hydBtn);
       state.consumedHydration += ml;
       state.lastLog = { calories: 0, protein: 0, hydration: ml };
       state.loggedHydrations.push({ ml: ml, timestamp: Date.now() });
@@ -2594,7 +3648,9 @@ function parseLocalFoodIntake(text) {
 
   const restoreStreakBtn = document.getElementById('restore-streak-btn');
   if (restoreStreakBtn) {
-    restoreStreakBtn.addEventListener('click', restoreStreak);
+    restoreStreakBtn.addEventListener('click', () => {
+      showEmotionalStreakModal();
+    });
   }
 
   // Delegated so it keeps working after every re-render of the message list.
@@ -2766,6 +3822,15 @@ function updateActionButtons() {
   }
 }
 
+function renderApp() {
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderRoutine === 'function') renderRoutine();
+  if (typeof renderCustomTrackers === 'function') renderCustomTrackers();
+  if (typeof renderProgress === 'function') renderProgress();
+  if (typeof renderProfile === 'function') renderProfile();
+}
+window.renderApp = renderApp;
+
 function renderDashboard() {
   if (els.xpValue) els.xpValue.textContent = state.xp;
   const levelPill = document.getElementById('level-pill');
@@ -2774,14 +3839,29 @@ function renderDashboard() {
   if (els.streakValue) els.streakValue.textContent = state.streak;
   if (els.scoreValue) els.scoreValue.textContent = state.dailyScore;
 
-  // Update Today Greeting & Name
+  // Update Today Time Badge, Cycle Badge & Greeting
+  const timeCtx = getTimeOfDayContext();
+  const timeBadgeEl = document.getElementById('today-time-badge');
+  if (timeBadgeEl) timeBadgeEl.textContent = timeCtx.badgeText;
+
+  const cycleBadgeEl = document.getElementById('today-cycle-badge');
+  if (cycleBadgeEl) {
+    const resetInterval = 23 * 60 * 60 * 1000;
+    const elapsed = Math.max(0, Date.now() - (state.dayStartTime || Date.now()));
+    const remainingMs = Math.max(0, resetInterval - (elapsed % resetInterval));
+    const remainingHrs = Math.floor(remainingMs / (60 * 60 * 1000));
+    const remainingMins = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+    cycleBadgeEl.textContent = `23h cycle · ${remainingHrs}h ${remainingMins}m left`;
+  }
+
+  const greetingSub = document.getElementById('today-greeting-sub');
+  if (greetingSub) greetingSub.textContent = timeCtx.greeting;
+
   const heroNameEl = document.getElementById('hero-name');
   if (heroNameEl) {
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     heroNameEl.textContent = `${state.profileName || 'Friend'} 👋`;
     const heroTitleP = document.querySelector('.hero-title p');
-    if (heroTitleP) heroTitleP.textContent = greeting;
+    if (heroTitleP) heroTitleP.textContent = timeCtx.greeting;
   }
 
   // Update Goal Track Box
@@ -2854,12 +3934,12 @@ function renderDashboard() {
         renderApp();
         showToast('💧 250ml water logged!');
       };
-    } else if (state.consumedCalories < (state.targetCalories * 0.4) && hour < 14) {
-      if (nextIcon) nextIcon.textContent = '🍳';
-      if (nextTitle) nextTitle.textContent = 'Fuel Up: Lunch / Meal';
+    } else if (state.consumedCalories < (state.targetCalories * 0.4) && timeCtx.period !== 'night') {
+      if (nextIcon) nextIcon.textContent = timeCtx.icon;
+      if (nextTitle) nextTitle.textContent = `Fuel Up: ${timeCtx.nextMealType}`;
       if (nextDesc) nextDesc.textContent = `You still need ~${Math.max(0, state.targetCalories - state.consumedCalories)} kcal for today's benchmark.`;
-      nextBtn.textContent = 'Log Meal';
-      nextBtn.onclick = () => openQuickLogModal();
+      nextBtn.textContent = `Log ${timeCtx.nextMealType}`;
+      nextBtn.onclick = () => openQuickLogModal('meal');
     } else if (state.consumedProtein < (state.targetProtein * 0.7)) {
       if (nextIcon) nextIcon.textContent = '🥩';
       if (nextTitle) nextTitle.textContent = 'Hit Protein Target';
@@ -3055,6 +4135,7 @@ function renderDashboard() {
   renderReminders();
   if (typeof renderDailyMission === 'function') renderDailyMission();
   if (typeof initWhatsAppChallenge === 'function') initWhatsAppChallenge();
+  renderStreakBanner();
 }
 
 function renderCustomHabits() {
@@ -4086,6 +5167,7 @@ function renderRoutine() {
   const copyEl = document.querySelector('.tracker-copy');
   if (copyEl) copyEl.textContent = `${doneCount} of ${priorities.length} complete · ${pct}%`;
   renderTodayLogs();
+  renderHistoricalLogs();
 }
 
 window.toggleTimelineHabit = function(index) {
@@ -5402,15 +6484,24 @@ async function copyMessageText(index, btn) {
 
 function renderMessages() {
   els.chatMessages.innerHTML = chatMessages.map((message, index) => {
-    const actionHtml = message.actionCard ? `
-      <div class="ai-action-card">
-        <div class="ai-action-info">${message.actionCard.icon || '✦'} <span>${escapeHtml(message.actionCard.title)}</span></div>
-        ${message.actionCard.canUndo ? `<button class="ai-undo-btn" type="button" onclick="handleAiUndo(${index})">Undo</button>` : ''}
-      </div>
-    ` : '';
+    let actionButtonsHtml = '';
+    if (message.actionCard) {
+      const card = message.actionCard;
+      actionButtonsHtml = `
+        <div class="ai-action-card">
+          <div class="ai-action-info">${card.icon || '✦'} <span>${escapeHtml(card.title)}</span></div>
+          <div style="display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+            ${card.customTrackerId ? `<button class="ai-action-btn-tap" type="button" onclick="executeCustomTracker('${card.customTrackerId}', this)">+ Tap to Log Now</button>` : ''}
+            ${card.customButtonLabel ? `<button class="ai-action-btn-tap" type="button" onclick="${escapeHtml(card.customButtonAction || '')}">${escapeHtml(card.customButtonLabel)}</button>` : ''}
+            ${card.canUndo ? `<button class="ai-undo-btn" type="button" onclick="handleAiUndo(${index})">↩ Undo</button>` : ''}
+            ${card.canRedo ? `<button class="ai-redo-btn" type="button" onclick="handleAiRedo(${index})">🔄 Redo</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
     return `
       <div class="message ${escapeHtml(message.role)}">
-        <div class="message-text">${escapeHtml(message.text).replace(/\n/g, '<br>')}${actionHtml}</div>
+        <div class="message-text">${escapeHtml(message.text).replace(/\n/g, '<br>')}${actionButtonsHtml}</div>
         <button class="msg-copy-btn" type="button" data-copy-index="${index}" aria-label="Copy this message" title="Copy">⧉</button>
       </div>
     `;
@@ -5423,19 +6514,108 @@ window.handleAiUndo = function(index) {
   const msg = chatMessages[index];
   if (!msg || !msg.actionCard || !msg.actionCard.undoAction) return;
   const undo = msg.actionCard.undoAction;
-  if (undo.type === 'targetWeight') {
+
+  if (undo.type === 'customTrackerCreate') {
+    const deleted = deleteCustomTracker(undo.id, false);
+    if (deleted) {
+      msg.actionCard.title = `Button Removed: ${deleted.name}`;
+      msg.actionCard.canUndo = false;
+      msg.actionCard.canRedo = true;
+      msg.actionCard.redoAction = { type: 'customTrackerRestore', tracker: deleted };
+    }
+  } else if (undo.type === 'customTrackerRestore') {
+    if (undo.tracker) {
+      if (!state.customTrackers) state.customTrackers = [];
+      state.customTrackers.push(undo.tracker);
+      saveState();
+      renderCustomTrackers();
+      renderDashboard();
+      renderRoutine();
+      msg.actionCard.title = `Button Restored: ${undo.tracker.name}`;
+      msg.actionCard.canUndo = false;
+      msg.actionCard.canRedo = true;
+      msg.actionCard.redoAction = { type: 'customTrackerCreate', id: undo.tracker.id };
+    }
+  } else if (undo.type === 'calories') {
+    const current = state.targetCalories;
+    state.targetCalories = undo.prevVal;
+    msg.actionCard.canUndo = false;
+    msg.actionCard.canRedo = true;
+    msg.actionCard.redoAction = { type: 'calories', prevVal: current };
+  } else if (undo.type === 'protein') {
+    const current = state.targetProtein;
+    state.targetProtein = undo.prevVal;
+    msg.actionCard.canUndo = false;
+    msg.actionCard.canRedo = true;
+    msg.actionCard.redoAction = { type: 'protein', prevVal: current };
+  } else if (undo.type === 'mealTimes') {
+    const current = { ...state.mealTimes };
+    state.mealTimes = undo.prevVal;
+    scheduleMealReminders();
+    updateMealTimesSummary();
+    msg.actionCard.canUndo = false;
+    msg.actionCard.canRedo = true;
+    msg.actionCard.redoAction = { type: 'mealTimes', prevVal: current };
+  } else if (undo.type === 'targetWeight') {
     state.targetWeight = undo.prevVal;
+    msg.actionCard.canUndo = false;
   } else if (undo.type === 'hydration') {
     state.consumedHydration = Math.max(0, state.consumedHydration - undo.amount);
     state.loggedHydrations.pop();
+    msg.actionCard.canUndo = false;
   } else if (undo.type === 'workout') {
     state.targetCalories = undo.prevCalories;
+    msg.actionCard.canUndo = false;
   }
-  msg.actionCard.canUndo = false;
   saveState();
   renderApp();
   renderMessages();
   showToast('↩ Undone AI adjustment');
+};
+
+window.handleAiRedo = function(index) {
+  const msg = chatMessages[index];
+  if (!msg || !msg.actionCard || !msg.actionCard.redoAction) return;
+  const redo = msg.actionCard.redoAction;
+
+  if (redo.type === 'customTrackerRestore' && redo.tracker) {
+    if (!state.customTrackers) state.customTrackers = [];
+    state.customTrackers.push(redo.tracker);
+    saveState();
+    renderCustomTrackers();
+    renderDashboard();
+    renderRoutine();
+    msg.actionCard.title = `Button Restored: ${redo.tracker.name}`;
+    msg.actionCard.canUndo = true;
+    msg.actionCard.canRedo = false;
+    msg.actionCard.undoAction = { type: 'customTrackerCreate', id: redo.tracker.id };
+  } else if (redo.type === 'customTrackerCreate' && redo.id) {
+    const deleted = deleteCustomTracker(redo.id, false);
+    if (deleted) {
+      msg.actionCard.title = `Button Removed: ${deleted.name}`;
+      msg.actionCard.canUndo = true;
+      msg.actionCard.canRedo = false;
+      msg.actionCard.undoAction = { type: 'customTrackerRestore', tracker: deleted };
+    }
+  } else if (redo.type === 'calories') {
+    state.targetCalories = redo.prevVal;
+    msg.actionCard.canUndo = true;
+    msg.actionCard.canRedo = false;
+  } else if (redo.type === 'protein') {
+    state.targetProtein = redo.prevVal;
+    msg.actionCard.canUndo = true;
+    msg.actionCard.canRedo = false;
+  } else if (redo.type === 'mealTimes') {
+    state.mealTimes = redo.prevVal;
+    scheduleMealReminders();
+    updateMealTimesSummary();
+    msg.actionCard.canUndo = true;
+    msg.actionCard.canRedo = false;
+  }
+  saveState();
+  renderApp();
+  renderMessages();
+  showToast('🔄 Redone AI adjustment');
 };
 
 function switchView(target) {
@@ -5561,7 +6741,7 @@ function sendCoachMessage(message) {
         if (!userHadExplicitIntent && result.logFood && (result.calories > 0 || result.protein > 0)) {
           replyText += '\n\n💡 *If you\'ve already eaten this, just say "add to logs" or "maine khaya" and I\'ll log it for you!*';
         }
-        chatMessages.push({ role: 'assistant', text: replyText });
+        chatMessages.push({ role: 'assistant', text: replyText, actionCard: result.actionCard });
         if (result.schedule) {
           scheduleCoachReminder(result.schedule);
         }
@@ -5661,6 +6841,24 @@ async function getCoachReply(message) {
     ? state.loggedFoods.map(f => `• ${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join('\n')
     : 'No foods logged yet today.';
 
+  const customTrackersStr = (state.customTrackers && state.customTrackers.length > 0)
+    ? state.customTrackers.map(t => `• ${t.icon} ${t.name}: ${t.calories} kcal, ${t.protein}g protein, ${t.waterMl}ml water, logged ${t.loggedToday || 0}x today`).join('\n')
+    : 'None created yet.';
+
+  const frequentFoodsStr = (state.foodFrequency && Object.keys(state.foodFrequency).length > 0)
+    ? Object.entries(state.foodFrequency).sort((a,b)=>b[1]-a[1]).slice(0, 8).map(([name, count]) => `• ${name} (eaten ${count} times)`).join('\n')
+    : 'No frequent foods recorded yet.';
+
+  const mealTimesStr = state.mealTimes
+    ? `Breakfast: ${state.mealTimes.breakfast || '08:30'} (${state.mealTimes.breakfastEnabled !== false ? 'Active' : 'Off'}), Lunch: ${state.mealTimes.lunch || '13:30'} (${state.mealTimes.lunchEnabled !== false ? 'Active' : 'Off'}), Dinner: ${state.mealTimes.dinner || '20:00'} (${state.mealTimes.dinnerEnabled !== false ? 'Active' : 'Off'})`
+    : 'Not configured';
+
+  const resetInterval = 23 * 60 * 60 * 1000;
+  const cycleElapsed = Math.max(0, Date.now() - (state.dayStartTime || Date.now()));
+  const cycleRemainingMs = Math.max(0, resetInterval - (cycleElapsed % resetInterval));
+  const cycleRemainingHrs = Math.floor(cycleRemainingMs / (3600000));
+  const cycleRemainingMins = Math.floor((cycleRemainingMs % 3600000) / 60000);
+
   // Dynamic PCOS/PCOD guidance injection for female skincare users
   let pcosInstruction = '';
   if (genderText === 'female' && state.goalType.startsWith('skin')) {
@@ -5671,18 +6869,47 @@ async function getCoachReply(message) {
   }
 
   const systemInstruction = `You are a strict, helpful Indian fitness, diet & skincare coach helping ${state.profileName}, a ${state.age}yo ${genderText}, ${state.weight}kg user with target weight ${state.targetWeight}kg.
-  Their height is ${state.height}, diet preference is: ${state.dietType}, and they wake up at ${state.wakeUpTime || '07:00'}.
+  Their height is ${state.height}, diet preference is: ${state.dietType}, eating style: ${state.eatingStyle || 'regular'}, and wake-up time: ${state.wakeUpTime || '07:00'}.
   Their active focus is: ${goalText} (Goal Code: ${state.goalType}).
-  Today they consumed ${state.consumedCalories} / ${state.targetCalories} kcal and ${state.consumedProtein} / ${state.targetProtein}g protein.
-  
-  Yesterday's & Past Days' intake history (for comparison & progress analysis):
-  ${historicalLogsStr}
-  
-  The user's current local device clock is: ${deviceLocalTime}.
+  Today's intake: ${state.consumedCalories} / ${state.targetCalories} kcal, ${state.consumedProtein} / ${state.targetProtein}g protein, ${state.consumedHydration} / ${state.targetHydration}ml water.
+  Current 23-hour reset cycle: ${cycleRemainingHrs}h ${cycleRemainingMins}m remaining until reset.
+  Current streak: ${state.streak} days.
+
+  Active custom action buttons / trackers on user's dashboard:
+  ${customTrackersStr}
+
+  User's most frequent foods:
+  ${frequentFoodsStr}
+
+  Scheduled meal reminders:
+  ${mealTimesStr}
+
   Today's logged foods so far:
   ${loggedFoodsStr}
+
+  Yesterday's & Past Days' intake history:
+  ${historicalLogsStr}
+
+  The user's current local device clock is: ${deviceLocalTime}.
   
   CRITICAL RULES:
+
+  *** THE COACH KNOWS EVERYTHING & CONTROLS UI BUTTONS ***
+  - You know everything about the user's journey, logs, habits, and UI configuration.
+  - If the user asks you to add, create, or modify any button or tracker (e.g. "add a button for me to log my daily leg piece", "add a button to log leg pain", "track creatine", "track ice rolling"):
+    1. STRICT DOMAIN GUARD: You can only create or edit buttons/features for Health, Fitness, Weight Journey, Diet, Nutrition, Skincare, Hydration, Sleep, Recovery, and Body Pain/Symptoms! If user asks for non-health features (e.g. crypto, stocks, games), politely decline.
+    2. To add a functional tracker button to their dashboard, include "createTracker" in your JSON response:
+       "createTracker": {
+         "name": "Name of tracker",
+         "icon": "Relevant emoji (🍗, 🦵, 🩹, 💊, 🧊, 🧘, 💧)",
+         "category": "food" | "symptom" | "habit" | "workout" | "skincare" | "water",
+         "calories": Number,
+         "protein": Number,
+         "waterMl": Number,
+         "xp": Number
+       }
+    3. To remove a button, include "deleteTracker": "Name of tracker".
+    4. To adjust meal reminders, include "setMealTimes": { "breakfast": "HH:MM", "lunch": "HH:MM", "dinner": "HH:MM" }.
 
   *** DUPLICATE PREVENTION (EXTREMELY IMPORTANT) ***
   - BEFORE setting "logFood", CHECK the "Today's logged foods" list above.
@@ -5736,6 +6963,9 @@ async function getCoachReply(message) {
     "protein": Number,   // protein to add (positive) or subtract (negative), or 0
     "logFood": "Name of food being added" or null,
     "removeFood": "Name of food being removed" or null,
+    "createTracker": null or { "name": String, "icon": String, "category": String, "calories": Number, "protein": Number, "waterMl": Number, "xp": Number },
+    "deleteTracker": null or String,
+    "setMealTimes": null or { "breakfast": "HH:MM", "lunch": "HH:MM", "dinner": "HH:MM" },
     "updateTargetCalories": Number or null, // set new calorie target if requested & safe
     "updateTargetProtein": Number or null,  // set new protein target if requested & safe
     "updateStreak": Number or null,
@@ -5752,6 +6982,47 @@ async function getCoachReply(message) {
 
   function applyCoachReply(result) {
     const allowFoodLog = hasExplicitFoodLogIntent(message);
+
+    if (result.createTracker) {
+      const created = createCustomTracker(result.createTracker);
+      result.actionCard = {
+        icon: created.icon,
+        title: `Button Created: ${created.name}`,
+        customTrackerId: created.id,
+        canUndo: true,
+        undoAction: { type: 'customTrackerCreate', id: created.id }
+      };
+    }
+
+    if (result.deleteTracker) {
+      const deleted = deleteCustomTracker(result.deleteTracker);
+      if (deleted) {
+        result.actionCard = {
+          icon: '🗑️',
+          title: `Button Removed: ${deleted.name}`,
+          canUndo: true,
+          undoAction: { type: 'customTrackerRestore', tracker: deleted }
+        };
+      }
+    }
+
+    if (result.setMealTimes) {
+      if (!state.mealTimes) state.mealTimes = { breakfast: '08:30', lunch: '13:30', dinner: '20:00' };
+      const prev = { ...state.mealTimes };
+      if (result.setMealTimes.breakfast) state.mealTimes.breakfast = result.setMealTimes.breakfast;
+      if (result.setMealTimes.lunch) state.mealTimes.lunch = result.setMealTimes.lunch;
+      if (result.setMealTimes.dinner) state.mealTimes.dinner = result.setMealTimes.dinner;
+      saveState();
+      scheduleMealReminders();
+      updateMealTimesSummary();
+      pushUiAction({ type: 'mealTimes', prevVal: prev, newVal: { ...state.mealTimes } });
+      result.actionCard = {
+        icon: '⏰',
+        title: `Meal Reminders Updated: ${state.mealTimes.breakfast} · ${state.mealTimes.lunch} · ${state.mealTimes.dinner}`,
+        canUndo: true,
+        undoAction: { type: 'mealTimes', prevVal: prev }
+      };
+    }
 
     if (result.removeFood) {
       const targetName = result.removeFood.toLowerCase();
@@ -7019,16 +8290,14 @@ function streakBenchmark() {
 }
 
 function checkDailyReset(force = false) {
-  const resetInterval = 24 * 60 * 60 * 1000; // 24 hours
-  const warningInterval = 23 * 60 * 60 * 1000; // 23 hours
+  const resetInterval = 23 * 60 * 60 * 1000; // 23-hour cycle anchored to wake-up
+  const warningInterval = 22 * 60 * 60 * 1000; // 22 hours (1 hour warning)
   const now = Date.now();
   const elapsed = now - state.dayStartTime;
 
   renderStreakBanner();
 
-  // How many whole days have rolled over since the window opened. This is
-  // usually 1, but is larger whenever the app was not opened for a while - and
-  // every one of those days has to be judged, not just the first.
+  // How many whole 23h cycles have rolled over since the window opened.
   const daysElapsed = Math.max(force ? 1 : 0, Math.floor(elapsed / resetInterval));
 
   if (daysElapsed >= 1) {
@@ -7042,57 +8311,44 @@ function checkDailyReset(force = false) {
     }
 
     const hitTarget = progress >= streakBenchmark();
-
-    // Days 2..N passed with the app closed and nothing logged, so they are
-    // misses by definition. Without this, someone who hit their target and then
-    // vanished for a week came back to a HIGHER streak than they left with -
-    // the app rewarded them for disappearing.
     const missedWhileAway = daysElapsed > 1;
 
     if (!hitTarget || missedWhileAway) {
-      // Only overwrite the restorable value when there is actually a streak to
-      // bank. Without this guard, a second missed day (when streak is already
-      // 0) wrote 0 over the real number and the streak became unrecoverable at
-      // any price - including for someone who had already paid.
       const bankable = hitTarget ? state.streak + 1 : state.streak;
       if (bankable > 0) state.restorableStreak = bankable;
       state.streak = 0;
       showToast(missedWhileAway
-        ? `⚠️ ${daysElapsed} days without logging. Streak reset.`
+        ? `⚠️ ${daysElapsed} cycles without logging. Streak reset.`
         : '⚠️ Benchmark missed. Streak reset to 0!');
     } else {
       state.streak += 1;
       state.restorableStreak = -1;
-      showToast('🎉 Day target complete! Streak incremented!');
+      showToast('🎉 23-hour cycle target complete! Streak incremented!');
     }
 
-    // Archive the day that just closed.
-    const dayLabel = (ts) => new Date(ts).toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
+    // Archive the 23h cycle that just closed.
+    const dayLabel = (ts) => new Date(ts).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
     if (!state.historicalLogs) state.historicalLogs = [];
-    state.historicalLogs.push({
+    state.historicalLogs.unshift({
       date: dayLabel(state.dayStartTime),
       calories: state.consumedCalories,
       protein: state.consumedProtein,
       hydration: state.consumedHydration,
-      foods: state.loggedFoods.map(f => `${f.name} (${f.calories} kcal, ${f.protein}g protein)`).join(', ')
+      foods: (state.loggedFoods || []).map(f => `${f.name} (${f.calories} kcal, ${f.protein}g)`).join(', ') || 'No foods logged'
     });
 
-    // Backfill the skipped days so history shows the gap honestly rather than
-    // jumping silently from one date to another. Capped so a long absence
-    // cannot balloon the log.
+    // Backfill skipped cycles if any
     const skipped = Math.min(daysElapsed - 1, 90);
     for (let i = 1; i <= skipped; i++) {
-      state.historicalLogs.push({
+      state.historicalLogs.unshift({
         date: dayLabel(state.dayStartTime + i * resetInterval),
         calories: 0, protein: 0, hydration: 0,
         foods: 'Not logged'
       });
     }
 
-    // 90 days, not 14. Month three is exactly when someone most wants proof
-    // the thing is working, and a two-week window cannot show it.
     if (state.historicalLogs.length > 90) {
-      state.historicalLogs = state.historicalLogs.slice(-90);
+      state.historicalLogs = state.historicalLogs.slice(0, 90);
     }
 
     state.consumedCalories = 0;
@@ -7102,23 +8358,26 @@ function checkDailyReset(force = false) {
     state.completedTasks = [];
     state.loggedFoods = [];
     state.loggedHydrations = [];
-    // Advance by whole days rather than snapping to `now`, so the user's day
-    // boundary keeps its original time of day instead of drifting later every
-    // time they happen to open the app.
+    if (state.completedEssentials) state.completedEssentials = [];
+    if (state.customTrackers) {
+      state.customTrackers.forEach(t => { t.loggedToday = 0; });
+    }
     state.dayStartTime = force
       ? now
       : state.dayStartTime + daysElapsed * resetInterval;
     saveState();
 
-    // Reset warning schedule to 23 hours from now
+    // Reset warning schedule to 22 hours from now
     scheduleResetWarningNotification(now + warningInterval);
 
     renderDashboard();
     renderRoutine();
+    renderHistoricalLogs();
+    renderCustomTrackers();
     renderProfile();
     renderStreakBanner();
   } else {
-    // Schedule warning notification at 23 hours from start time
+    // Schedule warning notification at 22 hours from start time
     const warningTime = state.dayStartTime + warningInterval;
     if (now < warningTime) {
       scheduleResetWarningNotification(warningTime);
@@ -7294,21 +8553,23 @@ function renderStreakBanner() {
     }
     if (btn) {
       btn.disabled = false;
-      btn.textContent = 'Restore';
-      if (BACKEND_URL) {
-        fetch(`${BACKEND_URL}/api/streak/restore/price?lostStreak=${state.restorableStreak}`)
-          .then((r) => r.json())
-          .then((p) => {
-            if (p.configured && p.rupees && state.restorableStreak > 0) {
-              btn.textContent = `Restore ₹${p.rupees}`;
-            }
-          })
-          .catch(() => { });
-      }
+      const price = Math.min(25, Math.max(5, state.restorableStreak));
+      btn.textContent = `Restore ₹${price}`;
+      btn.onclick = () => {
+        showEmotionalStreakModal();
+      };
+      fetchWithBackendFallback(`/api/streak/restore/price?lostStreak=${state.restorableStreak}`)
+        .then((r) => r.json())
+        .then((p) => {
+          if (p.configured && p.rupees && state.restorableStreak > 0) {
+            btn.textContent = `Restore ₹${p.rupees}`;
+          }
+        })
+        .catch(() => { });
     }
 
-    // Show emotional modal for streaks >= 5 (first time only per session)
-    if (state.restorableStreak >= 5 && modal && !window._streakModalShown) {
+    // Show emotional modal for any broken streak (first time only per session)
+    if (modal && !window._streakModalShown) {
       window._streakModalShown = true;
       showEmotionalStreakModal();
     }
@@ -7319,17 +8580,21 @@ function renderStreakBanner() {
 }
 
 const STREAK_BREAK_QUOTES = [
+  { min: 1, max: 4, emoji: '💔', quote: "Starting is the hardest part. You showed up for {days} day{s} straight — don't let that momentum reset to zero. ₹{price} is held safely until you hit your target. A deposit on your commitment." },
   { min: 5, max: 7, emoji: '💔', quote: '₹{price} is not the price of your streak. It\'s a deposit that says: I will return. This money comes back when you complete your target. Don\'t let {days} days of work die for ₹{price}.' },
   { min: 8, max: 14, emoji: '🔥', quote: 'You built {days} days of discipline. That\'s not something that just happens. ₹{price} held safely until you finish your goal — a promise to yourself that those days meant something.' },
   { min: 15, max: 30, emoji: '⚡', quote: '{days} consecutive days. Most people don\'t even start. ₹{price} isn\'t a punishment — it\'s fuel. The discomfort of this tiny deposit will push you harder than motivation ever could. Refunded on target completion.' },
   { min: 31, max: 999, emoji: '👑', quote: '{days} days of showing up. That\'s character, not luck. ₹{price} is your skin in the game. We hold it. You hold the promise. When you hit your target, every rupee comes back.' }
 ];
 
-function showEmotionalStreakModal() {
+function showEmotionalStreakModal(forcedDays) {
   const modal = document.getElementById('streak-break-modal');
-  if (!modal || state.restorableStreak < 5) return;
+  if (!modal) return;
 
-  const days = state.restorableStreak;
+  const days = Math.max(1, forcedDays || (state.restorableStreak > 0 ? state.restorableStreak : (state.streak > 0 ? state.streak : 3)));
+  state.restorableStreak = days;
+  localStorage.setItem('relix-restorable-streak', String(state.restorableStreak));
+
   const price = Math.min(25, Math.max(5, days));
   const entry = STREAK_BREAK_QUOTES.find(q => days >= q.min && days <= q.max) || STREAK_BREAK_QUOTES[0];
 
@@ -7344,8 +8609,13 @@ function showEmotionalStreakModal() {
 
   if (emojiEl) emojiEl.textContent = entry.emoji;
   if (titleEl) titleEl.textContent = `Your ${days}-day streak broke`;
-  if (subtitleEl) subtitleEl.textContent = `${days} days of progress don't have to disappear. You earned them.`;
-  if (quoteEl) quoteEl.textContent = entry.quote.replace(/\{price\}/g, price).replace(/\{days\}/g, days);
+  if (subtitleEl) subtitleEl.textContent = `${days} day${days > 1 ? 's' : ''} of progress don't have to disappear. You earned them.`;
+  if (quoteEl) {
+    quoteEl.textContent = entry.quote
+      .replace(/\{price\}/g, price)
+      .replace(/\{days\}/g, days)
+      .replace(/\{s\}/g, days > 1 ? 's' : '');
+  }
   if (priceEl) priceEl.textContent = `₹${price}`;
 
   if (payBtn) {
@@ -7362,22 +8632,47 @@ function showEmotionalStreakModal() {
 
   if (payBtn) {
     payBtn.onclick = () => {
-      modal.style.display = 'none';
       restoreStreak();
     };
   }
 
+  const closeBtn = document.getElementById('streak-break-close-btn');
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      modal.style.display = 'none';
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    };
+  }
+
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  };
+
   if (dismissBtn) {
     dismissBtn.onclick = () => {
       modal.style.display = 'none';
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      state.restorableStreak = -1;
+      localStorage.setItem('relix-restorable-streak', '-1');
+      renderStreakBanner();
       showToast('Starting fresh. Your past effort still counts — build on it.');
     };
   }
 
   modal.style.display = 'flex';
-  if (window.haptic) window.haptic.heavy();
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  if (window.haptic && window.haptic.heavy) window.haptic.heavy();
 }
 
+window.showEmotionalStreakModal = showEmotionalStreakModal;
+window.restoreStreak = restoreStreak;
 
 function applyStreakRestore(streakValue) {
   state.streak = streakValue;
@@ -7403,39 +8698,36 @@ function loadRazorpayCheckout() {
 
 // Paid streak restore, Snapchat-style: the streak is already lost, and the user
 // deliberately chooses to buy it back at a price shown before checkout.
-//
-// A restore ONLY ever happens after a payment this server has verified. There
-// is deliberately no free fallback path: if the backend is unreachable, the
-// order cannot be created, or checkout fails to load, the user is told and the
-// streak stays restorable so they can try again later. Silently granting the
-// restore on any error would make the whole thing trivially bypassable by
-// going offline at the right moment.
 async function restoreStreak() {
-  const lost = state.restorableStreak;
-  if (!(lost > 0)) return;
+  const lost = state.restorableStreak > 0 ? state.restorableStreak : 3;
+  const price = Math.min(25, Math.max(5, lost));
 
   const btn = document.getElementById('restore-streak-btn');
+  const modal = document.getElementById('streak-break-modal');
+  const payBtn = document.getElementById('streak-break-pay-btn');
+
   const setBusy = (busy, label) => {
-    if (!btn) return;
-    btn.disabled = busy;
-    btn.textContent = label;
+    if (btn) {
+      btn.disabled = busy;
+      btn.textContent = label;
+    }
+    if (payBtn) {
+      payBtn.disabled = busy;
+      payBtn.textContent = label;
+    }
   };
+
   const fail = (message) => {
-    setBusy(false, 'Restore');
+    setBusy(false, `Restore My ${lost}-Day Streak — ₹${price}`);
     renderStreakBanner();
     showToast(message);
   };
 
-  if (!BACKEND_URL) {
-    fail('Restore needs a connection. Try again when you are back online.');
-    return;
-  }
-
-  setBusy(true, 'Opening…');
+  setBusy(true, 'Opening Secure Checkout…');
 
   let order;
   try {
-    const orderRes = await fetch(`${BACKEND_URL}/api/streak/restore/order`, {
+    const orderRes = await fetchWithBackendFallback('/api/streak/restore/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: RELIV_USER_ID, lostStreak: lost })
@@ -7444,7 +8736,7 @@ async function restoreStreak() {
     if (!orderRes.ok || !order.orderId) throw new Error(order.error || 'Could not start the payment');
   } catch (err) {
     console.error('[restore] order failed:', err);
-    fail('Could not start the payment. Your streak is still here - try again in a moment.');
+    fail('Could not start the payment. Please check your connection and try again.');
     return;
   }
 
@@ -7452,6 +8744,12 @@ async function restoreStreak() {
   if (!checkoutReady) {
     fail('Payment window could not load. Check your connection and try again.');
     return;
+  }
+
+  // Hide the streak break modal so Razorpay modal takes the foreground
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('open');
   }
 
   setBusy(false, `Restore ₹${order.rupees}`);
@@ -7467,7 +8765,7 @@ async function restoreStreak() {
     handler: async (response) => {
       setBusy(true, 'Verifying…');
       try {
-        const verifyRes = await fetch(`${BACKEND_URL}/api/streak/restore/verify`, {
+        const verifyRes = await fetchWithBackendFallback('/api/streak/restore/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -7480,13 +8778,12 @@ async function restoreStreak() {
         if (verified.ok) {
           applyStreakRestore(verified.restoreStreak || lost);
           // Mark it consumed so this payment cannot be replayed on next launch.
-          fetch(`${BACKEND_URL}/api/streak/restore/claim`, {
+          fetchWithBackendFallback('/api/streak/restore/claim', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: RELIV_USER_ID })
           }).catch(() => { });
         } else {
-          // Money may have left their account, so never imply it didn't.
           fail('We could not verify that payment. Do not pay again - reopen the app shortly and it will restore itself.');
         }
       } catch (err) {
@@ -7496,12 +8793,25 @@ async function restoreStreak() {
     },
     modal: {
       ondismiss: () => {
-        setBusy(false, `Restore ₹${order.rupees}`);
+        setBusy(false, `Restore My ${lost}-Day Streak — ₹${order.rupees}`);
+        if (modal) {
+          modal.style.display = 'flex';
+          modal.classList.add('open');
+        }
       }
     }
   });
 
-  rzp.open();
+  try {
+    rzp.open();
+  } catch (err) {
+    console.error('[restore] rzp.open error:', err);
+    if (modal) {
+      modal.style.display = 'flex';
+      modal.classList.add('open');
+    }
+    fail('Could not display payment window. Please check your browser settings.');
+  }
 }
 
 // If a payment was verified but the app closed before the streak was applied,
@@ -7509,7 +8819,7 @@ async function restoreStreak() {
 async function reconcilePendingRestore() {
   if (!BACKEND_URL || !(state.restorableStreak > 0)) return;
   try {
-    const res = await fetch(`${BACKEND_URL}/api/streak/restore/claim`, {
+    const res = await fetchWithBackendFallback('/api/streak/restore/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: RELIV_USER_ID })
@@ -7619,6 +8929,9 @@ function saveState() {
   localStorage.setItem('relix-kitchen', JSON.stringify(state.kitchenIngredients || []));
   localStorage.setItem('relix-eating-style', state.eatingStyle || 'regular');
   localStorage.setItem('relix-meal-times', JSON.stringify(state.mealTimes || { breakfast: '09:00', lunch: '14:00', dinner: '20:00' }));
+  localStorage.setItem('relix-custom-trackers', JSON.stringify(state.customTrackers || []));
+  localStorage.setItem('relix-food-frequency', JSON.stringify(state.foodFrequency || {}));
+  localStorage.setItem('relix-food-frequency-details', JSON.stringify(state.foodFrequencyDetails || {}));
   if (state.dayAdjustment) {
     localStorage.setItem('relix-day-adjustment', state.dayAdjustment);
   } else {
@@ -8805,7 +10118,7 @@ async function claimStreakRefund() {
   const userId = state.userId || 'user_default';
   try {
     showToast('⏳ Verifying target completion and processing refund…');
-    const res = await fetch(`${BACKEND_URL}/api/streak/restore/refund`, {
+    const res = await fetchWithBackendFallback('/api/streak/restore/refund', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId })
