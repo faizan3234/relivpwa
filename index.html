@@ -526,14 +526,16 @@
 
           <!-- Apple HIG Me Profile Header Card -->
           <div class="card" style="padding:18px 20px; border-radius:22px; display:flex; align-items:center; gap:16px; margin-bottom:18px; border:1px solid var(--border);">
-            <div class="avatar-container" id="profile-avatar-container" style="position:relative; width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg, var(--primary), #ff9100); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.35rem; cursor:pointer; overflow:hidden; flex-shrink:0; box-shadow:0 4px 14px rgba(255,122,0,0.25);">
+            <div class="avatar-container" id="profile-avatar-container" title="Tap to change profile picture" style="position:relative; width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg, var(--primary), #ff9100); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.35rem; cursor:pointer; overflow:hidden; flex-shrink:0; box-shadow:0 4px 14px rgba(255,122,0,0.25);">
               <span id="avatar-initials">—</span>
               <img id="avatar-img" style="display:none; width:100%; height:100%; object-fit:cover;" alt="Profile Picture" />
               <input type="file" id="profile-pic-input" accept="image/*" style="display:none;" />
+              <div style="position:absolute; bottom:0; left:0; right:0; height:20px; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:#fff;">📷</div>
             </div>
             <div style="flex:1;">
               <h2 id="member-name" style="margin:0; font-size:1.3rem; color:var(--text);">—</h2>
               <p id="profile-goal-subtitle" style="margin:3px 0 0 0; font-size:0.84rem; color:var(--muted); font-weight:600;">Goal · —</p>
+              <button id="change-profile-pic-btn" type="button" class="link-btn" style="background:none; border:none; color:var(--primary); font-size:0.78rem; font-weight:700; padding:4px 0 0 0; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">📷 Change Photo</button>
             </div>
             <button id="edit-profile-header-btn" class="ghost-btn" type="button" onclick="document.getElementById('edit-stats-btn')?.click()" style="padding:6px 12px; font-size:0.8rem; border-radius:10px; border:1px solid var(--border);">Edit</button>
           </div>
@@ -699,6 +701,55 @@
             </div>
           </div>
 
+          <!-- AI & API Keys Settings -->
+          <div class="settings-group" id="ai-settings-group">
+            <h4 class="settings-group-header">AI & Intelligence</h4>
+            <div class="settings-group-list">
+              <!-- Groq API Key -->
+              <div class="settings-group-row" style="flex-direction:column; align-items:stretch; gap:10px; padding:14px 16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div class="settings-row-left">
+                    <span class="settings-row-icon">⚡</span>
+                    <div>
+                      <span style="font-weight:600;">Groq API Key</span>
+                      <span style="display:block; font-size:0.75rem; color:var(--muted);">Ultra-fast AI Coach (Llama 3.3 70B)</span>
+                    </div>
+                  </div>
+                  <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" class="link-btn" style="display:inline-flex; align-items:center; gap:4px; font-size:0.78rem; font-weight:700; color:var(--primary); text-decoration:none; background:rgba(255,122,0,0.1); border:1px solid rgba(255,122,0,0.25); padding:4px 10px; border-radius:8px;">
+                    🔑 Get Free Groq Key ↗
+                  </a>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <input id="groq-input" type="password" placeholder="Paste gsk_... key here" aria-label="Groq API Key" style="flex:1; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.85rem;" />
+                  <button id="save-groq" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.8rem; font-weight:700; white-space:nowrap;">Save</button>
+                </div>
+                <div style="font-size:0.75rem; color:var(--muted); line-height:1.4;">
+                  💡 Click <strong>"Get Free Groq Key"</strong> above, sign in, click <strong>"Create API Key"</strong>, copy it, and paste here!
+                </div>
+              </div>
+
+              <!-- Gemini API Key -->
+              <div class="settings-group-row" style="flex-direction:column; align-items:stretch; gap:10px; padding:14px 16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div class="settings-row-left">
+                    <span class="settings-row-icon">✨</span>
+                    <div>
+                      <span style="font-weight:600;">Gemini API Key</span>
+                      <span style="display:block; font-size:0.75rem; color:var(--muted);">Vision Meal Cam & multimodal scanner</span>
+                    </div>
+                  </div>
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="link-btn" style="display:inline-flex; align-items:center; gap:4px; font-size:0.78rem; font-weight:700; color:var(--primary); text-decoration:none; background:rgba(255,122,0,0.1); border:1px solid rgba(255,122,0,0.25); padding:4px 10px; border-radius:8px;">
+                    🔑 Get Free Gemini Key ↗
+                  </a>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <input id="gemini-key-input" type="password" placeholder="Paste AIza... key here" aria-label="Gemini API Key" style="flex:1; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.85rem;" />
+                  <button id="save-gemini-key" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.8rem; font-weight:700; white-space:nowrap;">Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="settings-group">
             <h4 class="settings-group-header">Privacy & Data</h4>
             <div class="settings-group-list">
@@ -760,26 +811,6 @@
             <div class="settings-group">
               <h4 class="settings-group-header" style="color:var(--primary);">🛠️ Developer Diagnostics (Unlocked)</h4>
               <div class="settings-group-list">
-                <div class="settings-group-row">
-                  <div class="settings-row-left">
-                    <span class="settings-row-icon">⚡</span>
-                    <span>Groq API Key</span>
-                  </div>
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <input id="groq-input" type="password" placeholder="Key" aria-label="Groq API Key" style="padding:6px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); width:90px; font-size:0.8rem;" />
-                    <button id="save-groq" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem;">Save</button>
-                  </div>
-                </div>
-                <div class="settings-group-row">
-                  <div class="settings-row-left">
-                    <span class="settings-row-icon">✨</span>
-                    <span>Gemini API Key</span>
-                  </div>
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <input id="gemini-key-input" type="password" placeholder="Key" aria-label="Gemini API Key" style="padding:6px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); width:90px; font-size:0.8rem;" />
-                    <button id="save-gemini-key" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem;">Save</button>
-                  </div>
-                </div>
                 <div style="padding:12px 16px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
                   <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                     <button id="server-water-start" class="primary-btn" type="button" style="background:#2196F3; font-size:0.75rem; padding:6px;">▶ 45m Water</button>

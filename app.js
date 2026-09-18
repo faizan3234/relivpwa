@@ -3813,6 +3813,13 @@ function parseLocalFoodIntake(text) {
     profilePicInput.addEventListener('change', handleProfilePictureUpload);
   }
 
+  const changeProfilePicBtn = document.getElementById('change-profile-pic-btn');
+  if (changeProfilePicBtn && profilePicInput) {
+    changeProfilePicBtn.addEventListener('click', () => {
+      profilePicInput.click();
+    });
+  }
+
   // Dismiss save confirm modal
   const dismissSaveBtn = document.getElementById('dismiss-save-confirm');
   const confirmModal = document.getElementById('save-confirm-modal');
@@ -5812,6 +5819,7 @@ function renderProfilePicture() {
   if (!container) return;
   const initials = document.getElementById('avatar-initials');
   const img = document.getElementById('avatar-img');
+  const headerAvatarBtn = document.getElementById('header-avatar-btn');
   
   if (state.profilePic) {
     if (initials) initials.style.display = 'none';
@@ -5819,9 +5827,15 @@ function renderProfilePicture() {
       img.src = state.profilePic;
       img.style.display = 'block';
     }
+    if (headerAvatarBtn) {
+      headerAvatarBtn.innerHTML = `<img src="${state.profilePic}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" alt="Avatar" />`;
+    }
   } else {
     if (initials) initials.style.display = 'block';
     if (img) img.style.display = 'none';
+    if (headerAvatarBtn) {
+      headerAvatarBtn.textContent = '👤';
+    }
   }
 }
 
