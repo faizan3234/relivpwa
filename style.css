@@ -101,6 +101,25 @@ img { max-width: 100%; display: block; }
 .top-bar-avatar:active { transform: scale(0.92); }
 .top-bar-actions { display: flex; gap: 10px; align-items: center; }
 .top-bar-badge { min-width: 34px; height: 34px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,122,0,0.14); color: var(--primary); font-weight: 800; }
+.header-log-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.25);
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+  white-space: nowrap;
+}
+.header-log-pill:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255, 106, 0, 0.35); }
+.header-log-pill:active { transform: scale(0.94); opacity: 0.9; }
 .icon-btn, .ghost-btn, .primary-btn, .why-btn { border: 0; cursor: pointer; transition: transform 220ms ease, box-shadow 220ms ease, opacity 220ms ease; }
 .icon-btn:hover, .ghost-btn:hover, .primary-btn:hover, .why-btn:hover { transform: translateY(-2px); }
 .icon-btn:active, .ghost-btn:active, .primary-btn:active, .why-btn:active, .card:active { transform: scale(0.97) translateY(0); opacity: 0.9; }
@@ -233,7 +252,7 @@ img { max-width: 100%; display: block; }
 .switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: white; transition: transform 240ms ease; }
 .switch input:checked + span { background: var(--primary); }
 .switch input:checked + span::after { transform: translateX(20px); }
-.bottom-nav { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(95vw, 440px); padding: 6px 10px; border-radius: 999px; display: flex; justify-content: space-around; align-items: center; gap: 2px; background: rgba(255,255,255,0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid var(--border); z-index: 20; }
+.bottom-nav { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(95vw, 440px); padding: 6px 10px; border-radius: 999px; display: flex; justify-content: space-around; align-items: center; gap: 2px; background: rgba(255,255,255,0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid var(--border); z-index: 20; }
 :root.dark .bottom-nav { background: rgba(17, 24, 39, 0.88); border-color: rgba(255, 255, 255, 0.08); }
 .nav-pill { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; transition: color 160ms ease, transform 160ms ease; }
 .nav-pill svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; transition: stroke 160ms ease, transform 160ms ease; }
@@ -512,13 +531,15 @@ input, textarea, [contenteditable="true"] {
   .reliv-loader-text { transition: none; }
 }
 
-/* Desktop gate takes over the whole screen: hide the phone UI behind it so it
-   never flashes, and drop the mobile body chrome. */
-.reliv-desktop .app-shell,
-.reliv-desktop .bottom-nav,
-.reliv-desktop .reliv-loader { display: none !important; }
-.reliv-desktop body::before { display: none; }
-.reliv-desktop body { padding: 0; display: block; }
+/* Large Screen / Desktop Presentation: Center app-shell as a sleek, Apple-grade mobile canvas */
+.reliv-desktop .desktop-gate,
+.desktop-gate { display: none !important; }
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 480px;
+    margin: 20px auto;
+  }
+}
 
 /* ==========================================================================
    NO TEXT SELECTION (except copy buttons)

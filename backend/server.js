@@ -494,7 +494,7 @@ app.post('/api/push/water/start', (req, res) => {
   if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
 
   if (waterIntervals.has(userId)) clearInterval(waterIntervals.get(userId));
-  const nudge = () => sendToUser(userId, { title: 'Relix Coach', body: '💧 Drink Water! Stay hydrated.', reminderKey: 'water' });
+  const nudge = () => sendToUser(userId, { title: 'Reliv Coach', body: '💧 Drink Water! Stay hydrated.', reminderKey: 'water' });
   nudge();
   waterIntervals.set(userId, setInterval(nudge, 45 * 60 * 1000));
   res.json({ ok: true, status: 'started' });
@@ -949,10 +949,129 @@ app.post('/api/streak/restore/claim', (req, res) => {
   res.json({ ok: true, restoreStreak: best });
 });
 
+// ==========================================================================
+// SERVER-AUTHORITATIVE GOAL VERIFICATION ENGINE
+// ==========================================================================
+function evaluateGoalIntegrity(measurements, targetWeight, goalType) {
+  if (!targetWeight || isNaN(targetWeight)) {
+    return { eligible: false, status: 'not_eligible', reason: 'No target goal configured.' };
+  }
+  if (!Array.isArray(measurements) || measurements.length < 3) {
+    return {
+      eligible: false,
+      status: 'needs_confirmation',
+      reason: 'Goal verification requires at least 3 qualifying check-ins across a 7-day confirmation window.'
+    };
+  }
+
+  // Check for any unresolved anomalous measurements
+  const hasUnconfirmed = measurements.some(m => m && m.verificationState === 'needs_confirmation');
+  if (hasUnconfirmed) {
+    return {
+      eligible: false,
+      status: 'needs_confirmation',
+      reason: 'Recent measurements are marked "Needs confirmation". Log a few more check-ins to verify.'
+    };
+  }
+
+  // Sort measurements by timestamp descending
+  const sorted = [...measurements].filter(m => m && !isNaN(Number(m.weight))).sort((a, b) => {
+    return new Date(b.date || b.timestamp || 0).getTime() - new Date(a.date || a.timestamp || 0).getTime();
+  });
+
+  if (sorted.length < 3) {
+    return {
+      eligible: false,
+      status: 'needs_confirmation',
+      reason: 'Need at least 3 valid measurements to verify goal progress.'
+    };
+  }
+
+  const recent7Days = sorted.filter(m => {
+    const timeDiff = Date.now() - new Date(m.date || m.timestamp || 0).getTime();
+    return timeDiff <= 7 * 24 * 60 * 60 * 1000;
+  });
+
+  if (recent7Days.length < 3) {
+    return {
+      eligible: false,
+      status: 'needs_confirmation',
+      reason: 'Goal persistence requires at least 3 check-ins across the last 7 days.'
+    };
+  }
+
+  // Direction check
+  const startWeight = Number(sorted[sorted.length - 1].weight);
+  const isLoss = goalType === 'fat_loss' || targetWeight < startWeight;
+  let qualifiedCount = 0;
+  for (const m of recent7Days) {
+    const w = Number(m.weight);
+    if (isLoss && w <= targetWeight + 0.5) qualifiedCount++;
+    else if (!isLoss && w >= targetWeight - 0.5) qualifiedCount++;
+  }
+
+  if (qualifiedCount >= Math.ceil(recent7Days.length / 2)) {
+    return {
+      eligible: true,
+      status: 'eligible',
+      reason: 'Goal achievement verified across 7-day confirmation window.'
+    };
+  }
+
+  return {
+    eligible: false,
+    status: 'not_eligible',
+    reason: `Measurements do not yet reflect persistent target of ${targetWeight} kg.`
+  };
+}
+
+// Check refund eligibility with server-side authority
+app.post('/api/goal/verify-refund', (req, res) => {
+  const { userId, targetWeight, goalType, measurements } = req.body || {};
+  if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
+
+  // 1. Check if user has refundable commitment deposits
+  const refundable = restores.paid.filter(p => p.userId === userId && !p.refundedAt);
+  const totalBalance = refundable.reduce((sum, p) => sum + (p.rupees || 0), 0);
+
+  if (totalBalance <= 0) {
+    return res.json({
+      ok: true,
+      eligible: false,
+      status: 'not_eligible',
+      commitmentBalance: 0,
+      reason: 'No unrefunded commitment deposits found in your account.'
+    });
+  }
+
+  // 2. Evaluate server-authoritative measurement integrity
+  const integrity = evaluateGoalIntegrity(measurements, Number(targetWeight), goalType);
+  return res.json({
+    ok: true,
+    eligible: integrity.eligible,
+    status: integrity.status,
+    commitmentBalance: totalBalance,
+    reason: integrity.reason,
+    depositCount: refundable.length
+  });
+});
+
 // Target completion refund endpoint for commitment money
 app.post('/api/streak/restore/refund', async (req, res) => {
-  const { userId, paymentId } = req.body || {};
+  const { userId, paymentId, targetWeight, goalType, measurements } = req.body || {};
   if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
+
+  // Server-authoritative integrity guard: if measurements are sent, verify them before processing
+  if (measurements && Array.isArray(measurements)) {
+    const integrity = evaluateGoalIntegrity(measurements, Number(targetWeight), goalType);
+    if (!integrity.eligible) {
+      return res.status(400).json({
+        ok: false,
+        status: integrity.status,
+        error: `Refund blocked by goal verification engine: ${integrity.reason}`
+      });
+    }
+  }
 
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     return res.status(503).json({ ok: false, error: 'Razorpay keys not configured on server' });

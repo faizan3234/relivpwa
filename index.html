@@ -47,11 +47,7 @@
         } else {
           isPhone = /Android|iPhone|iPod|Windows Phone|webOS|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
         }
-        var isTouchIPad = /iPad|Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-        var allowed = bypass || isPhone || isTouchIPad;
-
-        window.RELIV_IS_PHONE = allowed;
-        if (!allowed) document.documentElement.classList.add('reliv-desktop');
+        window.RELIV_IS_PHONE = true;
 
         // ======================================================================
         // 100% NATIVE APP BEHAVIOR: BLOCK ALL VIEWPORT ZOOMING, MINIMIZING & COPY
@@ -105,20 +101,6 @@
       <div class="reliv-loader-text" id="reliv-loader-text">Warming up your day…</div>
     </div>
 
-    <!-- Desktop gate. Hidden by default so the app still renders if scripting
-         is blocked; app.js reveals it when the device is not a phone. -->
-    <div id="desktop-gate" class="desktop-gate" hidden>
-      <div class="desktop-gate-card">
-        <img src="icons/icon-512.svg" alt="Reliv Logo" class="desktop-gate-logo" />
-        <h1>Reliv is a phone app</h1>
-        <p>Your routine happens away from a desk — meals, water, workouts, sleep. Reliv is built for the device that's actually with you.</p>
-        <p class="desktop-gate-hint">Open this link on your phone, then tap <strong>Add to Home Screen</strong>.</p>
-        <div class="desktop-gate-url" id="desktop-gate-url"></div>
-        <button type="button" class="desktop-gate-copy" id="desktop-gate-copy">Copy link</button>
-        <button type="button" class="primary-btn" id="desktop-phone-mode-btn" style="margin-top:14px; width:100%; font-weight:700;">📱 Test in Phone Simulator Mode</button>
-      </div>
-    </div>
-
     <div class="app-shell">
       <header class="top-bar">
         <div class="brand">
@@ -131,6 +113,7 @@
         <div class="top-bar-actions">
           <span id="connection-status" class="status-badge online" style="display:none;"><span class="dot"></span>Online</span>
           <div class="top-bar-badge" id="unread-badge" style="display:none;">0</div>
+          <button id="header-quick-log-btn" class="header-log-pill" type="button" aria-label="Quick Log">+ Log</button>
           <button id="install-button" class="install-button" type="button" aria-label="Install app" style="display:none;">📥 Download App</button>
           <button class="top-bar-avatar" id="header-avatar-btn" type="button" aria-label="My Profile">👤</button>
         </div>
@@ -165,8 +148,8 @@
               </div>
               <p style="margin:0; font-size:0.85rem; color:var(--muted);" id="today-greeting-sub">Good morning</p>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <h1 id="hero-name" style="margin: 0; font-size:1.45rem;">Your Name 👋</h1>
-                <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="font-size: 1.05rem; width:32px; height:32px; opacity:0.6;">↻</button>
+                <h1 id="hero-name" style="margin: 0; font-size:1.45rem;">Good morning 👋</h1>
+                <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="display:none;">↻</button>
               </div>
             </div>
             <div class="hero-meta">
@@ -177,12 +160,12 @@
           <!-- Goal Progress Tracker Strip -->
           <div class="today-goal-box" id="today-goal-box" style="margin-top: 4px;">
             <div class="today-goal-labels">
-              <strong id="today-goal-title">TARGET GOAL</strong>
-              <span id="today-goal-eta">Target · ~6–8 weeks</span>
+              <strong id="today-goal-title">YOUR GOAL</strong>
+              <span id="today-goal-eta">Target · —</span>
             </div>
             <div class="today-goal-track-wrap">
               <div class="today-goal-track-bar">
-                <span id="today-goal-track-fill" style="width: 45%;"></span>
+                <span id="today-goal-track-fill" style="width: 0%;"></span>
               </div>
               <div class="today-goal-endpoints">
                 <span id="today-current-weight-val">Current: --</span>
@@ -317,7 +300,12 @@
           </div>
         </div>
 
-        <!-- Today ends cleanly here -->
+        <!-- Today ends cleanly with link to Plan -->
+        <div style="text-align:center; margin: 16px 0 8px 0;">
+          <button id="today-see-plan-btn" type="button" onclick="switchView('routine')" class="ghost-btn" style="color:var(--primary); font-weight:600; font-size:0.88rem; padding:8px 16px; border:none; background:transparent; cursor:pointer;">
+            See today's plan →
+          </button>
+        </div>
       </section>
 
       <section class="view-section" data-view="routine">
@@ -326,18 +314,18 @@
           <!-- Adaptive Header -->
           <div class="plan-adaptive-header">
             <div class="plan-adaptive-top-row">
-              <span class="plan-date-label" id="plan-date-label">Wednesday, 16 September</span>
-              <span class="pill" id="plan-progress-pill" style="font-size:0.75rem; font-weight:700; background:rgba(255,122,0,0.1); color:var(--primary);">3/5 done</span>
+              <span class="plan-date-label" id="plan-date-label">Today</span>
+              <span class="pill" id="plan-progress-pill" style="font-size:0.75rem; font-weight:700; background:rgba(255,122,0,0.1); color:var(--primary);">—</span>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-              <h2 class="plan-goal-headline" id="plan-goal-headline" style="margin:0;">Gain to 70 kg</h2>
+              <h2 class="plan-goal-headline" id="plan-goal-headline" style="margin:0;">Your Plan</h2>
               <button id="plan-adjust-btn" class="plan-adjust-pill" type="button" aria-label="Adjust today" title="Adjust today" style="padding:4px 10px; font-size:0.9rem; letter-spacing:0.1em; line-height:1;">•••</button>
             </div>
 
             <div class="plan-reassurance-box" id="plan-reassurance-box">
-              <strong id="plan-reassurance-title">You're on track</strong>
-              <p id="plan-reassurance-text">2 things still matter today.</p>
+              <strong id="plan-reassurance-title">Focus on what matters</strong>
+              <p id="plan-reassurance-text">Your adaptive priorities for today.</p>
             </div>
 
             <!-- Conditional Weekly Day Strip (Active for workout split goals, hidden for skincare/simple) -->
@@ -419,67 +407,70 @@
           </div>
         </div>
 
-        <!-- Custom Habits (Dynamic AI Routines) -->
-        <div id="custom-habits-card" class="card" style="display:none; margin-top: 14px; padding:18px; border-radius:20px;">
-          <div class="hero-head" style="margin-bottom: 10px;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">AI Detected</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Custom Routine</h3>
+        <!-- Secondary Panels (Preserved for DOM bindings & sub-screens, kept out of primary Plan) -->
+        <div id="plan-secondary-drawer" style="display:none;">
+          <!-- Custom Habits (Dynamic AI Routines) -->
+          <div id="custom-habits-card" class="card" style="display:none; margin-top: 14px; padding:18px; border-radius:20px;">
+            <div class="hero-head" style="margin-bottom: 10px;">
+              <div class="hero-title">
+                <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">AI Detected</p>
+                <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Custom Routine</h3>
+              </div>
             </div>
+            <div id="custom-habits-list" style="display:flex; flex-direction:column; gap:10px;"></div>
           </div>
-          <div id="custom-habits-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+          <!-- Daily Reminders & Nudges (Progressive Disclosure) -->
+          <details class="card reminder-panel" style="margin-top: 14px; padding:18px; border-radius:20px;">
+            <summary style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none;">
+              <div class="hero-title">
+                <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Gentle Nudges</p>
+                <h3 style="margin:2px 0 0 0; font-size:1.05rem; display:inline-block;">Daily Reminders & Check-ins</h3>
+              </div>
+              <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">Configure ▾</span>
+            </summary>
+            <div id="reminder-list" class="reminder-list" style="margin-top:14px;"></div>
+          </details>
+
+          <!-- Intake & Activity History (Progressive Disclosure, Collapsed by Default) -->
+          <details class="card" style="margin-top: 14px; padding: 18px; border-radius:20px;">
+            <summary style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none;">
+              <div class="hero-title">
+                <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Daily Feed</p>
+                <h3 style="margin:2px 0 0 0; font-size:1.05rem; display:inline-block;">Intake & Activity Log</h3>
+              </div>
+              <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">View Feed ▾</span>
+            </summary>
+            <div style="margin-top:14px;">
+              <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                <button id="routine-reset-logs-btn" class="ghost-btn" type="button" style="font-size:0.78rem; padding:4px 8px; border:1px solid var(--border);">Reset All Today</button>
+              </div>
+              <div id="routine-logs-container" style="display:flex; flex-direction:column; gap:8px;">
+                <p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:12px 0;">No items logged today yet.</p>
+              </div>
+              <div class="activity-card" style="margin-top:14px; border-radius:16px;">
+                <strong>Recent activity</strong>
+                <ul id="recent-list"></ul>
+              </div>
+            </div>
+          </details>
+
+          <!-- Archived 23-Hour Records Log (Progressive Disclosure) -->
+          <details class="card" style="margin-top: 14px; padding: 18px; border-radius:20px;">
+            <summary style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none;">
+              <div class="hero-title">
+                <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Tracking History</p>
+                <h3 style="margin:2px 0 0 0; font-size:1.05rem; display:inline-block;">Archived 23h Cycles (<span id="history-count-badge">0</span>)</h3>
+              </div>
+              <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">View History ▾</span>
+            </summary>
+            <div style="margin-top:14px;">
+              <div id="historical-records-list" style="display:flex; flex-direction:column; gap:8px;">
+                <p style="color:var(--muted); font-size:0.88rem; font-style:italic; text-align:center; padding:10px 0;">No previous 23-hour cycles archived yet.</p>
+              </div>
+            </div>
+          </details>
         </div>
-
-        <!-- Daily Reminders & Nudges (Progressive Disclosure) -->
-        <details class="card reminder-panel" style="margin-top: 14px; padding:18px; border-radius:20px;">
-          <summary style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Gentle Nudges</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.05rem; display:inline-block;">Daily Reminders & Check-ins</h3>
-            </div>
-            <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">Configure ▾</span>
-          </summary>
-          <div id="reminder-list" class="reminder-list" style="margin-top:14px;"></div>
-        </details>
-
-        <!-- Intake & Activity History (Progressive Disclosure, Collapsed by Default) -->
-        <details class="card" style="margin-top: 14px; padding: 18px; border-radius:20px;">
-          <summary style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Daily Feed</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.05rem; display:inline-block;">Intake & Activity Log</h3>
-            </div>
-            <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">View Feed ▾</span>
-          </summary>
-          <div style="margin-top:14px;">
-            <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-              <button id="routine-reset-logs-btn" class="ghost-btn" type="button" style="font-size:0.78rem; padding:4px 8px; border:1px solid var(--border);">Reset All Today</button>
-            </div>
-            <div id="routine-logs-container" style="display:flex; flex-direction:column; gap:8px;">
-              <p style="color:var(--muted); font-size:0.9rem; font-style:italic; text-align:center; padding:12px 0;">No items logged today yet.</p>
-            </div>
-            <div class="activity-card" style="margin-top:14px; border-radius:16px;">
-              <strong>Recent activity</strong>
-              <ul id="recent-list"></ul>
-            </div>
-          </div>
-        </details>
-
-        <!-- Archived 23-Hour Records Log (Progressive Disclosure) -->
-        <details class="card" style="margin-top: 14px; padding: 18px; border-radius:20px;">
-          <summary style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Tracking History</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.05rem; display:inline-block;">Archived 23h Cycles (<span id="history-count-badge">0</span>)</h3>
-            </div>
-            <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">View History ▾</span>
-          </summary>
-          <div style="margin-top:14px;">
-            <div id="historical-records-list" style="display:flex; flex-direction:column; gap:8px;">
-              <p style="color:var(--muted); font-size:0.88rem; font-style:italic; text-align:center; padding:10px 0;">No previous 23-hour cycles archived yet.</p>
-            </div>
-          </div>
-        </details>
       </section>
 
       <section class="view-section" data-view="coach">
@@ -490,7 +481,7 @@
                 <p style="margin:0; font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">✦ Reliv AI</p>
                 <h2 style="margin:2px 0 0 0; font-size:1.3rem;">What can I help you adjust?</h2>
               </div>
-              <span class="pill">Active Controller</span>
+              <span class="pill">Can update your plan</span>
             </div>
             <div id="chat-messages" class="message-list"></div>
             <div class="suggestion-row" style="margin-top: 12px; display:flex; flex-wrap:wrap; gap:6px;">
@@ -526,13 +517,13 @@
           <!-- Apple HIG Me Profile Header Card -->
           <div class="card" style="padding:18px 20px; border-radius:22px; display:flex; align-items:center; gap:16px; margin-bottom:18px; border:1px solid var(--border);">
             <div class="avatar-container" id="profile-avatar-container" style="position:relative; width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg, var(--primary), #ff9100); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.35rem; cursor:pointer; overflow:hidden; flex-shrink:0; box-shadow:0 4px 14px rgba(255,122,0,0.25);">
-              <span id="avatar-initials">AC</span>
+              <span id="avatar-initials">—</span>
               <img id="avatar-img" style="display:none; width:100%; height:100%; object-fit:cover;" alt="Profile Picture" />
               <input type="file" id="profile-pic-input" accept="image/*" style="display:none;" />
             </div>
             <div style="flex:1;">
-              <h2 id="member-name" style="margin:0; font-size:1.3rem; color:var(--text);">Ava Chen</h2>
-              <p id="profile-goal-subtitle" style="margin:3px 0 0 0; font-size:0.84rem; color:var(--muted); font-weight:600;">Goal · Gain to 75 kg</p>
+              <h2 id="member-name" style="margin:0; font-size:1.3rem; color:var(--text);">—</h2>
+              <p id="profile-goal-subtitle" style="margin:3px 0 0 0; font-size:0.84rem; color:var(--muted); font-weight:600;">Goal · —</p>
             </div>
             <button id="edit-profile-header-btn" class="ghost-btn" type="button" onclick="document.getElementById('edit-stats-btn')?.click()" style="padding:6px 12px; font-size:0.8rem; border-radius:10px; border:1px solid var(--border);">Edit</button>
           </div>
@@ -634,15 +625,9 @@
                   <button id="configure-meal-times-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem;">Set</button>
                 </div>
               </div>
-              <div class="settings-group-row">
-                <div class="settings-row-left">
-                  <span class="settings-row-icon">👤</span>
-                  <span>Your Name</span>
-                </div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                  <input id="name-input" placeholder="Your name" aria-label="Your name" style="padding:6px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.84rem; max-width:130px;" />
-                  <button id="save-name" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.78rem;">Save</button>
-                </div>
+              <div style="display:none;">
+                <input id="name-input" placeholder="Your name" aria-label="Your name" />
+                <button id="save-name" type="button">Save</button>
               </div>
             </div>
           </div>
@@ -681,7 +666,7 @@
                 </div>
                 <button id="settings-install-button" class="ghost-btn install-action-btn" type="button" style="padding:4px 10px; font-size:0.8rem;">Install</button>
               </div>
-              <div class="settings-group-row">
+              <div class="settings-group-row" style="display:none;">
                 <div class="settings-row-left">
                   <span class="settings-row-icon">👥</span>
                   <span>Share with Team</span>
@@ -706,7 +691,7 @@
                   <span class="settings-row-icon">🗑️</span>
                   <span style="color:#ef4444;">Delete My Data</span>
                 </div>
-                <button id="delete-data" class="ghost-btn" type="button" style="padding:4px 10px; font-size:0.8rem; color:#ef4444;">Forget me</button>
+                <button id="delete-data" class="ghost-btn" type="button" style="padding:4px 10px; font-size:0.8rem; color:#ef4444;">Delete Data</button>
               </div>
             </div>
           </div>
@@ -714,7 +699,7 @@
           <div class="settings-group">
             <h4 class="settings-group-header">More</h4>
             <div class="settings-group-list">
-              <div class="settings-group-row clickable" id="open-labs-nav-row" onclick="switchView('labs')">
+              <div class="settings-group-row clickable" id="open-labs-nav-row" onclick="switchView('labs')" style="display:none;">
                 <div class="settings-row-left">
                   <span class="settings-row-icon">🧪</span>
                   <div>
@@ -727,7 +712,7 @@
                   <span class="settings-chevron">›</span>
                 </div>
               </div>
-              <div class="settings-group-row clickable" id="row-help" onclick="showToast('💡 Tell Reliv via AI tab or explore Labs for guidance.')">
+              <div class="settings-group-row clickable" id="row-help" onclick="showToast('💡 Ask Reliv Coach via the AI tab anytime.')">
                 <div class="settings-row-left">
                   <span class="settings-row-icon">💬</span>
                   <span>Help & Guidance</span>
@@ -1204,9 +1189,6 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>
         <span>Plan</span>
       </button>
-      <button class="nav-fab" id="fab-quick-log" type="button" aria-label="Quick Log">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      </button>
       <button class="nav-pill" data-tab="coach" type="button" aria-label="AI">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>
         <span>AI</span>
@@ -1486,7 +1468,7 @@
           
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-weight:600; font-size:0.9rem;">Your Name</label>
-            <input id="setup-name" type="text" placeholder="Ava Chen" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+            <input id="setup-name" type="text" placeholder="Your name" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
           </div>
 
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
@@ -1693,21 +1675,21 @@
     <div id="streak-break-modal" class="streak-break-modal" style="display:none; z-index:10005;">
       <div class="streak-break-card" style="position:relative;">
         <button id="streak-break-close-btn" type="button" aria-label="Close" style="position:absolute; top:16px; right:16px; width:32px; height:32px; font-size:0.85rem; border-radius:50%; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s ease;">✕</button>
-        <div class="streak-break-emoji">💔</div>
-        <h2 class="streak-break-title" id="streak-break-title">Your streak broke</h2>
-        <p class="streak-break-subtitle" id="streak-break-subtitle"></p>
-        <div class="streak-break-quote" id="streak-break-quote">
-          This money will be refunded when you complete your target. We're only holding it so you stay consistent. Don't let those days of hard work die.
-        </div>
+        <div class="streak-break-emoji">🌱</div>
+        <h2 class="streak-break-title" id="streak-break-title">One missed day doesn't erase your progress.</h2>
+        <p class="streak-break-subtitle" id="streak-break-subtitle">You built a <span id="streak-break-days">5</span>-day streak. You can restore it with a refundable commitment deposit, or start again for free.</p>
+        <div class="streak-break-quote" id="streak-break-quote" style="display:none;"></div>
         <div class="streak-break-price" id="streak-break-price">₹5</div>
-        <p class="streak-break-price-label">Commitment deposit — fully refundable on target completion</p>
-        <label class="streak-break-consent" id="streak-break-consent-label">
-          <input type="checkbox" id="streak-break-consent" />
-          <span>I understand this is a refundable commitment deposit to help me stay consistent</span>
+        <p class="streak-break-price-label">refundable commitment deposit</p>
+        <label class="streak-break-consent" id="streak-break-consent-label" style="margin:12px 0 16px 0; display:flex; align-items:flex-start; gap:8px; font-size:0.78rem; color:var(--muted); text-align:left;">
+          <input type="checkbox" id="streak-break-consent" style="margin-top:2px;" />
+          <span>I understand this commitment deposit is fully refunded after verified goal completion</span>
         </label>
-        <button id="streak-break-pay-btn" class="streak-break-pay-btn" type="button" disabled>Restore My Streak</button>
-        <button id="streak-break-dismiss" class="streak-break-dismiss" type="button">I'll start fresh — reset to Day 0</button>
-        <p class="streak-break-terms">💡 This amount escalates with your streak length. Returned when you hit your target.</p>
+        <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
+          <button id="streak-break-pay-btn" class="streak-break-pay-btn" type="button" disabled style="width:100%; padding:14px; border:none; border-radius:16px; font-weight:700; background:linear-gradient(135deg, var(--primary), var(--accent)); color:#fff; cursor:pointer;">Restore <span id="streak-break-btn-days">5</span>-day streak · <span id="streak-break-btn-price">₹5</span></button>
+          <button id="streak-break-dismiss" class="ghost-btn" type="button" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:16px; font-weight:600; color:var(--text); cursor:pointer;">Start fresh · Free</button>
+        </div>
+        <p class="streak-break-terms" style="margin-top:14px; font-size:0.75rem; color:var(--muted);">Refunded after verified goal completion. <a href="#" id="streak-view-terms-link" style="color:var(--text); text-decoration:underline;">View terms</a></p>
       </div>
     </div>
 
@@ -1809,6 +1791,25 @@
         <div style="display:flex; flex-direction:column; gap:8px;">
           <button id="confirm-delete-data-btn" class="primary-btn" type="button" style="background:#ef4444; border:none; padding:12px; font-weight:700; border-radius:14px; color:#fff; cursor:pointer;">Delete Everything</button>
           <button id="cancel-delete-data-btn" class="ghost-btn" type="button" style="padding:10px; font-weight:600; border:1px solid var(--border); border-radius:14px; cursor:pointer;">Keep My Data</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goal & Measurement Verification Modal -->
+    <div id="biometric-anomaly-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:10003; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);">
+      <div class="modal-card" style="max-width:390px; padding:24px; border-radius:24px; text-align:center; border:1px solid rgba(255,166,0,0.3);">
+        <div style="width:56px; height:56px; border-radius:50%; background:rgba(255,166,0,0.12); color:#f59e0b; font-size:1.6rem; display:flex; align-items:center; justify-content:center; margin:0 auto 12px auto; box-shadow:0 4px 16px rgba(245,158,11,0.2);">
+          ⚖️
+        </div>
+        <h3 id="anomaly-modal-title" style="margin:0; font-size:1.2rem; color:var(--text);">Measurement needs confirmation</h3>
+        <p id="anomaly-modal-desc" style="margin:12px 0 16px 0; font-size:0.86rem; color:var(--muted); line-height:1.5; text-align:left;">
+          This measurement is very different from your recent trend.<br><br>
+          It may simply be a typing error or a normal temporary change. We've saved the measurement, but it won't confirm your goal yet.<br><br>
+          Log a few more check-ins over the next 7 days to verify your progress.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button id="anomaly-correct-btn" class="primary-btn" type="button" style="background:#ff6a00; border:none; padding:12px; font-weight:700; border-radius:14px; color:#fff; cursor:pointer;">Correct measurement</button>
+          <button id="anomaly-dismiss-btn" class="ghost-btn" type="button" style="padding:10px; font-weight:600; border:1px solid var(--border); border-radius:14px; cursor:pointer;">Keep measurement</button>
         </div>
       </div>
     </div>

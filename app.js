@@ -22,14 +22,12 @@ let BACKEND_URL = (() => {
 
 async function fetchWithBackendFallback(path, options = {}) {
   const normPath = path.startsWith('/') ? path : '/' + path;
-  const candidates = [
-    BACKEND_URL,
-    'http://localhost:4000',
-    ORACLE_BACKEND_URL,
-    PRODUCTION_API
-  ].filter(Boolean);
+  const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
+  const candidates = isLocal
+    ? [BACKEND_URL, 'http://localhost:4000', ORACLE_BACKEND_URL, PRODUCTION_API]
+    : [BACKEND_URL, PRODUCTION_API];
 
-  const unique = [...new Set(candidates)];
+  const unique = [...new Set(candidates)].filter(Boolean);
   let lastErr = null;
   for (const base of unique) {
     try {
@@ -67,46 +65,10 @@ const RELIV_USER_ID = (() => {
 })();
 
 // ---------------------------------------------------------------------------
-// DESKTOP GATE
+// ALL-DEVICE ADAPTIVE SHELL
 // ---------------------------------------------------------------------------
-// The device decision was already made by the inline script in <head> (so the
-// phone UI never flashes). This only fills in the gate's content.
 (function setUpDesktopGate() {
-  const gate = document.getElementById('desktop-gate');
-  const phoneModeBtn = document.getElementById('desktop-phone-mode-btn');
-
-  if (phoneModeBtn) {
-    phoneModeBtn.addEventListener('click', () => {
-      document.documentElement.classList.remove('reliv-desktop');
-      document.documentElement.classList.add('strict-phone-frame');
-      document.body.classList.add('strict-phone-frame');
-      if (gate) gate.hidden = true;
-      window.RELIV_IS_PHONE = true;
-      showToast('📱 Phone Simulator Mode Active');
-    });
-  }
-
-  if (window.RELIV_IS_PHONE) return;
-  if (!gate) return;
-
-  gate.hidden = false;
-
-  const urlEl = document.getElementById('desktop-gate-url');
-  const shareUrl = window.location.origin + window.location.pathname;
-  if (urlEl) urlEl.textContent = shareUrl;
-
-  const copyBtn = document.getElementById('desktop-gate-copy');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        copyBtn.textContent = 'Copied ✓';
-      } catch (err) {
-        copyBtn.textContent = 'Press Ctrl+C to copy';
-      }
-      setTimeout(() => { copyBtn.textContent = 'Copy link'; }, 1800);
-    });
-  }
+  window.RELIV_IS_PHONE = true;
 })();
 
 // ---------------------------------------------------------------------------
@@ -186,8 +148,8 @@ document.addEventListener('click', (e) => {
   }
 });
 const brand = {
-  name: 'Relix Companion',
-  user: 'Ava Chen',
+  name: 'Reliv Companion',
+  user: 'Your Name',
   xp: 1240,
   level: 8,
   streak: 12,
@@ -2130,13 +2092,13 @@ function init() {
       if (state.notifications && !state.remindersPaused && 'showTrigger' in Notification.prototype && navigator.serviceWorker) {
         navigator.serviceWorker.ready.then(reg => {
           const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
-          reg.showNotification(`Relix AI Misses You!`, {
+          reg.showNotification(`Reliv AI Misses You!`, {
             tag: 'retention_hook',
             body: `Don't break your streak! Take 2 minutes to log your progress and check off your daily goals.`,
             icon: './icons/icon-192.png',
             vibrate: [200, 100, 200],
             data: { reminderKey: 'retention' },
-            actions: [{ action: 'open', title: '🚀 Open Relix' }],
+            actions: [{ action: 'open', title: '🚀 Open Reliv' }],
             showTrigger: new TimestampTrigger(tomorrow)
           }).catch(() => {});
         });
@@ -2811,6 +2773,7 @@ function openQuickLogModal(panel) {
     modal.style.display = 'flex';
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
+    pushSurfaceHistory('quick-log');
 
     if (panel === 'meal') {
       setTimeout(() => {
@@ -2893,13 +2856,15 @@ function bindEvents() {
     tab.addEventListener('click', () => switchView(tab.dataset.tab));
   });
 
-  // Floating Action Quick Log button & modal
+  // Quick Log buttons & modal
   const fabBtn = document.getElementById('fab-quick-log');
+  const headerQuickLogBtn = document.getElementById('header-quick-log-btn');
   const todayOpenLogBtn = document.getElementById('today-open-log-btn');
   const closeQuickLogBtn = document.getElementById('close-quick-log');
   const quickLogModal = document.getElementById('quick-log-modal');
 
   if (fabBtn) fabBtn.addEventListener('click', () => openQuickLogModal());
+  if (headerQuickLogBtn) headerQuickLogBtn.addEventListener('click', () => openQuickLogModal());
   if (todayOpenLogBtn) todayOpenLogBtn.addEventListener('click', () => openQuickLogModal());
   if (closeQuickLogBtn) closeQuickLogBtn.addEventListener('click', () => closeQuickLogModal());
   if (quickLogModal) {
@@ -4517,7 +4482,7 @@ function getRemainingFuelBreakdown() {
   let currentMealName = 'Next meal';
   let nextOpportunityLabel = 'Next meal';
 
-  if (style === '2_meals') {
+  if (style === 'two_meals' || style === '2_meals') {
     // 2-meal eater: Meal 1 / Meal 2. Zero breakfast/lunch terminology anywhere.
     oppsLeft = Math.max(1, 2 - loggedMealsCount);
     if (loggedMealsCount === 0 && nowHour >= 16) {
@@ -4681,7 +4646,7 @@ async function scheduleMealReminders() {
 
   let remindersToSchedule = [];
 
-  if (style === '2_meals') {
+  if (style === 'two_meals' || style === '2_meals') {
     // 2-meal eater: Meal 1 / Meal 2 (strictly no breakfast/lunch words)
     const mealTimes = state.twoMealTimes || { meal1: '12:00', meal2: '19:30' };
     remindersToSchedule = [
@@ -4912,7 +4877,7 @@ function renderRoutine() {
       { id: 'skip_pro', title: 'Protein-rich food', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
       { id: 'skip_work', title: 'Movement — optional today', sub: movementDone ? 'Completed today ✓' : 'Rest day · listen to your body', icon: '🏋️' }
     ];
-  } else if (style === '2_meals') {
+  } else if (style === 'two_meals' || style === '2_meals') {
     // Meal 1 / Meal 2: zero breakfast/lunch terminology
     priorities = [
       { id: 'meal1', title: 'Meal 1 fuel', sub: 'High-protein substantial nourishment', icon: '🍽️' },
@@ -5062,7 +5027,7 @@ function renderRoutine() {
       if (nextSuggestion) nextSuggestion.textContent = fuelBreakdown.suggestionText;
       nextBtn.textContent = 'Log my meal';
       nextBtn.onclick = () => openQuickLogModal('meal');
-    } else if (style === '2_meals') {
+    } else if (style === 'two_meals' || style === '2_meals') {
       if (fuelBreakdown.remPro > 0 || fuelBreakdown.remCal > 0) {
         nextTitle.textContent = `${fuelBreakdown.currentMealName}: High-protein fuel`;
         nextSub.textContent = `${fuelBreakdown.consumedPro} / ${fuelBreakdown.targetPro} g protein · ${fuelBreakdown.remCal.toLocaleString()} kcal remaining today`;
@@ -6341,7 +6306,7 @@ function renderNaturalCare() {
         localStorage.setItem(key, vote);
       }
       renderNaturalCare();
-      showToast('Thank you for your feedback! Relix is learning.');
+      showToast('Thank you for your feedback! Reliv is learning.');
     });
   });
 }
@@ -6618,8 +6583,70 @@ window.handleAiRedo = function(index) {
   showToast('🔄 Redone AI adjustment');
 };
 
+// ---------------------------------------------------------------------------
+// NAVIGATION STATE: TAB SCROLL MEMORY & SYSTEM BACK BEHAVIOUR
+// ---------------------------------------------------------------------------
+const tabScrollPositions = {
+  dashboard: 0,
+  routine: 0,
+  coach: 0,
+  progress: 0,
+  profile: 0,
+  natural: 0
+};
+
+function pushSurfaceHistory(surfaceName) {
+  try {
+    if (window.history && window.history.pushState) {
+      window.history.pushState({ relivSurface: surfaceName, timestamp: Date.now() }, '');
+    }
+  } catch (err) {
+    // Ignore iframe / file:// restrictions
+  }
+}
+
+window.addEventListener('popstate', (e) => {
+  // Priority 1: Close topmost open modal
+  const openModals = Array.from(document.querySelectorAll('.modal-overlay.open, .modal-overlay[style*="display: flex"], .streak-break-modal.open, .streak-break-modal[style*="display: flex"]'));
+  if (openModals.length > 0) {
+    const topModal = openModals[openModals.length - 1];
+    topModal.style.display = 'none';
+    topModal.classList.remove('open');
+    topModal.setAttribute('aria-hidden', 'true');
+    if (e.preventDefault) e.preventDefault();
+    return;
+  }
+
+  // Priority 2: Close open bottom sheet / secondary drawer
+  const secDrawer = document.getElementById('plan-secondary-drawer');
+  if (secDrawer && secDrawer.style.display !== 'none') {
+    secDrawer.style.display = 'none';
+    if (e.preventDefault) e.preventDefault();
+    return;
+  }
+
+  // Priority 3: If on a subordinate tab, navigate back to Today (dashboard)
+  if (state.activeTab && state.activeTab !== 'dashboard') {
+    switchView('dashboard');
+    if (e.preventDefault) e.preventDefault();
+    return;
+  }
+});
+
 function switchView(target) {
-  if (state.activeTab === target) return;
+  // If re-tapping active tab: smoothly scroll to top
+  if (state.activeTab === target) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const shell = document.querySelector('.app-shell');
+    if (shell) shell.scrollTo({ top: 0, behavior: 'smooth' });
+    tabScrollPositions[target] = 0;
+    return;
+  }
+
+  // Save outgoing tab scroll position
+  if (state.activeTab) {
+    tabScrollPositions[state.activeTab] = window.scrollY || document.documentElement.scrollTop || 0;
+  }
   
   els.tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === target));
 
@@ -6636,22 +6663,26 @@ function switchView(target) {
     pageTitle.textContent = titleMap[target] || 'Today';
   }
   
+  const activateTarget = () => {
+    els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
+    state.activeTab = target;
+    if (target === 'progress' && typeof renderProgress === 'function') renderProgress();
+    if (target === 'profile' && typeof renderProfile === 'function') renderProfile();
+    // Restore saved scroll position
+    const savedY = tabScrollPositions[target] || 0;
+    window.scrollTo(0, savedY);
+  };
+
   const currentSection = Array.from(els.sections).find(s => s.classList.contains('active'));
   if (currentSection) {
     currentSection.classList.remove('active');
     currentSection.classList.add('fade-out');
     setTimeout(() => {
       currentSection.classList.remove('fade-out');
-      els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
-      state.activeTab = target;
-      if (target === 'progress' && typeof renderProgress === 'function') renderProgress();
-      if (target === 'profile' && typeof renderProfile === 'function') renderProfile();
+      activateTarget();
     }, 140);
   } else {
-    els.sections.forEach((section) => section.classList.toggle('active', section.dataset.view === target));
-    state.activeTab = target;
-    if (target === 'progress' && typeof renderProgress === 'function') renderProgress();
-    if (target === 'profile' && typeof renderProfile === 'function') renderProfile();
+    activateTarget();
   }
 }
 
@@ -6777,7 +6808,7 @@ function scheduleCoachReminder(schedule) {
     if (!BACKEND_URL) {
       showToast(`✅ Scheduled local reminder!`);
       state.reminders[schedule.key || 'coach-nag'] = {
-        title: schedule.title || 'Relix Coach',
+        title: schedule.title || 'Reliv Coach',
         description: schedule.body || 'Scheduled reminder',
         nextDue: targetDate.getTime(),
         pending: false,
@@ -6794,7 +6825,7 @@ function scheduleCoachReminder(schedule) {
         body: JSON.stringify({
           userId: RELIV_USER_ID,
           key: schedule.key || 'coach-nag',
-          title: schedule.title || 'Relix Coach',
+          title: schedule.title || 'Reliv Coach',
           body: schedule.body || 'Time to complete your goal!',
           dueAt: shiftOutOfQuietHours(targetDate.getTime())
         })
@@ -6804,7 +6835,7 @@ function scheduleCoachReminder(schedule) {
         if (data.ok) {
           showToast(`✅ Scheduled lockscreen reminder!`);
           state.reminders[schedule.key || 'coach-nag'] = {
-            title: schedule.title || 'Relix Coach',
+            title: schedule.title || 'Reliv Coach',
             description: schedule.body || 'Scheduled reminder',
             nextDue: targetDate.getTime(),
             pending: false,
@@ -7664,8 +7695,8 @@ async function subscribeToPushNotifications(debug = false) {
   }
 
   if (isIOSDevice() && !isStandalonePWA()) {
-    console.warn('iOS: open Relix from the Home Screen icon (not Safari) to enable real push notifications.');
-    showToast('Add Relix to your Home Screen, then open it from there to enable phone notifications.');
+    console.warn('iOS: open Reliv from the Home Screen icon (not Safari) to enable real push notifications.');
+    showToast('Add Reliv to your Home Screen, then open it from there to enable phone notifications.');
     return;
   }
 
@@ -7849,7 +7880,7 @@ function scheduleReminder(key, delay) {
   // Background Push using Notification Triggers API (Offline PWA support for Android Chrome)
   if (state.notifications && !state.remindersPaused && 'showTrigger' in Notification.prototype && navigator.serviceWorker) {
     navigator.serviceWorker.ready.then(reg => {
-      reg.showNotification(`Relix · ${reminder.title}`, {
+      reg.showNotification(`Reliv · ${reminder.title}`, {
         tag: key,
         body: reminder.description,
         icon: './icons/icon-192.png',
@@ -7877,7 +7908,7 @@ function scheduleReminder(key, delay) {
       body: JSON.stringify({
         userId: RELIV_USER_ID,
         key,
-        title: `Relix · ${reminder.title}`,
+        title: `Reliv · ${reminder.title}`,
         body: reminder.description,
         dueAt: shiftOutOfQuietHours(reminder.nextDue)
       })
@@ -7909,7 +7940,7 @@ function triggerReminder(key) {
   reminder.nextDue = Date.now() + reminder.followUp;
   persistReminderState();
   renderReminders();
-  showNotification(`Relix · ${reminder.title}`, reminder.description, key);
+  showNotification(`Reliv · ${reminder.title}`, reminder.description, key);
   scheduleReminder(key, reminder.followUp);
 }
 
@@ -8580,11 +8611,11 @@ function renderStreakBanner() {
 }
 
 const STREAK_BREAK_QUOTES = [
-  { min: 1, max: 4, emoji: '💔', quote: "Starting is the hardest part. You showed up for {days} day{s} straight — don't let that momentum reset to zero. ₹{price} is held safely until you hit your target. A deposit on your commitment." },
-  { min: 5, max: 7, emoji: '💔', quote: '₹{price} is not the price of your streak. It\'s a deposit that says: I will return. This money comes back when you complete your target. Don\'t let {days} days of work die for ₹{price}.' },
-  { min: 8, max: 14, emoji: '🔥', quote: 'You built {days} days of discipline. That\'s not something that just happens. ₹{price} held safely until you finish your goal — a promise to yourself that those days meant something.' },
-  { min: 15, max: 30, emoji: '⚡', quote: '{days} consecutive days. Most people don\'t even start. ₹{price} isn\'t a punishment — it\'s fuel. The discomfort of this tiny deposit will push you harder than motivation ever could. Refunded on target completion.' },
-  { min: 31, max: 999, emoji: '👑', quote: '{days} days of showing up. That\'s character, not luck. ₹{price} is your skin in the game. We hold it. You hold the promise. When you hit your target, every rupee comes back.' }
+  { min: 1, max: 4, emoji: '🌱', quote: "Starting is the hardest part. You showed up for {days} day{s} straight — that momentum is real. ₹{price} is a refundable commitment deposit, returned when you hit your target." },
+  { min: 5, max: 7, emoji: '✨', quote: "₹{price} refundable commitment deposit. We hold it safely to keep you focused on your target, returned after verified goal completion. Protect your {days}-day run." },
+  { min: 8, max: 14, emoji: '🔥', quote: "{days} days of discipline built a new habit loop. ₹{price} commitment deposit held until you cross the finish line. A reminder that your consistency matters." },
+  { min: 15, max: 30, emoji: '⚡', quote: "{days} consecutive days of dedication. You are in the top 5% of consistency. ₹{price} commitment deposit returned when you complete your target." },
+  { min: 31, max: 999, emoji: '👑', quote: "{days} days of showing up. That is character, not luck. ₹{price} commitment deposit held until verified goal completion." }
 ];
 
 function showEmotionalStreakModal(forcedDays) {
@@ -8608,8 +8639,8 @@ function showEmotionalStreakModal(forcedDays) {
   const dismissBtn = document.getElementById('streak-break-dismiss');
 
   if (emojiEl) emojiEl.textContent = entry.emoji;
-  if (titleEl) titleEl.textContent = `Your ${days}-day streak broke`;
-  if (subtitleEl) subtitleEl.textContent = `${days} day${days > 1 ? 's' : ''} of progress don't have to disappear. You earned them.`;
+  if (titleEl) titleEl.textContent = `One missed day doesn't erase your progress.`;
+  if (subtitleEl) subtitleEl.innerHTML = `You built a <span id="streak-break-days">${days}</span>-day streak. You can restore it with a refundable commitment deposit, or start again for free.`;
   if (quoteEl) {
     quoteEl.textContent = entry.quote
       .replace(/\{price\}/g, price)
@@ -8620,7 +8651,10 @@ function showEmotionalStreakModal(forcedDays) {
 
   if (payBtn) {
     payBtn.disabled = true;
-    payBtn.textContent = `Restore My ${days}-Day Streak — ₹${price}`;
+    payBtn.innerHTML = `Restore <span id="streak-break-btn-days">${days}</span>-day streak · <span id="streak-break-btn-price">₹${price}</span>`;
+  }
+  if (dismissBtn) {
+    dismissBtn.textContent = 'Start fresh · Free';
   }
 
   if (consentCb) {
@@ -8668,6 +8702,7 @@ function showEmotionalStreakModal(forcedDays) {
   modal.style.display = 'flex';
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
+  pushSurfaceHistory('streak-break-modal');
   if (window.haptic && window.haptic.heavy) window.haptic.heavy();
 }
 
@@ -9127,7 +9162,7 @@ function initPDFAcademy() {
       if (!file) return;
       
       if (file.type.startsWith('image/')) {
-        showToast('🖼️ Analyzing image with Relix AI...');
+        showToast('🖼️ Analyzing image with Reliv AI...');
         const reader = new FileReader();
         reader.onload = async function(evt) {
           const base64Data = evt.target.result.split(',')[1];
@@ -9153,7 +9188,7 @@ function initPDFAcademy() {
             }
             
             if (tasks.length > 0) {
-              const addTasks = confirm(`Relix AI (Groq) found ${tasks.length} tasks and generated smart schedules. Do you want to add these to your custom daily overview and set background alarms?`);
+              const addTasks = confirm(`Reliv AI (Groq) found ${tasks.length} tasks and generated smart schedules. Do you want to add these to your custom daily overview and set background alarms?`);
               if (addTasks) {
                 const existing = JSON.parse(localStorage.getItem('relix-custom-habits') || '[]');
                 const newHabits = [];
@@ -9887,7 +9922,7 @@ function initProgressEvents() {
     });
   }
 
-  // 3. Weight log form
+  // 3. Weight log form with Biological Anti-Fraud Verification
   const logForm = document.getElementById('progress-log-form');
   if (logForm) {
     logForm.addEventListener('submit', (e) => {
@@ -9905,10 +9940,16 @@ function initProgressEvents() {
       if (!state.progressProfile) state.progressProfile = { configured: true, weightLogs: [] };
       if (!state.progressProfile.weightLogs) state.progressProfile.weightLogs = [];
 
+      // Reliv Goal & Measurement Verification Engine
+      const verification = verifyMeasurementChange(weightVal, 'manual');
+
+      // Always accept and save the measurement!
       state.progressProfile.weightLogs.push({
         date: new Date().toISOString(),
         weight: weightVal,
-        waist: waistVal
+        waist: waistVal,
+        source: 'manual',
+        verificationState: verification.needsConfirmation ? 'needs_confirmation' : 'verified'
       });
       state.weight = weightVal;
 
@@ -9916,6 +9957,16 @@ function initProgressEvents() {
       recordActivity(`Progress Logged: ${weightVal} kg`, 15);
       createConfetti();
       showToast(`📈 Logged ${weightVal} kg! Target trends recalculated.`);
+
+      if (verification.needsConfirmation) {
+        showBiometricAnomalyModal(verification, () => {
+          if (weightInput) {
+            weightInput.focus();
+            weightInput.select();
+          }
+        });
+        state.biometricAnomaly = verification;
+      }
 
       if (weightInput) weightInput.value = '';
       if (waistInput) waistInput.value = '';
@@ -9943,6 +9994,160 @@ function initProgressEvents() {
   if (claimBtn) {
     claimBtn.addEventListener('click', claimStreakRefund);
   }
+}
+
+// ---------------------------------------------------------------------------
+// RELIV GOAL & MEASUREMENT VERIFICATION ENGINE
+// ---------------------------------------------------------------------------
+function verifyMeasurementChange(newWeight, source = 'manual') {
+  if (!state.progressProfile) state.progressProfile = { configured: true, weightLogs: [] };
+  const logs = (state.progressProfile.weightLogs || []).filter(l => l && !isNaN(Number(l.weight)));
+
+  if (logs.length === 0) {
+    return { needsConfirmation: false, isLargeChange: false, delta: 0, prevWeight: newWeight, newWeight, source };
+  }
+
+  // Compare with recent trend (median of last up to 5 measurements)
+  const recentWeights = logs.slice(-5).map(l => Number(l.weight)).sort((a, b) => a - b);
+  const median = recentWeights[Math.floor(recentWeights.length / 2)];
+  const prevWeight = Number(logs[logs.length - 1].weight);
+  const delta = Number(Math.abs(newWeight - median).toFixed(1));
+  const deltaVsPrev = Number(Math.abs(newWeight - prevWeight).toFixed(1));
+  const maxDelta = Math.max(delta, deltaVsPrev);
+
+  // Large change detected (e.g. 52 -> 76 kg, delta > 5.0 kg)
+  if (maxDelta > 5.0) {
+    return {
+      needsConfirmation: true,
+      isLargeChange: true,
+      delta: maxDelta,
+      prevWeight,
+      newWeight,
+      median,
+      source,
+      title: 'Large change detected',
+      message: `Your new measurement is ${maxDelta.toFixed(1)} kg ${newWeight >= prevWeight ? 'above' : 'below'} your recent weight.<br><br>We've saved it, but Reliv needs additional measurements before confirming your goal or unlocking a refund.`
+    };
+  }
+
+  // Moderate sudden discrepancy (> 2.0 kg day-to-day or vs median)
+  // Day-to-day fluctuation of 2-3 lb (up to 1.5-2.0 kg) is normal water/glycogen
+  if (maxDelta > 2.0) {
+    return {
+      needsConfirmation: true,
+      isLargeChange: false,
+      delta: maxDelta,
+      prevWeight,
+      newWeight,
+      median,
+      source,
+      title: 'Measurement needs confirmation',
+      message: `${newWeight.toFixed(1)} kg is very different from your recent trend.<br><br>It may simply be a typing error or a normal temporary change. We've saved the measurement, but it won't confirm your goal yet.<br><br>Log a few more check-ins over the next 7 days to verify your progress.`
+    };
+  }
+
+  return {
+    needsConfirmation: false,
+    isLargeChange: false,
+    delta: maxDelta,
+    prevWeight,
+    newWeight,
+    median,
+    source
+  };
+}
+
+function showBiometricAnomalyModal(verification, onCorrect) {
+  const modal = document.getElementById('biometric-anomaly-modal');
+  if (!modal) return;
+  const titleEl = document.getElementById('anomaly-modal-title');
+  const descEl = document.getElementById('anomaly-modal-desc');
+  const correctBtn = document.getElementById('anomaly-correct-btn');
+  const dismissBtn = document.getElementById('anomaly-dismiss-btn');
+
+  if (titleEl) titleEl.textContent = verification.title || 'Measurement needs confirmation';
+  if (descEl) descEl.innerHTML = verification.message || 'This measurement needs additional check-ins before confirming your goal.';
+
+  if (correctBtn) {
+    correctBtn.textContent = verification.isLargeChange ? 'Check entry' : 'Correct measurement';
+    correctBtn.onclick = () => {
+      modal.style.display = 'none';
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      if (typeof onCorrect === 'function') onCorrect();
+    };
+  }
+
+  if (dismissBtn) {
+    dismissBtn.textContent = verification.isLargeChange ? 'Keep measurement' : `Keep ${verification.newWeight} kg`;
+    dismissBtn.onclick = () => {
+      modal.style.display = 'none';
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    };
+  }
+
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  pushSurfaceHistory('biometric-anomaly-modal');
+  if (window.haptic && window.haptic.heavy) window.haptic.heavy();
+}
+
+function checkTargetCompletionIntegrity() {
+  const profile = state.progressProfile || {};
+  const rawLogs = (profile.weightLogs || []).filter(l => l && !isNaN(Number(l.weight)));
+  const logs = rawLogs.slice().sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const currentWeight = Number(state.weight || 65);
+  const targetWeight = Number(state.targetWeight || 70);
+
+  // 1. Must be near target
+  if (Math.abs(currentWeight - targetWeight) > 0.5) {
+    return {
+      valid: false,
+      reason: `Current weight (${currentWeight} kg) has not yet reached your target goal (${targetWeight} kg). Keep up the momentum!`
+    };
+  }
+
+  // 2. Goal completion requires persistence across 7 days with at least 3 qualifying check-ins
+  const recent7Days = logs.filter(m => {
+    const timeDiff = Date.now() - new Date(m.date).getTime();
+    return timeDiff <= 7 * 24 * 60 * 60 * 1000;
+  });
+
+  if (recent7Days.length < 3) {
+    return {
+      valid: false,
+      reason: `Goal verification requires at least 3 qualifying check-ins across a 7-day confirmation window.`
+    };
+  }
+
+  // 3. Any unresolved anomalous measurement pauses goal verification
+  const hasUnconfirmed = recent7Days.some(m => m.verificationState === 'needs_confirmation');
+  if (hasUnconfirmed) {
+    return {
+      valid: false,
+      reason: `Recent measurements are marked "Needs confirmation". Log a few more check-ins to confirm your trend.`
+    };
+  }
+
+  // 4. Direction check: majority must be at or within target tolerance
+  const isLoss = targetWeight < Number(logs[0]?.weight || currentWeight);
+  let qualifiedCount = 0;
+  for (const m of recent7Days) {
+    const w = Number(m.weight);
+    if (isLoss && w <= targetWeight + 0.5) qualifiedCount++;
+    else if (!isLoss && w >= targetWeight - 0.5) qualifiedCount++;
+  }
+
+  if (qualifiedCount < Math.ceil(recent7Days.length / 2)) {
+    return {
+      valid: false,
+      reason: `The majority of your 7-day check-ins must be within range of your target (${targetWeight} kg).`
+    };
+  }
+
+  return { valid: true };
 }
 
 function calculateProgressTrends() {
@@ -10115,13 +10320,36 @@ function drawWeightChart(canvas, logs, targetWeight) {
 }
 
 async function claimStreakRefund() {
-  const userId = state.userId || 'user_default';
+  const userId = RELIV_USER_ID || state.userId || 'user_default';
+
+  // Client pre-verification
+  const integrity = checkTargetCompletionIntegrity();
+  if (!integrity.valid) {
+    showToast(`Verification notice: ${integrity.reason}`);
+    const modal = document.getElementById('biometric-anomaly-modal');
+    if (modal) {
+      const title = document.getElementById('anomaly-modal-title');
+      const desc = document.getElementById('anomaly-modal-desc');
+      if (title) title.textContent = 'Goal Verification Notice';
+      if (desc) desc.innerHTML = `${integrity.reason}<br><br>Commitment deposits are refunded once goal stability is confirmed across your 7-day check-in window.`;
+      modal.style.display = 'flex';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+    return;
+  }
+
   try {
-    showToast('⏳ Verifying target completion and processing refund…');
+    showToast('⏳ Verifying target completion with server…');
     const res = await fetchWithBackendFallback('/api/streak/restore/refund', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId })
+      body: JSON.stringify({
+        userId,
+        targetWeight: state.targetWeight,
+        goalType: state.goal,
+        measurements: state.progressProfile?.weightLogs || []
+      })
     });
     const data = await res.json();
     if (data.ok) {
@@ -10129,7 +10357,7 @@ async function claimStreakRefund() {
       createConfetti();
       renderProgress();
     } else {
-      showToast(`ℹ️ ${data.message || 'No eligible refundable deposit found or already processed.'}`);
+      showToast(`ℹ️ ${data.error || data.message || 'Refund pending verification.'}`);
     }
   } catch (err) {
     showToast('⚠️ Could not connect to refund server. Will retry next session.');
@@ -10437,10 +10665,19 @@ function renderProgress() {
         const d = new Date(log.date);
         const dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Logged';
         const waistStr = log.waist ? ` · 📏 ${log.waist}cm` : '';
+        const isKiosk = log.source === 'kiosk';
+        const isUnconfirmed = log.verificationState === 'needs_confirmation';
+        const sourceBadge = isKiosk
+          ? `<span style="font-size:0.65rem; font-weight:700; color:#10b981; background:rgba(16,185,129,0.12); padding:2px 6px; border-radius:6px; margin-left:6px;">✓ Reliv verified</span>`
+          : (isUnconfirmed
+              ? `<span style="font-size:0.65rem; font-weight:600; color:#f59e0b; background:rgba(245,158,11,0.12); padding:2px 6px; border-radius:6px; margin-left:6px;">Needs confirmation</span>`
+              : `<span style="font-size:0.65rem; color:var(--muted); margin-left:6px;">Manual entry</span>`);
+
         return `
           <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:rgba(0,0,0,0.02); border:1px solid var(--border); border-radius:12px; font-size:0.8rem;">
             <div>
               <strong>⚖️ ${log.weight} kg</strong>${waistStr}
+              ${sourceBadge}
               <span style="font-size:0.7rem; color:var(--muted); margin-left:6px;">${dateStr}</span>
             </div>
             <button type="button" class="ghost-btn" style="padding:2px 6px; font-size:0.72rem; color:#ef4444; border:none;" onclick="deleteWeightLog(${idx})">🗑️ Delete</button>
