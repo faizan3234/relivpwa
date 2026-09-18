@@ -97,8 +97,107 @@ img { max-width: 100%; display: block; }
 .top-bar .brand strong { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
 .top-bar .brand span { color: var(--muted); font-size: 0.8rem; }
 .top-bar-title { font-size: 1.25rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; margin: 0; }
-.top-bar-avatar { width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 122, 0, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; border: 1px solid rgba(255, 122, 0, 0.25); cursor: pointer; transition: transform 160ms ease; touch-action: manipulation; }
+.top-bar-avatar { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 50% !important; aspect-ratio: 1 / 1 !important; background: rgba(255, 122, 0, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; border: 1px solid rgba(255, 122, 0, 0.25); cursor: pointer; transition: transform 160ms ease; touch-action: manipulation; overflow: hidden !important; padding: 0 !important; -webkit-mask-image: -webkit-radial-gradient(white, black); mask-image: radial-gradient(white, black); box-sizing: border-box; }
 .top-bar-avatar:active { transform: scale(0.92); }
+.top-bar-avatar img {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
+}
+
+/* Pristine Circular Profile Avatar Styling */
+.avatar-container,
+#profile-avatar-container {
+  position: relative !important;
+  width: 72px !important;
+  height: 72px !important;
+  min-width: 72px !important;
+  min-height: 72px !important;
+  max-width: 72px !important;
+  max-height: 72px !important;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
+  border: 2.5px solid var(--primary) !important;
+  box-shadow: 0 4px 14px rgba(255, 122, 0, 0.25) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.avatar-container:active,
+#profile-avatar-container:active {
+  transform: scale(0.96);
+}
+
+#avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+#avatar-initials {
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.avatar-wrapper {
+  position: relative !important;
+  width: 72px !important;
+  height: 72px !important;
+  min-width: 72px !important;
+  flex-shrink: 0 !important;
+}
+
+#avatar-camera-badge {
+  position: absolute !important;
+  bottom: -2px !important;
+  right: -2px !important;
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 50% !important;
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.72rem !important;
+  border: 2.5px solid var(--card) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+  cursor: pointer !important;
+  z-index: 2 !important;
+  pointer-events: auto !important;
+  transition: transform 160ms ease;
+}
+
+#avatar-camera-badge:hover {
+  transform: scale(1.08);
+}
+
+#avatar-camera-badge:active {
+  transform: scale(0.92);
+}
 .top-bar-actions { display: flex; gap: 10px; align-items: center; }
 .top-bar-badge { min-width: 34px; height: 34px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,122,0,0.14); color: var(--primary); font-weight: 800; }
 .header-log-pill {

@@ -526,11 +526,13 @@
 
           <!-- Apple HIG Me Profile Header Card -->
           <div class="card" style="padding:18px 20px; border-radius:22px; display:flex; align-items:center; gap:16px; margin-bottom:18px; border:1px solid var(--border);">
-            <div class="avatar-container" id="profile-avatar-container" title="Tap to change profile picture" style="position:relative; width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg, var(--primary), #ff9100); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.35rem; cursor:pointer; overflow:hidden; flex-shrink:0; box-shadow:0 4px 14px rgba(255,122,0,0.25);">
-              <span id="avatar-initials">—</span>
-              <img id="avatar-img" style="display:none; width:100%; height:100%; object-fit:cover;" alt="Profile Picture" />
-              <input type="file" id="profile-pic-input" accept="image/*" style="display:none;" />
-              <div style="position:absolute; bottom:0; left:0; right:0; height:20px; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:#fff;">📷</div>
+            <div class="avatar-wrapper" style="position:relative; width:72px; height:72px; min-width:72px; flex-shrink:0;">
+              <div class="avatar-container" id="profile-avatar-container" title="Tap to change profile picture" style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg, var(--primary), #ff9100); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.4rem; cursor:pointer; overflow:hidden; border:2.5px solid var(--primary); box-shadow:0 4px 14px rgba(255,122,0,0.25); aspect-ratio:1/1; position:relative; -webkit-mask-image:-webkit-radial-gradient(white, black);">
+                <span id="avatar-initials">—</span>
+                <img id="avatar-img" style="display:none; width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:center; aspect-ratio:1/1;" alt="Profile Picture" />
+                <input type="file" id="profile-pic-input" accept="image/*" style="display:none;" />
+              </div>
+              <div id="avatar-camera-badge" title="Change Photo" style="position:absolute; bottom:-2px; right:-2px; width:26px; height:26px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.72rem; border:2.5px solid var(--card); box-shadow:0 2px 8px rgba(0,0,0,0.28); cursor:pointer;">📷</div>
             </div>
             <div style="flex:1;">
               <h2 id="member-name" style="margin:0; font-size:1.3rem; color:var(--text);">—</h2>
@@ -725,26 +727,6 @@
                 </div>
                 <div style="font-size:0.75rem; color:var(--muted); line-height:1.4;">
                   💡 Click <strong>"Get Free Groq Key"</strong> above, sign in, click <strong>"Create API Key"</strong>, copy it, and paste here!
-                </div>
-              </div>
-
-              <!-- Gemini API Key -->
-              <div class="settings-group-row" style="flex-direction:column; align-items:stretch; gap:10px; padding:14px 16px;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div class="settings-row-left">
-                    <span class="settings-row-icon">✨</span>
-                    <div>
-                      <span style="font-weight:600;">Gemini API Key</span>
-                      <span style="display:block; font-size:0.75rem; color:var(--muted);">Vision Meal Cam & multimodal scanner</span>
-                    </div>
-                  </div>
-                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="link-btn" style="display:inline-flex; align-items:center; gap:4px; font-size:0.78rem; font-weight:700; color:var(--primary); text-decoration:none; background:rgba(255,122,0,0.1); border:1px solid rgba(255,122,0,0.25); padding:4px 10px; border-radius:8px;">
-                    🔑 Get Free Gemini Key ↗
-                  </a>
-                </div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                  <input id="gemini-key-input" type="password" placeholder="Paste AIza... key here" aria-label="Gemini API Key" style="flex:1; padding:8px 12px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.85rem;" />
-                  <button id="save-gemini-key" class="primary-btn" type="button" style="padding:8px 14px; font-size:0.8rem; font-weight:700; white-space:nowrap;">Save</button>
                 </div>
               </div>
             </div>

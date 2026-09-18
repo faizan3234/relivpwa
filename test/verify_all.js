@@ -271,19 +271,26 @@ test('index.html contains pure_veg and partial_veg in setup and settings', () =>
   assert.ok(htmlContent.includes('id="settings-diet-select"'), 'Me tab missing settings-diet-select');
 });
 
-test('Me tab contains visible AI & Intelligence settings with direct Groq Console link', () => {
+test('Me tab contains visible AI & Intelligence settings with direct Groq Console link (Gemini removed)', () => {
   assert.ok(htmlContent.includes('id="ai-settings-group"'), 'Missing visible ai-settings-group in Me tab');
   assert.ok(htmlContent.includes('https://console.groq.com/keys'), 'Missing direct link to Groq console keys');
   assert.ok(htmlContent.includes('id="groq-input"'), 'Missing groq-input in AI settings');
   assert.ok(htmlContent.includes('id="save-groq"'), 'Missing save-groq button');
-  assert.ok(htmlContent.includes('https://aistudio.google.com/app/apikey'), 'Missing direct link to Gemini API key');
+  assert.ok(!htmlContent.includes('id="gemini-key-input"'), 'Gemini API key input should be removed from settings');
+  assert.ok(!htmlContent.includes('Gemini API Key'), 'Gemini API Key label should be removed from settings');
 });
 
-test('Me tab supports visual profile picture upload and change', () => {
+test('Me tab supports visual profile picture upload, change, and pristine circular framing', () => {
   assert.ok(htmlContent.includes('id="profile-avatar-container"'), 'Missing profile avatar container');
   assert.ok(htmlContent.includes('id="profile-pic-input"'), 'Missing file input for profile pic');
   assert.ok(htmlContent.includes('id="change-profile-pic-btn"'), 'Missing Change Photo button in Me profile card');
+  assert.ok(htmlContent.includes('id="avatar-img"'), 'Missing avatar img element');
+  assert.ok(htmlContent.includes('id="avatar-camera-badge"'), 'Missing avatar camera badge');
   assert.ok(appContent.includes('changeProfilePicBtn.addEventListener'), 'Missing changeProfilePicBtn listener in app.js');
+  assert.ok(appContent.includes('avatarCameraBadge.addEventListener'), 'Missing avatarCameraBadge listener in app.js');
+  assert.ok(cssContent.includes('#profile-avatar-container'), 'Missing #profile-avatar-container in style.css');
+  assert.ok(cssContent.includes('aspect-ratio: 1 / 1'), 'Missing circular aspect-ratio constraint in style.css');
+  assert.ok(cssContent.includes('object-fit: cover'), 'Missing object-fit cover constraint in style.css');
 });
 
 console.log('\n====================================================');

@@ -3820,6 +3820,14 @@ function parseLocalFoodIntake(text) {
     });
   }
 
+  const avatarCameraBadge = document.getElementById('avatar-camera-badge');
+  if (avatarCameraBadge && profilePicInput) {
+    avatarCameraBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      profilePicInput.click();
+    });
+  }
+
   // Dismiss save confirm modal
   const dismissSaveBtn = document.getElementById('dismiss-save-confirm');
   const confirmModal = document.getElementById('save-confirm-modal');
@@ -5826,9 +5834,11 @@ function renderProfilePicture() {
     if (img) {
       img.src = state.profilePic;
       img.style.display = 'block';
+      img.style.objectFit = 'cover';
+      img.style.objectPosition = 'center';
     }
     if (headerAvatarBtn) {
-      headerAvatarBtn.innerHTML = `<img src="${state.profilePic}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" alt="Avatar" />`;
+      headerAvatarBtn.innerHTML = `<img src="${state.profilePic}" style="width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:center; display:block; aspect-ratio:1/1;" alt="Avatar" />`;
     }
   } else {
     if (initials) initials.style.display = 'block';
@@ -6845,7 +6855,7 @@ async function analyzeMeal() {
   }
 
   const isSkin = state.goalType.startsWith('skin');
-  els.mealStatus.textContent = isSkin ? 'Scanning face with Gemini Skin AI...' : 'Analyzing plate with Google Gemini 1.5 Flash...';
+  els.mealStatus.textContent = isSkin ? 'Scanning face with AI...' : 'Analyzing plate with AI...';
   els.mealButton.disabled = true;
 
   const resultCard = document.getElementById('meal-result-card');
@@ -7000,7 +7010,7 @@ async function analyzeMeal() {
     const GROQ_API_KEY = (state.groqKey || window.RELIX_GROQ_API_KEY || '').trim();
 
     if (!GEMINI_API_KEY && !GROQ_API_KEY) {
-      throw new Error('Image scan requires a Gemini or Groq API key. Please add your key in Settings.');
+      throw new Error('Image scan requires a Groq API key. Please add your free key in Settings.');
     }
 
     if (GEMINI_API_KEY) {
