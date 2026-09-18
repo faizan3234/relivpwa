@@ -21,7 +21,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css?v=10" />
-    <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
     <script>
       // Runs before the body paints so a desktop visitor never sees a flash of
       // the phone UI behind the gate. Kept inline and tiny on purpose.
@@ -139,7 +138,8 @@
       </div>
 
       <section class="view-section active" data-view="dashboard">
-        <div class="hero-card" style="padding: 20px; border-radius: 22px;">
+        <!-- SURFACE 1: Goal + Progress Card -->
+        <div class="hero-card" style="padding: 20px; border-radius: 22px; margin-bottom: 14px;">
           <div class="hero-head" style="margin-bottom: 12px;">
             <div class="hero-title">
               <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; flex-wrap:wrap;">
@@ -191,114 +191,124 @@
           </div>
         </div>
 
-        <!-- Next Up Priority Action Card -->
-        <div class="today-next-card" id="today-next-card">
-          <div class="next-card-badge">NEXT UP</div>
-          <div class="next-card-content">
-            <div class="next-card-icon" id="next-action-icon">💧</div>
-            <div>
-              <strong id="next-action-title">Morning Hydration</strong>
-              <p id="next-action-desc">Drink a 250ml glass of water to kickstart metabolism.</p>
-            </div>
-          </div>
-          <button id="next-action-btn" class="primary-btn" type="button">Log 250ml water</button>
-        </div>
-
-        <!-- Today Custom Action Trackers (Created by Coach AI / User) -->
-        <div id="today-custom-trackers-card" class="card" style="display:none; margin-top:14px; padding:18px; border-radius:20px; border:1px solid rgba(255,106,0,0.25); background:rgba(255,106,0,0.03);">
-          <div class="hero-head" style="margin-bottom:12px; align-items:center;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.75rem; color:#ff6a00; text-transform:uppercase; letter-spacing:0.04em; font-weight:700;">✦ Custom Action Trackers</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.05rem;">Quick One-Tap Log (<span id="today-custom-trackers-count">0</span>)</h3>
-            </div>
-            <button id="today-add-tracker-coach-btn" class="ghost-btn" type="button" onclick="switchView('coach'); const inp = document.getElementById('coach-input'); if(inp) { inp.value = 'Add a button for me to log '; inp.focus(); }" style="font-size:0.75rem; padding:3px 8px; border-radius:8px; border:1px solid var(--border);">+ Ask AI</button>
-          </div>
-          <div id="today-custom-trackers-list" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">
-            <!-- Populated dynamically by renderCustomTrackers() -->
-          </div>
-        </div>
-
-        <!-- Today's Essentials Checklist -->
-        <div class="card today-essentials-card" style="margin-top:14px; padding:18px;">
-          <div class="hero-head" style="margin-bottom:12px;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Today's Essentials</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Daily Habit Loop</h3>
-            </div>
-            <span class="pill" id="today-essentials-progress">0 / 4 done</span>
-          </div>
-          <div id="today-essentials-list" class="today-essentials-list">
-            <!-- Populated dynamically -->
-          </div>
-        </div>
-
-        <!-- Compact Nutrition & Water Summary -->
-        <div class="card today-metrics-card" id="today-macro-balance-card" style="margin-top:14px; padding:18px;">
-          <div class="hero-head" style="margin-bottom:12px; align-items:center;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Nutrition & Hydration</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Daily Balance</h3>
-            </div>
-            <button id="today-open-log-btn" class="ghost-btn" type="button" style="font-size:0.78rem; padding:4px 10px; border:1px solid var(--border); border-radius:10px;">+ Quick Log</button>
-          </div>
-          <div class="today-macro-bars">
-            <div class="today-macro-item">
-              <div class="macro-label-row">
-                <span>Calories</span>
-                <strong id="cal-text">0 / 2800 kcal</strong>
+        <!-- SURFACE 2: Next Action + Today's 3–4 Priorities -->
+        <div class="card" style="padding: 20px; border-radius: 22px; margin-bottom: 14px;">
+          <!-- Next Up Priority Action -->
+          <div class="today-next-card" id="today-next-card" style="margin-top:0; border-radius:18px;">
+            <div class="next-card-badge">NEXT UP</div>
+            <div class="next-card-content">
+              <div class="next-card-icon" id="next-action-icon">💧</div>
+              <div>
+                <strong id="next-action-title">Morning Hydration</strong>
+                <p id="next-action-desc">Drink a 250ml glass of water to kickstart metabolism.</p>
               </div>
-              <div class="progress-track"><span id="cal-bar" style="width:0%"></span></div>
             </div>
-            <div class="today-macro-item">
-              <div class="macro-label-row">
-                <span>Protein</span>
-                <strong id="pro-text">0 / 140g</strong>
+            <button id="next-action-btn" class="primary-btn" type="button">Log 250ml water</button>
+          </div>
+
+          <!-- Today's Essentials Checklist (3-4 Priorities) -->
+          <div class="today-essentials-card" id="today-essentials-card" style="margin-top: 14px; border:none; padding:0; background:transparent;">
+            <div class="hero-head" style="margin-bottom:10px;">
+              <div class="hero-title">
+                <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Today's Priorities</p>
+                <h3 style="margin:2px 0 0 0; font-size:1.05rem;">Daily Habit Loop</h3>
               </div>
-              <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
+              <span class="pill" id="today-essentials-progress">0 / 4 done</span>
             </div>
-            <div class="today-macro-item">
-              <div class="macro-label-row">
-                <span>Hydration</span>
-                <strong id="hydration-text">0 / 3500 ml</strong>
-              </div>
-              <div class="progress-track"><span id="hydration-bar" style="background:#2196F3; width:0%"></span></div>
+            <div id="today-essentials-list" class="today-essentials-list">
+              <!-- Populated dynamically -->
             </div>
           </div>
         </div>
 
-        <!-- Skincare Mode Daily Radiance Balance (Shown when goal is Skincare) -->
-        <div class="card today-metrics-card" id="today-skincare-balance-card" style="display:none; margin-top:14px; padding:18px;">
-          <div class="hero-head" style="margin-bottom:12px; align-items:center;">
-            <div class="hero-title">
-              <p style="margin:0; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Skin Barrier & Hydration</p>
-              <h3 style="margin:2px 0 0 0; font-size:1.1rem;">Daily Radiance Balance</h3>
+        <!-- Secondary Drawer / Progressive Disclosure (Balances & Custom Trackers) -->
+        <details class="card" id="today-secondary-drawer" style="margin-bottom: 14px; padding: 16px; border-radius: 20px;">
+          <summary style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; list-style:none; font-size:0.85rem; font-weight:600; color:var(--muted);">
+            <span>📊 Nutrition & Custom Trackers</span>
+            <span style="color:var(--primary); font-size:0.8rem;">View ▾</span>
+          </summary>
+          <div style="margin-top:14px;">
+            <!-- Today Custom Action Trackers -->
+            <div id="today-custom-trackers-card" style="display:none; margin-bottom:14px; padding:14px; border-radius:16px; border:1px solid rgba(255,106,0,0.25); background:rgba(255,106,0,0.03);">
+              <div class="hero-head" style="margin-bottom:10px; align-items:center;">
+                <div class="hero-title">
+                  <p style="margin:0; font-size:0.72rem; color:#ff6a00; text-transform:uppercase; letter-spacing:0.04em; font-weight:700;">Custom Action Trackers</p>
+                  <h4 style="margin:2px 0 0 0; font-size:0.95rem;">Quick One-Tap Log (<span id="today-custom-trackers-count">0</span>)</h4>
+                </div>
+                <button id="today-add-tracker-coach-btn" class="ghost-btn" type="button" onclick="switchView('coach'); const inp = document.getElementById('coach-input'); if(inp) { inp.value = 'Add a button for me to log '; inp.focus(); }" style="font-size:0.75rem; padding:3px 8px; border-radius:8px; border:1px solid var(--border);">+ Ask AI</button>
+              </div>
+              <div id="today-custom-trackers-list" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;"></div>
             </div>
-            <button id="today-open-skin-log-btn" class="ghost-btn" type="button" onclick="openQuickLogModal()" style="font-size:0.78rem; padding:4px 10px; border:1px solid var(--border); border-radius:10px;">+ Quick Log</button>
+
+            <!-- Compact Nutrition & Water Summary -->
+            <div class="today-metrics-card" id="today-macro-balance-card" style="margin-top:8px;">
+              <div class="hero-head" style="margin-bottom:10px; align-items:center;">
+                <div class="hero-title">
+                  <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Nutrition & Hydration</p>
+                  <h4 style="margin:2px 0 0 0; font-size:1rem;">Daily Balance</h4>
+                </div>
+                <button id="today-open-log-btn" class="ghost-btn" type="button" style="font-size:0.75rem; padding:4px 10px; border:1px solid var(--border); border-radius:10px;">+ Quick Log</button>
+              </div>
+              <div class="today-macro-bars">
+                <div class="today-macro-item">
+                  <div class="macro-label-row">
+                    <span>Calories</span>
+                    <strong id="cal-text">0 / 2800 kcal</strong>
+                  </div>
+                  <div class="progress-track"><span id="cal-bar" style="width:0%"></span></div>
+                </div>
+                <div class="today-macro-item">
+                  <div class="macro-label-row">
+                    <span>Protein</span>
+                    <strong id="pro-text">0 / 140g</strong>
+                  </div>
+                  <div class="progress-track"><span id="pro-bar" style="background:var(--primary); width:0%"></span></div>
+                </div>
+                <div class="today-macro-item">
+                  <div class="macro-label-row">
+                    <span>Hydration</span>
+                    <strong id="hydration-text">0 / 3500 ml</strong>
+                  </div>
+                  <div class="progress-track"><span id="hydration-bar" style="background:#2196F3; width:0%"></span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Skincare Mode Daily Radiance Balance -->
+            <div class="today-metrics-card" id="today-skincare-balance-card" style="display:none; margin-top:8px;">
+              <div class="hero-head" style="margin-bottom:10px; align-items:center;">
+                <div class="hero-title">
+                  <p style="margin:0; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Skin Barrier & Hydration</p>
+                  <h4 style="margin:2px 0 0 0; font-size:1rem;">Daily Radiance Balance</h4>
+                </div>
+                <button id="today-open-skin-log-btn" class="ghost-btn" type="button" onclick="openQuickLogModal()" style="font-size:0.75rem; padding:4px 10px; border:1px solid var(--border); border-radius:10px;">+ Quick Log</button>
+              </div>
+              <div class="today-macro-bars">
+                <div class="today-macro-item">
+                  <div class="macro-label-row">
+                    <span>Cellular Hydration</span>
+                    <strong id="skin-hydration-text">0 / 2500 ml</strong>
+                  </div>
+                  <div class="progress-track"><span id="skin-hydration-bar" style="background:#2196F3; width:0%"></span></div>
+                </div>
+                <div class="today-macro-item">
+                  <div class="macro-label-row">
+                    <span>AM Routine & UV Shield</span>
+                    <strong id="skin-am-text">Pending</strong>
+                  </div>
+                  <div class="progress-track"><span id="skin-am-bar" style="background:#ffae00; width:0%"></span></div>
+                </div>
+                <div class="today-macro-item">
+                  <div class="macro-label-row">
+                    <span>PM Cleanse & Barrier Repair</span>
+                    <strong id="skin-pm-text">Pending</strong>
+                  </div>
+                  <div class="progress-track"><span id="skin-pm-bar" style="background:#8b5cf6; width:0%"></span></div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="today-macro-bars">
-            <div class="today-macro-item">
-              <div class="macro-label-row">
-                <span>Cellular Hydration</span>
-                <strong id="skin-hydration-text">0 / 2500 ml</strong>
-              </div>
-              <div class="progress-track"><span id="skin-hydration-bar" style="background:#2196F3; width:0%"></span></div>
-            </div>
-            <div class="today-macro-item">
-              <div class="macro-label-row">
-                <span>AM Routine & UV Shield</span>
-                <strong id="skin-am-text">Pending</strong>
-              </div>
-              <div class="progress-track"><span id="skin-am-bar" style="background:#ffae00; width:0%"></span></div>
-            </div>
-            <div class="today-macro-item">
-              <div class="macro-label-row">
-                <span>PM Cleanse & Barrier Repair</span>
-                <strong id="skin-pm-text">Pending</strong>
-              </div>
-              <div class="progress-track"><span id="skin-pm-bar" style="background:#8b5cf6; width:0%"></span></div>
-            </div>
-          </div>
-        </div>
+        </details>
 
         <!-- Today ends cleanly with link to Plan -->
         <div style="text-align:center; margin: 16px 0 8px 0;">
@@ -773,199 +783,8 @@
         </div>
       </section>
 
-      <!-- Dedicated Separate Reliv Labs Screen -->
-      <section class="view-section" data-view="labs">
-        <div class="subview-header">
-          <button id="labs-back-btn" class="nav-back-btn" type="button" onclick="switchView('profile')">
-            <span>‹</span>
-            <span>Me</span>
-          </button>
-          <span style="font-size:0.95rem; font-weight:700;">Reliv Labs</span>
-          <div style="width:40px;"></div>
-        </div>
-
-        <div id="pdf-academy-interface" class="card" style="padding: 20px; display:flex; flex-direction:column; gap:16px;">
-          <div class="hero-head">
-            <div class="hero-title">
-              <p style="color:var(--primary); font-size:0.75rem; font-weight:700; text-transform:uppercase; margin:0;">Interactive School</p>
-              <h2 style="margin:2px 0 0 0; font-size:1.3rem;">PDF Academy & Study Tools</h2>
-            </div>
-            <span class="pill" style="background:var(--primary); color:white; font-size:0.75rem;">Labs Active</span>
-          </div>
-
-          <!-- Upload Zone -->
-          <div id="pdf-upload-zone" style="border: 2px dashed var(--border); padding: 20px; border-radius: 16px; text-align:center; cursor:pointer; background:rgba(255,255,255,0.01); transition: 0.2s;" onclick="document.getElementById('pdf-file-input').click()">
-            <span style="font-size:2rem; display:block; margin-bottom:6px;">📁</span>
-            <strong style="font-size:0.88rem; display:block; color:var(--text);">Upload Wellness Routine or PDF</strong>
-            <span style="font-size:0.74rem; color:var(--muted); display:block; margin-top:2px;">Drag & drop or tap (Accepts .pdf, .txt, .jpg, .png)</span>
-            <input type="file" id="pdf-file-input" accept=".pdf,.txt,image/*" style="display:none;" />
-          </div>
-
-          <!-- Loaded Document Info Banner -->
-          <div id="pdf-doc-info" style="display:none; align-items:center; justify-content:space-between; background:rgba(33, 150, 243, 0.08); border:1px solid rgba(33, 150, 243, 0.2); padding:10px 14px; border-radius:12px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:1.2rem;">📄</span>
-              <div>
-                <strong id="pdf-file-name" style="font-size:0.85rem; color:var(--text); display:block;">wellness_guide.pdf</strong>
-                <span id="pdf-file-size" style="font-size:0.72rem; color:var(--muted);">42 KB · Text extracted successfully</span>
-              </div>
-            </div>
-            <button id="clear-pdf-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem; border:1px solid var(--border);">Remove</button>
-          </div>
-
-          <!-- Academy Subtabs -->
-          <div id="academy-subtabs" style="display:none; flex-direction:column; gap:14px; border-top:1px solid var(--border); padding-top:14px;">
-            <!-- Tab Bar selector -->
-            <div class="academy-tab-bar">
-              <button class="academy-tab-btn" data-subtab="search" type="button" style="background:var(--primary); color:white;">🔍 Search</button>
-              <button class="academy-tab-btn" data-subtab="summary" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📝 Summary</button>
-              <button class="academy-tab-btn" data-subtab="flashcards" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📇 Cards</button>
-              <button class="academy-tab-btn" data-subtab="quiz" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">✏️ Quiz</button>
-              <button class="academy-tab-btn" data-subtab="lessons" type="button" style="background:rgba(255,255,255,0.03); color:var(--muted);">📖 Lessons</button>
-            </div>
-
-            <!-- Academy panels -->
-            <div id="academy-panel-search" class="academy-panel">
-              <div style="display:flex; gap:8px;">
-                <input type="text" id="pdf-search-input" placeholder="Search extracted PDF content..." aria-label="PDF search" style="flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text);" />
-                <button id="pdf-search-btn" class="primary-btn" type="button" style="padding:0 14px; border-radius:10px;">Find</button>
-              </div>
-              <div id="pdf-search-results" style="margin-top:12px; display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; font-size:0.82rem; color:var(--muted);">
-                Type keywords to search inside the document context.
-              </div>
-            </div>
-
-            <div id="academy-panel-summary" class="academy-panel" style="display:none;">
-              <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px;">
-                <strong style="color:var(--primary); font-size:0.85rem; display:block; margin-bottom:6px;">⚡ PDF Document Summary</strong>
-                <ul id="pdf-summary-list" style="margin:0; padding-left:18px; line-height:1.45; font-size:0.82rem; color:var(--muted);">
-                  <li>Uploading PDF...</li>
-                </ul>
-              </div>
-            </div>
-
-            <div id="academy-panel-flashcards" class="academy-panel" style="display:none;">
-              <div style="perspective: 1000px; width: 100%; height: 160px; margin-bottom: 12px; cursor: pointer;" id="flashcard-widget">
-                <div id="flashcard-inner" style="position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; border-radius:18px; border:1px solid var(--border); background:linear-gradient(135deg, rgba(255,122,0,0.08), rgba(255,122,0,0.02)); display:flex; align-items:center; justify-content:center; padding:20px;">
-                  <div id="flashcard-front" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
-                    <strong style="color:var(--primary); font-size:0.8rem; text-transform:uppercase;">Flashcard Q</strong>
-                    <span id="flashcard-question-text" style="font-size:0.9rem; font-weight:600; color:var(--text);">What is a calorie deficit?</span>
-                    <small style="color:var(--muted); font-size:0.7rem;">(Tap to Reveal Answer)</small>
-                  </div>
-                  <div id="flashcard-back" style="position: absolute; width: 100%; height: 100%; backface-visibility: hidden; transform: rotateY(180deg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02)); border:1px solid rgba(34,197,94,0.15); border-radius:18px; padding:20px;">
-                    <strong style="color:#22c55e; font-size:0.8rem; text-transform:uppercase;">Answer</strong>
-                    <span id="flashcard-answer-text" style="font-size:0.85rem; color:var(--text); line-height:1.4;">Consuming fewer calories than your body burns, forcing it to utilize stored fat for energy.</span>
-                    <small style="color:var(--muted); font-size:0.7rem;">(Tap to Flip Back)</small>
-                  </div>
-                </div>
-              </div>
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <button id="prev-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">← Previous</button>
-                <span id="flashcard-index" style="font-size:0.8rem; color:var(--muted);">1 of 5</span>
-                <button id="next-flashcard-btn" class="ghost-btn" style="padding:6px 12px; font-size:0.8rem; border:1px solid var(--border);">Next →</button>
-              </div>
-            </div>
-
-            <div id="academy-panel-quiz" class="academy-panel" style="display:none;">
-              <div style="background:rgba(255,255,255,0.01); border:1px solid var(--border); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:var(--muted);">
-                  <span id="quiz-question-number">Question 1 of 3</span>
-                  <span id="quiz-score-tracker">Score: 0/0</span>
-                </div>
-                <strong id="quiz-question-title" style="font-size:0.92rem; color:var(--text); line-height:1.35;">Which of the following macronutrients has the highest thermic effect (TEF)?</strong>
-                <div id="quiz-options-container" style="display:flex; flex-direction:column; gap:8px;">
-                  <!-- Filled dynamically -->
-                </div>
-                <div id="quiz-feedback-box" style="display:none; font-size:0.82rem; font-weight:700; padding:8px 10px; border-radius:8px;"></div>
-                <button id="next-quiz-btn" class="primary-btn" type="button" style="display:none; align-self:flex-end; padding:8px 16px; font-size:0.8rem; border-radius:10px;">Next Question</button>
-              </div>
-            </div>
-
-            <div id="academy-panel-lessons" class="academy-panel" style="display:none;">
-              <div style="display:flex; flex-direction:column; gap:10px;">
-                <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;">
-                  <button class="lesson-chap-btn active-chap" data-chap="0" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:var(--border); color:var(--text); white-space:nowrap;">Chapter 1</button>
-                  <button class="lesson-chap-btn" data-chap="1" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 2</button>
-                  <button class="lesson-chap-btn" data-chap="2" type="button" style="padding:4px 8px; font-size:0.75rem; border-radius:8px; border:none; background:rgba(255,255,255,0.03); color:var(--muted); white-space:nowrap;">Chapter 3</button>
-                </div>
-                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:12px; border-radius:12px; font-size:0.82rem; line-height:1.45;">
-                  <strong id="lesson-chapter-title" style="display:block; margin-bottom:6px; color:var(--text);">Metabolic Mastery Intro</strong>
-                  <p id="lesson-chapter-body" style="margin:0; color:var(--muted);"></p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      <section class="view-section" data-view="natural">
-        <div class="card" style="padding: 20px; margin-bottom: 18px;">
-          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">Natural Care Hub</strong>
-          <h3 style="margin:0; font-size:1.4rem;">AI Recommended Home Remedies</h3>
-          <p style="margin:6px 0 0 0; font-size:0.85rem; color:var(--muted); line-height:1.45;">Personalized remedies matching your skin type and available kitchen ingredients.</p>
-          
-          <div id="natural-skin-type-banner" style="margin-top: 14px; background: rgba(33, 150, 243, 0.08); border: 1px solid rgba(33, 150, 243, 0.15); border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
-            <div>👤 Skin Type: <strong id="natural-skin-type-locked" style="text-transform: capitalize;">Oily</strong></div>
-            <button id="change-skin-type-btn" class="link-btn" type="button" style="color: var(--primary); font-size: 0.8rem; cursor: pointer; background:none; border:none; font-weight:600;">Change</button>
-          </div>
-        </div>
-
-        <!-- Kitchen Mode Card -->
-        <div class="card" style="padding: 20px; margin-bottom: 18px;">
-          <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 6px;">🍃 Kitchen Mode</strong>
-          <p style="margin:0 0 12px 0; font-size:0.82rem; color:var(--muted);" id="natural-kitchen-desc">Check ingredients in your kitchen to view matching home remedies:</p>
-          
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;" id="kitchen-ingredients-grid">
-            <!-- Dynamically populated in app.js based on selected goal -->
-          </div>
-        </div>
-
-        <!-- Curated Remedies List -->
-        <div id="anabolic-shake-builder-container" style="display: none; margin-bottom: 18px;"></div>
-        <div id="concern-library-container" style="margin-bottom: 18px;"></div>
-        <div id="curated-remedies-list" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 80px;">
-          <!-- Recipes will be rendered here dynamically -->
-        </div>
-      </section>
-
       <section class="view-section" data-view="progress">
-        <div class="card" style="padding: 20px; margin-bottom: 16px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <div>
-              <strong style="color: var(--primary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom: 4px;">Track My Progress</strong>
-              <h2 style="margin:0; font-size:1.35rem;">Adaptive AI Journey</h2>
-            </div>
-            <span class="pill" id="progress-mode-badge" style="font-size:0.75rem;">Setup Needed</span>
-          </div>
-          <p style="margin:6px 0 0 0; font-size:0.84rem; color:var(--muted); line-height:1.45;">
-            Dynamic calculations for fastest safe target achievement based on your daily environment.
-          </p>
-        </div>
-
-        <!-- Achievements & Mastery Card -->
-        <div class="card" id="progress-achievements-card" style="padding:18px; margin-bottom:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <span style="font-size:0.72rem; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.04em;">Mastery & Progression</span>
-              <h3 style="margin:2px 0 0 0; font-size:1.15rem;" id="progress-level-title">Level 1 Practitioner</h3>
-            </div>
-            <span class="pill" id="progress-level-pill" style="background:rgba(255,122,0,0.12); color:var(--primary); font-weight:700;">Lvl 1</span>
-          </div>
-          <div style="margin-top:12px; display:flex; justify-content:space-between; font-size:0.8rem; color:var(--muted);">
-            <span>Next Level XP Progress</span>
-            <strong id="progress-xp-text" style="color:var(--text);">0 / 500 XP</strong>
-          </div>
-          <div style="margin-top:6px; background:rgba(0,0,0,0.06); border-radius:999px; height:8px; overflow:hidden;">
-            <div id="progress-xp-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #ff7a00, #ffae00); transition:width 400ms ease;"></div>
-          </div>
-          <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:0.75rem; color:var(--muted);">🔥 <strong id="progress-streak-display">0</strong> day consistency streak</span>
-            <button id="progress-share-achieve-btn" class="ghost-btn" type="button" style="padding:4px 10px; font-size:0.75rem; border:1px solid rgba(37,211,102,0.4); color:#25D366; border-radius:8px; cursor:pointer;">Share Milestone 📲</button>
-          </div>
-        </div>
-
-        <!-- 1. Questionnaire Container (shown when not configured) -->
+        <!-- 1. Setup Questionnaire (Shown only when not configured) -->
         <div id="progress-questionnaire-card" class="card" style="padding: 20px; margin-bottom: 18px;">
           <h3 style="margin:0 0 8px 0; font-size:1.15rem;">🎯 Setup Your Tracking Environment</h3>
           <p style="font-size:0.82rem; color:var(--muted); margin:0 0 16px 0;">Help AI customize your weigh-in frequency and trend predictions.</p>
@@ -1006,7 +825,7 @@
 
             <div>
               <label style="display:block; font-size:0.86rem; font-weight:600; margin-bottom:4px;">5. Can you take private check-in photos?</label>
-              <span style="display:block; font-size:0.75rem; color:var(--muted); margin-bottom:8px; line-height:1.4;">🔒 <strong>100% Private on this phone:</strong> Visual progress photos (front/side) never leave your device. They let you see real muscle definition and body recomposition when the scale doesn't tell the whole story.</span>
+              <span style="display:block; font-size:0.75rem; color:var(--muted); margin-bottom:8px; line-height:1.4;">🔒 <strong>100% Private on this phone:</strong> Visual progress photos (front/side) never leave your device.</span>
               <div class="progress-option-group" data-name="canTakePhotos">
                 <button type="button" class="progress-option-btn selected" data-value="true">📸 Yes, weekly</button>
                 <button type="button" class="progress-option-btn" data-value="false">No photos</button>
@@ -1019,164 +838,238 @@
           </form>
         </div>
 
-        <!-- 2. Active Progress Dashboard (shown when configured) -->
-        <div id="progress-dashboard-view" style="display:none; flex-direction:column; gap:16px;">
-          <!-- Plan Banner -->
-          <div class="card" id="progress-plan-banner" style="padding:16px; border-left:4px solid var(--primary); background:rgba(255,106,0,0.06);">
-            <strong id="progress-plan-title" style="font-size:0.95rem; color:var(--text); display:block;">Plan Active</strong>
-            <p id="progress-plan-desc" style="margin:4px 0 0 0; font-size:0.82rem; color:var(--muted); line-height:1.4;"></p>
+        <!-- 2. Apple Health-Style Restrained Root View -->
+        <div id="progress-dashboard-view" style="display:none; flex-direction:column;">
+          <div class="progress-root-hero">
+            <div class="progress-root-header-row">
+              <h2 class="progress-root-title">Progress</h2>
+              <span class="pill" id="progress-mode-badge" style="font-size:0.75rem;">Active</span>
+            </div>
+
+            <div class="progress-root-weight-display" id="progress-root-current-weight">-- kg</div>
+            <div class="progress-root-delta-badge" id="progress-root-delta">+0.0 kg since start</div>
+
+            <!-- Clean minimalist weight chart -->
+            <div class="progress-chart-container" style="margin: 12px 0;">
+              <canvas id="progress-weight-canvas" class="progress-chart-canvas" width="360" height="180"></canvas>
+              <span id="progress-chart-summary" style="display:none;"></span>
+            </div>
+
+            <!-- 3 Essential stats: Goal, Trend, Estimated range -->
+            <div class="progress-root-stats-grid">
+              <div class="progress-root-stat-box">
+                <span class="progress-root-stat-label">Goal</span>
+                <strong class="progress-root-stat-value" id="progress-root-goal-val">-- kg</strong>
+              </div>
+              <div class="progress-root-stat-box">
+                <span class="progress-root-stat-label">Trend</span>
+                <strong class="progress-root-stat-value" id="progress-root-trend-val">-- /wk</strong>
+              </div>
+              <div class="progress-root-stat-box">
+                <span class="progress-root-stat-label">Estimated range</span>
+                <strong class="progress-root-stat-value" id="progress-root-eta-range">--</strong>
+              </div>
+            </div>
+
+            <!-- Single prominent action -->
+            <button id="progress-open-log-btn" class="primary-btn" type="button" style="width:100%; padding:14px; font-weight:700; font-size:0.92rem; border-radius:16px; margin-top:8px;">
+              + Log measurement
+            </button>
           </div>
 
-          <!-- Quick Log Card -->
-          <div class="card" style="padding:18px;">
-            <strong style="font-size:0.92rem; display:block; margin-bottom:10px;">📝 Today's Measurement Log</strong>
-            <form id="progress-log-form" style="display:flex; flex-direction:column; gap:12px;">
+          <!-- Apple Health Drill-Down Navigation Rows -->
+          <div class="progress-nav-group">
+            <div class="progress-nav-row" id="nav-row-milestones" role="button" tabindex="0">
+              <span class="progress-nav-row-title">🎯 Milestones</span>
+              <span class="progress-nav-row-chevron">›</span>
+            </div>
+            <div class="progress-nav-row" id="nav-row-history" role="button" tabindex="0">
+              <span class="progress-nav-row-title">⚖️ Measurement History</span>
+              <span class="progress-nav-row-chevron">›</span>
+            </div>
+            <div class="progress-nav-row" id="nav-row-photos" role="button" tabindex="0">
+              <span class="progress-nav-row-title">📸 Progress Photos</span>
+              <span class="progress-nav-row-chevron">›</span>
+            </div>
+            <div class="progress-nav-row" id="nav-row-commitment" role="button" tabindex="0">
+              <span class="progress-nav-row-title">💰 Commitment</span>
+              <span class="progress-nav-row-chevron">›</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden Compatibility Elements for JS data-bindings -->
+        <div style="display:none;" aria-hidden="true">
+          <span id="progress-plan-banner"></span>
+          <span id="progress-plan-title"></span>
+          <span id="progress-plan-desc"></span>
+          <span id="progress-rate-val">--</span>
+          <span id="progress-adherence-val">--</span>
+          <span id="progress-eta-current">--</span>
+          <span id="progress-eta-fastest">--</span>
+          <span id="progress-eta-note"></span>
+        </div>
+
+        <!-- ======================================================================
+             DRILL-DOWN BOTTOM SHEETS (Opened via drill-down rows or action button)
+             ====================================================================== -->
+
+        <!-- Sheet 1: Log Measurement Sheet -->
+        <div id="sheet-log-measurement" class="progress-drilldown-sheet" aria-hidden="true">
+          <div class="progress-drilldown-content">
+            <div class="progress-drilldown-header">
+              <h3 style="margin:0; font-size:1.15rem;">Log Measurement</h3>
+              <button class="ghost-btn close-sheet-btn" type="button" onclick="closeDrilldownSheet('sheet-log-measurement')" style="padding:4px 10px; font-size:0.85rem;">✕ Close</button>
+            </div>
+            <form id="progress-log-form" style="display:flex; flex-direction:column; gap:14px;">
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div>
-                  <label style="font-size:0.78rem; color:var(--muted); display:block; margin-bottom:4px;">Weight (kg)</label>
-                  <input type="number" step="0.1" id="progress-input-weight" placeholder="e.g. 68.4" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+                  <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">Weight (kg)</label>
+                  <input type="number" step="0.1" id="progress-input-weight" placeholder="e.g. 68.4" style="width:100%; padding:12px; border-radius:14px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:16px;" required />
                 </div>
                 <div id="progress-input-waist-col">
-                  <label style="font-size:0.78rem; color:var(--muted); display:block; margin-bottom:4px;">Waist (cm, opt)</label>
-                  <input type="number" step="0.5" id="progress-input-waist" placeholder="e.g. 78" style="width:100%; padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+                  <label style="font-size:0.8rem; color:var(--muted); display:block; margin-bottom:4px;">Waist (cm, opt)</label>
+                  <input type="number" step="0.5" id="progress-input-waist" placeholder="e.g. 78" style="width:100%; padding:12px; border-radius:14px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:16px;" />
                 </div>
               </div>
-              <button type="submit" class="primary-btn" style="padding:10px; font-size:0.85rem; font-weight:700;">
-                Log Today's Entry & Recalculate 📈
+              <button type="submit" class="primary-btn" style="padding:12px; font-size:0.9rem; font-weight:700; border-radius:14px;">
+                Save Measurement 📈
               </button>
             </form>
           </div>
+        </div>
 
-          <!-- AI Trend Prediction Cards -->
-          <div class="progress-stat-row">
-            <div class="progress-stat-card">
-              <div class="progress-stat-value" id="progress-rate-val">--</div>
-              <div class="progress-stat-label">Rate of Change / Wk</div>
+        <!-- Sheet 2: Milestones Sheet -->
+        <div id="sheet-milestones" class="progress-drilldown-sheet" aria-hidden="true">
+          <div class="progress-drilldown-content">
+            <div class="progress-drilldown-header">
+              <h3 style="margin:0; font-size:1.15rem;">Milestones & Mastery</h3>
+              <button class="ghost-btn close-sheet-btn" type="button" onclick="closeDrilldownSheet('sheet-milestones')" style="padding:4px 10px; font-size:0.85rem;">✕ Close</button>
             </div>
-            <div class="progress-stat-card">
-              <div class="progress-stat-value" id="progress-adherence-val">--</div>
-              <div class="progress-stat-label">Log Adherence</div>
-            </div>
-          </div>
-
-          <div class="card" style="padding:16px;">
-            <strong style="font-size:0.88rem; color:var(--text); display:block; margin-bottom:8px;">🤖 AI Target Forecast</strong>
-            <div style="display:flex; flex-direction:column; gap:6px; font-size:0.82rem; color:var(--muted);">
-              <div>• Current Pace ETA: <strong id="progress-eta-current" style="color:var(--text);">Calculating…</strong></div>
-              <div>• Fastest Safe ETA: <strong id="progress-eta-fastest" style="color:var(--primary);">Calculating…</strong></div>
-              <p id="progress-eta-note" style="margin:4px 0 0 0; font-size:0.78rem; color:var(--muted); line-height:1.4;"></p>
-            </div>
-          </div>
-
-          <!-- Interactive Weight Chart -->
-          <div class="progress-chart-container">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-              <strong style="font-size:0.9rem;">Weight Trend vs Target</strong>
-              <span id="progress-chart-summary" style="font-size:0.78rem; color:var(--muted);"></span>
-            </div>
-            <canvas id="progress-weight-canvas" class="progress-chart-canvas" width="360" height="180"></canvas>
-          </div>
-
-          <!-- Commitment Deposit Ledger & Refund Card -->
-          <div class="card" style="padding:16px; border:1px solid rgba(255,106,0,0.25); background:linear-gradient(135deg, rgba(255,106,0,0.05), transparent);">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <strong style="font-size:0.9rem; color:var(--text);">💰 Commitment Deposit Status</strong>
-                <p style="margin:2px 0 0 0; font-size:0.78rem; color:var(--muted);">Held in trust — 100% refunded when you hit your target.</p>
+            
+            <div class="card" id="progress-achievements-card" style="padding:16px; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <span style="font-size:0.72rem; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.04em;">Mastery</span>
+                  <h4 style="margin:2px 0 0 0; font-size:1.1rem;" id="progress-level-title">Level 1 Practitioner</h4>
+                </div>
+                <span class="pill" id="progress-level-pill" style="background:rgba(255,122,0,0.12); color:var(--primary); font-weight:700;">Lvl 1</span>
               </div>
-              <span class="pill" id="progress-deposit-pill">₹0 Held</span>
+              <div style="margin-top:10px; display:flex; justify-content:space-between; font-size:0.78rem; color:var(--muted);">
+                <span>XP Progress</span>
+                <strong id="progress-xp-text" style="color:var(--text);">0 / 500 XP</strong>
+              </div>
+              <div style="margin-top:6px; background:rgba(0,0,0,0.06); border-radius:999px; height:8px; overflow:hidden;">
+                <div id="progress-xp-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #ff7a00, #ffae00);"></div>
+              </div>
+              <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75rem; color:var(--muted);">🔥 <strong id="progress-streak-display">0</strong> day streak</span>
+                <button id="progress-share-achieve-btn" class="ghost-btn" type="button" style="padding:4px 10px; font-size:0.75rem; border:1px solid rgba(37,211,102,0.4); color:#25D366; border-radius:8px; cursor:pointer;">Share Milestone 📲</button>
+              </div>
             </div>
-            <div id="progress-refund-area" style="margin-top:10px; display:none;">
-              <button id="progress-claim-refund-btn" class="primary-btn" type="button" style="width:100%; padding:10px; font-size:0.82rem; background:#22c55e;">
-                Claim Target Completion Refund 🎉
+
+            <div class="card" id="progress-milestone-card" style="padding:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <span style="font-size:0.72rem; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.04em;">Target Tracking</span>
+                  <h4 style="margin:2px 0 0 0; font-size:1.05rem;" id="progress-goal-headline">Tracking to Target</h4>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <button id="progress-share-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem; border:1px solid rgba(37,211,102,0.4); color:#25D366; border-radius:8px;">Share 📲</button>
+                  <span class="pill" id="progress-pct-badge">0%</span>
+                </div>
+              </div>
+              <div style="margin-top:10px; background:rgba(0,0,0,0.06); border-radius:999px; height:8px; overflow:hidden;">
+                <div id="progress-target-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #ff7a00, #22c55e);"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted); margin-top:6px;">
+                <span>Start: <strong id="progress-start-val">--</strong></span>
+                <span>Current: <strong id="progress-curr-val" style="color:var(--text);">--</strong></span>
+                <span>Target: <strong id="progress-target-val" style="color:var(--primary);">--</strong></span>
+              </div>
+              <div class="milestone-roadmap" id="progress-milestone-steps" style="margin-top:12px;"></div>
+              <div id="progress-velocity-insight" style="font-size:0.8rem; background:rgba(255,122,0,0.07); border:1px solid rgba(255,122,0,0.18); border-radius:14px; padding:10px 12px; margin-top:10px; color:var(--text); line-height:1.4;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sheet 3: History Sheet -->
+        <div id="sheet-history" class="progress-drilldown-sheet" aria-hidden="true">
+          <div class="progress-drilldown-content">
+            <div class="progress-drilldown-header">
+              <h3 style="margin:0; font-size:1.15rem;">Measurement History (<span id="progress-history-count">0</span>)</h3>
+              <button class="ghost-btn close-sheet-btn" type="button" onclick="closeDrilldownSheet('sheet-history')" style="padding:4px 10px; font-size:0.85rem;">✕ Close</button>
+            </div>
+            <div id="progress-history-list" style="display:flex; flex-direction:column; gap:8px; max-height:400px; overflow-y:auto;"></div>
+            <div style="text-align:center; margin-top:16px;">
+              <button id="progress-retake-btn" class="ghost-btn" type="button" style="font-size:0.8rem; padding:8px 16px; border-radius:12px; border:1px solid var(--border);">
+                ⚙️ Retake Environment Setup
               </button>
             </div>
           </div>
+        </div>
 
-          <!-- Live Target & Milestone Roadmap Card -->
-          <div class="card" id="progress-milestone-card" style="padding:18px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.04em;">Live Target Tracking</span>
-                <h3 style="margin:2px 0 0 0; font-size:1.1rem;" id="progress-goal-headline">Tracking to Target</h3>
+        <!-- Sheet 4: Photos Sheet -->
+        <div id="sheet-photos" class="progress-drilldown-sheet" aria-hidden="true">
+          <div class="progress-drilldown-content">
+            <div class="progress-drilldown-header">
+              <h3 style="margin:0; font-size:1.15rem;">Private Progress Photos</h3>
+              <button class="ghost-btn close-sheet-btn" type="button" onclick="closeDrilldownSheet('sheet-photos')" style="padding:4px 10px; font-size:0.85rem;">✕ Close</button>
+            </div>
+            <div class="photo-vault-card" id="progress-photo-vault">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:0.82rem; color:var(--muted);">Weekly visual proof of muscle & recomposition</span>
+                <span class="photo-privacy-tag">🔒 On-Device Only</span>
               </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <button id="progress-share-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem; border:1px solid rgba(37,211,102,0.4); color:#25D366; border-radius:8px; cursor:pointer;">Share 📲</button>
-                <span class="pill" id="progress-pct-badge">0% Reached</span>
-              </div>
-            </div>
-
-            <div style="margin-top:12px; background:rgba(0,0,0,0.06); border-radius:999px; height:8px; overflow:hidden;">
-              <div id="progress-target-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #ff7a00, #22c55e); transition:width 500ms ease;"></div>
-            </div>
-
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted); margin-top:6px;">
-              <span>Start: <strong id="progress-start-val">--</strong></span>
-              <span>Current: <strong id="progress-curr-val" style="color:var(--text);">--</strong></span>
-              <span>Target: <strong id="progress-target-val" style="color:var(--primary);">--</strong></span>
-            </div>
-
-            <div class="milestone-roadmap" id="progress-milestone-steps">
-              <!-- Rendered dynamically in app.js -->
-            </div>
-
-            <div id="progress-velocity-insight" style="font-size:0.8rem; background:rgba(255,122,0,0.07); border:1px solid rgba(255,122,0,0.18); border-radius:14px; padding:10px 12px; margin-top:10px; color:var(--text); line-height:1.4;">
-              <!-- Live AI insight text -->
-            </div>
-          </div>
-
-          <!-- Private Check-in Photos Vault -->
-          <div class="photo-vault-card" id="progress-photo-vault">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <div>
-                <strong style="font-size:0.92rem; display:block;">📸 Private Progress Photo Vault</strong>
-                <span style="font-size:0.75rem; color:var(--muted);">Weekly visual proof of muscle & recomposition</span>
-              </div>
-              <span class="photo-privacy-tag">🔒 On-Device Only</span>
-            </div>
-
-            <div class="photo-vault-grid">
-              <div class="photo-slot" id="photo-slot-start">
-                <img id="photo-img-start" src="" style="display:none; width:100%; height:100%; object-fit:cover;" />
-                <div id="photo-placeholder-start" style="text-align:center; padding:10px;">
-                  <span style="font-size:1.6rem; display:block;">📷</span>
-                  <span class="photo-slot-label">Week 1 / Before</span>
-                  <span style="font-size:0.65rem; color:var(--muted); display:block;">Tap to add</span>
+              <div class="photo-vault-grid">
+                <div class="photo-slot" id="photo-slot-start">
+                  <img id="photo-img-start" src="" style="display:none; width:100%; height:100%; object-fit:cover;" alt="Before checkin" />
+                  <div id="photo-placeholder-start" style="text-align:center; padding:10px;">
+                    <span style="font-size:1.6rem; display:block;">📷</span>
+                    <span class="photo-slot-label">Week 1 / Before</span>
+                    <span style="font-size:0.65rem; color:var(--muted); display:block;">Tap to add</span>
+                  </div>
+                  <input type="file" id="photo-input-start" accept="image/*" style="display:none;" />
                 </div>
-                <input type="file" id="photo-input-start" accept="image/*" style="display:none;" />
-              </div>
-
-              <div class="photo-slot" id="photo-slot-current">
-                <img id="photo-img-current" src="" style="display:none; width:100%; height:100%; object-fit:cover;" />
-                <div id="photo-placeholder-current" style="text-align:center; padding:10px;">
-                  <span style="font-size:1.6rem; display:block;">✨</span>
-                  <span class="photo-slot-label">Current Week</span>
-                  <span style="font-size:0.65rem; color:var(--muted); display:block;">Tap to update</span>
+                <div class="photo-slot" id="photo-slot-current">
+                  <img id="photo-img-current" src="" style="display:none; width:100%; height:100%; object-fit:cover;" alt="Current checkin" />
+                  <div id="photo-placeholder-current" style="text-align:center; padding:10px;">
+                    <span style="font-size:1.6rem; display:block;">✨</span>
+                    <span class="photo-slot-label">Current Week</span>
+                    <span style="font-size:0.65rem; color:var(--muted); display:block;">Tap to update</span>
+                  </div>
+                  <input type="file" id="photo-input-current" accept="image/*" style="display:none;" />
                 </div>
-                <input type="file" id="photo-input-current" accept="image/*" style="display:none;" />
               </div>
+              <p style="font-size:0.75rem; color:var(--muted); margin:10px 0 0 0; text-align:center;">Photos are stored solely on this device's memory. Never uploaded to any server or cloud.</p>
             </div>
-            <p style="font-size:0.72rem; color:var(--muted); margin:8px 0 0 0; text-align:center;">Photos are stored solely on this device's memory. Never uploaded to any server or cloud.</p>
-          </div>
-
-          <!-- Measurement History with Delete/Undo -->
-          <div class="card" style="padding:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <strong style="font-size:0.9rem;">Weight History</strong>
-              <span style="font-size:0.75rem; color:var(--muted);" id="progress-history-count">0 entries</span>
-            </div>
-            <div id="progress-history-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto;">
-              <!-- History items with delete buttons rendered dynamically -->
-            </div>
-          </div>
-
-          <!-- Retake Button -->
-          <div style="text-align:center; margin-top:8px; margin-bottom:80px;">
-            <button id="progress-retake-btn" class="ghost-btn" type="button" style="font-size:0.78rem; padding:6px 12px;">
-              ⚙️ Retake Environment Setup
-            </button>
           </div>
         </div>
+
+        <!-- Sheet 5: Commitment Sheet -->
+        <div id="sheet-commitment" class="progress-drilldown-sheet" aria-hidden="true">
+          <div class="progress-drilldown-content">
+            <div class="progress-drilldown-header">
+              <h3 style="margin:0; font-size:1.15rem;">Commitment Deposit Status</h3>
+              <button class="ghost-btn close-sheet-btn" type="button" onclick="closeDrilldownSheet('sheet-commitment')" style="padding:4px 10px; font-size:0.85rem;">✕ Close</button>
+            </div>
+            <div class="card" style="padding:18px; border:1px solid rgba(255,106,0,0.25); background:linear-gradient(135deg, rgba(255,106,0,0.05), transparent);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong style="font-size:0.95rem; color:var(--text);">Trust Pool Balance</strong>
+                  <p style="margin:4px 0 0 0; font-size:0.8rem; color:var(--muted);">Held safely — 100% refunded when you hit your target.</p>
+                </div>
+                <span class="pill" id="progress-deposit-pill">₹0 Held</span>
+              </div>
+              <div id="progress-refund-area" style="margin-top:14px; display:none;">
+                <button id="progress-claim-refund-btn" class="primary-btn" type="button" style="width:100%; padding:12px; font-size:0.88rem; background:#22c55e;">
+                  Claim Target Completion Refund 🎉
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </section>
     </div>
 

@@ -38,7 +38,7 @@ html {
 }
 body {
   margin: 0;
-  padding: clamp(10px, 2.5vw, 20px) 0 calc(96px + env(safe-area-inset-bottom, 0px));
+  padding: calc(clamp(12px, 2.5vw, 20px) + env(safe-area-inset-top, 0px)) 0 calc(96px + env(safe-area-inset-bottom, 0px));
   min-height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
@@ -97,7 +97,7 @@ img { max-width: 100%; display: block; }
 .top-bar .brand strong { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
 .top-bar .brand span { color: var(--muted); font-size: 0.8rem; }
 .top-bar-title { font-size: 1.25rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; margin: 0; }
-.top-bar-avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 122, 0, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.05rem; border: 1px solid rgba(255, 122, 0, 0.25); cursor: pointer; transition: transform 160ms ease; }
+.top-bar-avatar { width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 122, 0, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; border: 1px solid rgba(255, 122, 0, 0.25); cursor: pointer; transition: transform 160ms ease; touch-action: manipulation; }
 .top-bar-avatar:active { transform: scale(0.92); }
 .top-bar-actions { display: flex; gap: 10px; align-items: center; }
 .top-bar-badge { min-width: 34px; height: 34px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,122,0,0.14); color: var(--primary); font-weight: 800; }
@@ -105,18 +105,21 @@ img { max-width: 100%; display: block; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   background: var(--primary);
   color: #fff;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  padding: 6px 14px;
+  min-height: 44px;
+  min-width: 68px;
+  padding: 8px 18px;
   border-radius: 999px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.28);
   transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
   white-space: nowrap;
+  touch-action: manipulation;
 }
 .header-log-pill:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255, 106, 0, 0.35); }
 .header-log-pill:active { transform: scale(0.94); opacity: 0.9; }
@@ -254,7 +257,7 @@ img { max-width: 100%; display: block; }
 .switch input:checked + span::after { transform: translateX(20px); }
 .bottom-nav { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(95vw, 440px); padding: 6px 10px; border-radius: 999px; display: flex; justify-content: space-around; align-items: center; gap: 2px; background: rgba(255,255,255,0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid var(--border); z-index: 20; }
 :root.dark .bottom-nav { background: rgba(17, 24, 39, 0.88); border-color: rgba(255, 255, 255, 0.08); }
-.nav-pill { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; transition: color 160ms ease, transform 160ms ease; }
+.nav-pill { flex: 1; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 4px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; transition: color 160ms ease, transform 160ms ease; touch-action: manipulation; }
 .nav-pill svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; transition: stroke 160ms ease, transform 160ms ease; }
 .nav-pill span { font-size: 0.65rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
 .nav-pill:active { transform: scale(0.92); }
@@ -939,14 +942,15 @@ input, textarea, select,
     width: 96vw;
     padding: 6px 3px;
     gap: 1px;
-    bottom: 10px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   }
   .nav-pill {
-    padding: 5px 0;
+    min-height: 44px;
+    padding: 4px 0;
     font-size: 0.8rem;
   }
   .nav-pill span {
-    font-size: 0.58rem;
+    font-size: 0.62rem;
     letter-spacing: -0.2px;
   }
   .hero-card, .card, .routine-card, .coach-shell, .profile-card, .settings-card {
@@ -2559,4 +2563,154 @@ input, textarea, select,
   background: rgba(255, 255, 255, 0.15);
   border-color: var(--primary);
 }
+
+/* ==========================================================================
+   APPLE HEALTH-STYLE PROGRESS ROOT & DRILL-DOWN STYLES
+   ========================================================================== */
+.progress-root-hero {
+  padding: 24px 20px;
+  border-radius: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+.progress-root-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.progress-root-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.progress-root-weight-display {
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1.15;
+  margin: 6px 0 2px 0;
+}
+.progress-root-delta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 16px;
+}
+.progress-root-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+.progress-root-stat-box {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 8px;
+  text-align: center;
+}
+:root.dark .progress-root-stat-box {
+  background: rgba(255, 255, 255, 0.04);
+}
+.progress-root-stat-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
+.progress-root-stat-value {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+  display: block;
+}
+.progress-nav-group {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: 14px;
+  margin-bottom: 80px;
+  box-shadow: var(--shadow);
+}
+.progress-nav-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 160ms ease;
+  min-height: 52px;
+  text-decoration: none;
+  color: inherit;
+  touch-action: manipulation;
+}
+.progress-nav-row:last-child {
+  border-bottom: none;
+}
+.progress-nav-row:hover {
+  background: rgba(255, 122, 0, 0.04);
+}
+.progress-nav-row:active {
+  background: rgba(255, 122, 0, 0.08);
+}
+.progress-nav-row-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.progress-nav-row-chevron {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+.progress-drilldown-sheet {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1050;
+  align-items: flex-end;
+  justify-content: center;
+}
+.progress-drilldown-sheet.open {
+  display: flex;
+}
+.progress-drilldown-content {
+  width: min(500px, 100vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--card);
+  border-top-left-radius: 26px;
+  border-top-right-radius: 26px;
+  padding: 20px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+}
+.progress-drilldown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
 

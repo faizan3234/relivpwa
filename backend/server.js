@@ -817,9 +817,12 @@ const RESTORE_MAX_RUPEES = Number(process.env.RESTORE_MAX_RUPEES || 25);
 // the longer the run you are buying back, the more it costs, capped so it never
 // becomes a genuinely painful amount.
 function restorePriceRupees(lostStreak) {
-  const n = Number(lostStreak);
-  if (!Number.isFinite(n)) return RESTORE_MIN_RUPEES;
-  return Math.min(RESTORE_MAX_RUPEES, Math.max(RESTORE_MIN_RUPEES, Math.floor(n)));
+  const days = Number(lostStreak) || 0;
+  if (days <= 5) return 5;
+  if (days <= 12) return 10;
+  if (days <= 20) return 15;
+  if (days <= 30) return 20;
+  return 25;
 }
 
 const RESTORES_FILE = path.join(__dirname, 'restores.json');
@@ -950,87 +953,214 @@ app.post('/api/streak/restore/claim', (req, res) => {
 });
 
 // ==========================================================================
-// SERVER-AUTHORITATIVE GOAL VERIFICATION ENGINE
+// SERVER-AUTHORITATIVE GOAL & MEASUREMENT PERSISTENCE
 // ==========================================================================
-function evaluateGoalIntegrity(measurements, targetWeight, goalType) {
-  if (!targetWeight || isNaN(targetWeight)) {
-    return { eligible: false, status: 'not_eligible', reason: 'No target goal configured.' };
+const MEASUREMENTS_FILE = path.join(__dirname, 'measurements.json');
+const USER_PROFILES_FILE = path.join(__dirname, 'user_profiles.json');
+const KIOSK_SECRET = process.env.RELIV_KIOSK_SECRET || 'reliv_kiosk_secure_2026';
+
+function loadMeasurementsStore() {
+  const raw = readJsonSafe(MEASUREMENTS_FILE, null, 'measurements');
+  return (raw && typeof raw === 'object') ? raw : {};
+}
+
+function saveMeasurementsStore(data) {
+  return writeJsonAtomic(MEASUREMENTS_FILE, data, 'measurements');
+}
+
+function loadProfilesStore() {
+  const raw = readJsonSafe(USER_PROFILES_FILE, null, 'user_profiles');
+  return (raw && typeof raw === 'object') ? raw : {};
+}
+
+function saveProfilesStore(data) {
+  return writeJsonAtomic(USER_PROFILES_FILE, data, 'user_profiles');
+}
+
+const measurementsStore = loadMeasurementsStore();
+const userProfilesStore = loadProfilesStore();
+
+// Sync user target & goal profile to server
+app.post('/api/user/profile', (req, res) => {
+  const { userId, targetWeight, goalType, startWeight } = req.body || {};
+  if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
+
+  userProfilesStore[userId] = {
+    userId,
+    targetWeight: Number(targetWeight) || null,
+    goalType: goalType || 'weight_maintenance',
+    startWeight: Number(startWeight) || null,
+    updatedAt: Date.now()
+  };
+  saveProfilesStore(userProfilesStore);
+  res.json({ ok: true, profile: userProfilesStore[userId] });
+});
+
+// Single unified measurement creation endpoint
+app.post('/api/measurements', (req, res) => {
+  const { userId, weight, waist, kioskToken } = req.body || {};
+  const numWeight = Number(weight);
+
+  if (!userId || isNaN(numWeight) || numWeight <= 0) {
+    return res.status(400).json({ ok: false, error: 'Valid userId and weight (kg) required' });
   }
-  if (!Array.isArray(measurements) || measurements.length < 3) {
+
+  if (!measurementsStore[userId]) measurementsStore[userId] = [];
+  const userLogs = measurementsStore[userId];
+
+  // 1. Kiosk attestation verification: genuine server-verified secret token
+  const isKioskVerified = Boolean(kioskToken && kioskToken === KIOSK_SECRET);
+  const source = isKioskVerified ? 'kiosk' : 'manual';
+
+  // 2. Trend delta calculation
+  const cleanLogs = userLogs.filter(l => l && !isNaN(Number(l.weight)));
+  let delta = 0;
+  let isLargeChange = false;
+  let needsConfirmation = false;
+  let verificationState = isKioskVerified ? 'verified' : 'verified';
+
+  if (cleanLogs.length > 0 && !isKioskVerified) {
+    const recent5 = cleanLogs.slice(-5).map(l => Number(l.weight)).sort((a, b) => a - b);
+    const median = recent5[Math.floor(recent5.length / 2)];
+    const prevWeight = Number(cleanLogs[cleanLogs.length - 1].weight);
+    const deltaMedian = Math.abs(numWeight - median);
+    const deltaPrev = Math.abs(numWeight - prevWeight);
+    delta = Number(Math.max(deltaMedian, deltaPrev).toFixed(1));
+
+    if (delta > 5.0) {
+      isLargeChange = true;
+      needsConfirmation = true;
+      verificationState = 'needs_confirmation';
+    } else if (delta > 2.0) {
+      isLargeChange = false;
+      needsConfirmation = true;
+      verificationState = 'needs_confirmation';
+    }
+
+    // 3. Anomaly Resolution: If previous was needs_confirmation and this new entry on a different day is consistent
+    const lastLog = cleanLogs[cleanLogs.length - 1];
+    if (lastLog.verificationState === 'needs_confirmation' && !needsConfirmation) {
+      const lastDay = new Date(lastLog.timestamp).toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
+      if (lastDay !== today) {
+        lastLog.verificationState = 'trend_confirmed';
+      }
+    }
+  }
+
+  const newRecord = {
+    id: `m_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    weight: numWeight,
+    waist: Number(waist) || null,
+    source,
+    verificationState,
+    timestamp: Date.now(),
+    dateStr: new Date().toISOString().split('T')[0]
+  };
+
+  userLogs.push(newRecord);
+  saveMeasurementsStore(measurementsStore);
+
+  res.json({
+    ok: true,
+    measurement: newRecord,
+    verification: {
+      needsConfirmation,
+      isLargeChange,
+      delta,
+      verificationState
+    }
+  });
+});
+
+// Fetch server-persisted measurement history
+app.get('/api/measurements', (req, res) => {
+  const { userId } = req.query || {};
+  if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
+  res.json({ ok: true, measurements: measurementsStore[userId] || [] });
+});
+
+// Server-authoritative integrity evaluation helper
+function evaluateGoalIntegrityServer(userId) {
+  const profile = userProfilesStore[userId];
+  const targetWeight = Number(profile?.targetWeight);
+  const goalType = profile?.goalType;
+
+  if (!profile || !targetWeight || isNaN(targetWeight)) {
+    return { eligible: false, status: 'not_eligible', reason: 'Target goal not configured on server.' };
+  }
+
+  const rawLogs = (measurementsStore[userId] || []).filter(l => l && !isNaN(Number(l.weight)));
+  if (rawLogs.length === 0) {
+    return { eligible: false, status: 'not_eligible', reason: 'No measurement check-ins recorded on server.' };
+  }
+
+  // 1. Group measurements by distinct calendar days (YYYY-MM-DD)
+  const now = Date.now();
+  const cutoff = now - (14 * 24 * 60 * 60 * 1000); // 14-day evaluation window
+  const distinctDaysMap = new Map();
+
+  for (const m of rawLogs) {
+    const ts = Number(m.timestamp || (m.date ? new Date(m.date).getTime() : 0));
+    if (ts < cutoff) continue;
+    const dayStr = m.dateStr || new Date(ts).toISOString().split('T')[0];
+    if (!distinctDaysMap.has(dayStr) || m.source === 'kiosk') {
+      distinctDaysMap.set(dayStr, m);
+    }
+  }
+
+  const distinctDays = Array.from(distinctDaysMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  // Require at least 3 distinct calendar days
+  if (distinctDays.length < 3) {
     return {
       eligible: false,
       status: 'needs_confirmation',
-      reason: 'Goal verification requires at least 3 qualifying check-ins across a 7-day confirmation window.'
+      reason: `Requires check-ins across at least 3 distinct calendar days within the last 14 days (found ${distinctDays.length}).`
     };
   }
 
-  // Check for any unresolved anomalous measurements
-  const hasUnconfirmed = measurements.some(m => m && m.verificationState === 'needs_confirmation');
+  // 2. Check for unresolved anomalous measurements
+  const hasUnconfirmed = distinctDays.some(m => m.verificationState === 'needs_confirmation');
   if (hasUnconfirmed) {
     return {
       eligible: false,
       status: 'needs_confirmation',
-      reason: 'Recent measurements are marked "Needs confirmation". Log a few more check-ins to verify.'
+      reason: 'Recent measurements are marked "Needs confirmation". Log a few more check-ins to verify trend.'
     };
   }
 
-  // Sort measurements by timestamp descending
-  const sorted = [...measurements].filter(m => m && !isNaN(Number(m.weight))).sort((a, b) => {
-    return new Date(b.date || b.timestamp || 0).getTime() - new Date(a.date || a.timestamp || 0).getTime();
-  });
-
-  if (sorted.length < 3) {
-    return {
-      eligible: false,
-      status: 'needs_confirmation',
-      reason: 'Need at least 3 valid measurements to verify goal progress.'
-    };
-  }
-
-  const recent7Days = sorted.filter(m => {
-    const timeDiff = Date.now() - new Date(m.date || m.timestamp || 0).getTime();
-    return timeDiff <= 7 * 24 * 60 * 60 * 1000;
-  });
-
-  if (recent7Days.length < 3) {
-    return {
-      eligible: false,
-      status: 'needs_confirmation',
-      reason: 'Goal persistence requires at least 3 check-ins across the last 7 days.'
-    };
-  }
-
-  // Direction check
-  const startWeight = Number(sorted[sorted.length - 1].weight);
+  // 3. Direction & Target Tolerance Check: majority must be within target tolerance
+  const startWeight = Number(profile.startWeight || rawLogs[0].weight);
   const isLoss = goalType === 'fat_loss' || targetWeight < startWeight;
   let qualifiedCount = 0;
-  for (const m of recent7Days) {
+
+  for (const m of distinctDays) {
     const w = Number(m.weight);
     if (isLoss && w <= targetWeight + 0.5) qualifiedCount++;
     else if (!isLoss && w >= targetWeight - 0.5) qualifiedCount++;
   }
 
-  if (qualifiedCount >= Math.ceil(recent7Days.length / 2)) {
+  if (qualifiedCount >= Math.ceil(distinctDays.length / 2)) {
     return {
       eligible: true,
       status: 'eligible',
-      reason: 'Goal achievement verified across 7-day confirmation window.'
+      reason: `Goal achievement verified across ${distinctDays.length} distinct check-in days.`
     };
   }
 
   return {
     eligible: false,
     status: 'not_eligible',
-    reason: `Measurements do not yet reflect persistent target of ${targetWeight} kg.`
+    reason: `Measurements do not yet reflect persistent target of ${targetWeight} kg across distinct check-ins.`
   };
 }
 
-// Check refund eligibility with server-side authority
+// Server-authoritative refund status verification
 app.post('/api/goal/verify-refund', (req, res) => {
-  const { userId, targetWeight, goalType, measurements } = req.body || {};
+  const { userId } = req.body || {};
   if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
 
-  // 1. Check if user has refundable commitment deposits
   const refundable = restores.paid.filter(p => p.userId === userId && !p.refundedAt);
   const totalBalance = refundable.reduce((sum, p) => sum + (p.rupees || 0), 0);
 
@@ -1044,9 +1174,8 @@ app.post('/api/goal/verify-refund', (req, res) => {
     });
   }
 
-  // 2. Evaluate server-authoritative measurement integrity
-  const integrity = evaluateGoalIntegrity(measurements, Number(targetWeight), goalType);
-  return res.json({
+  const integrity = evaluateGoalIntegrityServer(userId);
+  res.json({
     ok: true,
     eligible: integrity.eligible,
     status: integrity.status,
@@ -1056,21 +1185,19 @@ app.post('/api/goal/verify-refund', (req, res) => {
   });
 });
 
-// Target completion refund endpoint for commitment money
+// Target completion refund endpoint: 100% SERVER-AUTHORITATIVE
 app.post('/api/streak/restore/refund', async (req, res) => {
-  const { userId, paymentId, targetWeight, goalType, measurements } = req.body || {};
+  const { userId, paymentId } = req.body || {};
   if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
 
-  // Server-authoritative integrity guard: if measurements are sent, verify them before processing
-  if (measurements && Array.isArray(measurements)) {
-    const integrity = evaluateGoalIntegrity(measurements, Number(targetWeight), goalType);
-    if (!integrity.eligible) {
-      return res.status(400).json({
-        ok: false,
-        status: integrity.status,
-        error: `Refund blocked by goal verification engine: ${integrity.reason}`
-      });
-    }
+  // MANDATORY: Server verification must execute against server-persisted records
+  const integrity = evaluateGoalIntegrityServer(userId);
+  if (!integrity.eligible) {
+    return res.status(400).json({
+      ok: false,
+      status: integrity.status,
+      error: `Refund blocked by server goal verification engine: ${integrity.reason}`
+    });
   }
 
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
