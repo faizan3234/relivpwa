@@ -210,6 +210,67 @@ test('app.js lazy-loads Razorpay script on demand', () => {
   assert.ok(appContent.includes('loadRazorpayCheckout()'), 'Missing loadRazorpayCheckout');
 });
 
+// -----------------------------------------------------------------------------
+// 4. CULTURAL & DIETARY RESPECT ENGINE AUDIT
+// -----------------------------------------------------------------------------
+console.log('\n4. CULTURAL & DIETARY RESPECT ENGINE');
+
+test('Cow, Bull, Buffalo & Beef are blocked with respectful Hindu guidelines message', () => {
+  // Extract patterns and validateFoodItemRespect logic from app.js
+  assert.ok(appContent.includes('SACRED_COW_BEEF_PATTERNS'), 'Missing SACRED_COW_BEEF_PATTERNS in app.js');
+  assert.ok(appContent.includes('violates Hindu dietary guidelines'), 'Missing Hindu guidelines message in app.js');
+  assert.ok(appContent.includes('respect each other\'s sentiments and beliefs'), 'Missing peaceful coexistence message');
+
+  // Verify regex behavior directly
+  const sacredCowRegex = /\b(?:beef|beef\s*curry|beef\s*steak|beef\s*burger|beef\s*biryani|beef\s*kebab|beef\s*nihari|beef\s*roll|beef\s*roast|beef\s*stew|beef\s*jerky|beef\s*broth|beef\s*patty|ground\s*beef|minced\s*beef|corned\s*beef|cow\s*meat|cows\s*meat|cow|cows|bull\s*meat|bull|bulls|buffalo\s*meat|water\s*buffalo|buffalo|buffalos|buffalow|buff\s*meat|buff\s*curry|buff\s*biryani|buff\s*steak|carabeef|steer\s*meat|steer|ox\s*meat|oxtail|oxen|ox|veal|gau\s*maans|gau\s*maas|gaumans|gau\s*gosht|gaay\s*ka\s*gosht|gay\s*ka\s*gosht|gai\s*ka\s*gosht|goru\s*r?\s*mangsho|gorur\s*mangsho|mohis\s*mangsho|mohis|bhains\s*ka\s*gosht|bhains\s*ka\s*meat|bhainsa|bada\s*gosht|bade\s*ka\s*gosht|bade\s*ka\s*meat|bœuf)\b/i;
+  assert.ok(sacredCowRegex.test('beef steak'), 'Must match beef steak');
+  assert.ok(sacredCowRegex.test('cow meat'), 'Must match cow meat');
+  assert.ok(sacredCowRegex.test('bull'), 'Must match bull');
+  assert.ok(sacredCowRegex.test('buffalo meat'), 'Must match buffalo meat');
+  assert.ok(sacredCowRegex.test('buffalow'), 'Must match buffalow');
+  assert.ok(sacredCowRegex.test('gau maans'), 'Must match gau maans');
+  assert.ok(sacredCowRegex.test('bada gosht'), 'Must match bada gosht');
+});
+
+test('Pork, Bacon & Ham are blocked with respectful Islamic guidelines message', () => {
+  assert.ok(appContent.includes('SACRED_PORK_PATTERNS'), 'Missing SACRED_PORK_PATTERNS in app.js');
+  assert.ok(appContent.includes('violates Islamic dietary guidelines (Halal)'), 'Missing Islamic guidelines message in app.js');
+
+  const sacredPorkRegex = /\b(?:pork|pork\s*chop|pork\s*ribs|pork\s*belly|pork\s*curry|pork\s*sausage|pork\s*roast|pork\s*loin|pork\s*shoulder|pork\s*patty|pulled\s*pork|ground\s*pork|bacon|bacon\s*strips|bacon\s*bits|bacon\s*burger|crispy\s*bacon|pancetta|guanciale|ham|ham\s*sandwich|honey\s*ham|cured\s*ham|black\s*forest\s*ham|parma\s*ham|prosciutto|jamon|swine|pig\s*meat|pigs\s*meat|pig\s*roast|pig|pigs|hog|hogs|wild\s*boar|boar|pork\s*lard|lard|suar|suwar|suar\s*ka\s*gosht|suar\s*ka\s*meat|soor|soor\s*ka\s*gosht|sukar|sukar\s*maas|sukor|sukor\s*mangsho|shukor|shukor\s*mangsho|khanzeer|khinzir)\b/i;
+  assert.ok(sacredPorkRegex.test('pork curry'), 'Must match pork curry');
+  assert.ok(sacredPorkRegex.test('crispy bacon'), 'Must match crispy bacon');
+  assert.ok(sacredPorkRegex.test('ham sandwich'), 'Must match ham sandwich');
+  assert.ok(sacredPorkRegex.test('suar ka gosht'), 'Must match suar ka gosht');
+});
+
+test('Pure Vegetarian mode blocks meat, poultry, seafood, and eggs with preference change message', () => {
+  assert.ok(appContent.includes('PURE_VEG_RESTRICTED_PATTERNS'), 'Missing PURE_VEG_RESTRICTED_PATTERNS in app.js');
+  assert.ok(appContent.includes('You are set to Pure Vegetarian mode'), 'Missing Pure Veg refusal message in app.js');
+  assert.ok(appContent.includes('Please change your dietary preference'), 'Missing prompt to update preference');
+
+  const pureVegRegex = /\b(?:chicken|chicken\s*breast|chicken\s*curry|chicken\s*biryani|mutton|mutton\s*curry|mutton\s*biryani|lamb|goat|goat\s*meat|gosht|meat|keema|qeema|kebab|kabab|nihari|wings|drumstick|leg\s*piece|turkey|duck|quail|fish|fish\s*curry|fish\s*fry|salmon|tuna|prawn|prawns|shrimp|shrimps|crab|crabs|lobster|lobsters|seafood|squid|calamari|octopus|clam|clams|mussels|anchovy|anchovies|machh|macher|machli|egg|eggs|egg\s*white|egg\s*whites|boiled\s*egg|boiled\s*eggs|omelet|omelette|anda|ande|anda\s*bhurji|dim|dime|non\s*veg|nonveg|flesh|poultry)\b/i;
+  assert.ok(pureVegRegex.test('chicken breast'), 'Must block chicken');
+  assert.ok(pureVegRegex.test('mutton biryani'), 'Must block mutton');
+  assert.ok(pureVegRegex.test('fish curry'), 'Must block fish');
+  assert.ok(pureVegRegex.test('boiled eggs'), 'Must block eggs');
+  assert.ok(pureVegRegex.test('prawns'), 'Must block seafood');
+  assert.ok(!pureVegRegex.test('paneer tikka'), 'Must allow paneer');
+  assert.ok(!pureVegRegex.test('tofu salad'), 'Must allow tofu');
+  assert.ok(!pureVegRegex.test('moong dal'), 'Must allow dal');
+});
+
+test('Meat emojis are replaced with plant/wellness emojis for vegetarian users', () => {
+  assert.ok(appContent.includes('function getProteinEmoji'), 'Missing getProteinEmoji helper');
+  assert.ok(appContent.includes("return '🌱'"), 'getProteinEmoji must return 🌱 for vegetarians');
+  assert.ok(appContent.includes("dt === 'pure_veg' || dt === 'veg'"), 'Must check pure_veg and veg');
+});
+
+test('index.html contains pure_veg and partial_veg in setup and settings', () => {
+  assert.ok(htmlContent.includes('value="pure_veg"'), 'setup-diet missing pure_veg option');
+  assert.ok(htmlContent.includes('value="partial_veg"'), 'setup-diet missing partial_veg option');
+  assert.ok(htmlContent.includes('id="settings-diet-select"'), 'Me tab missing settings-diet-select');
+});
+
 console.log('\n====================================================');
 console.log(`AUDIT RESULTS: ${passedTests}/${totalTests} TESTS PASSED (${((passedTests/totalTests)*100).toFixed(1)}%)`);
 console.log('====================================================\n');

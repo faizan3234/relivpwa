@@ -980,9 +980,9 @@ function saveProfilesStore(data) {
 const measurementsStore = loadMeasurementsStore();
 const userProfilesStore = loadProfilesStore();
 
-// Sync user target & goal profile to server
+// Sync user target, goal & dietary profile to server
 app.post('/api/user/profile', (req, res) => {
-  const { userId, targetWeight, goalType, startWeight } = req.body || {};
+  const { userId, targetWeight, goalType, startWeight, dietType } = req.body || {};
   if (!userId) return res.status(400).json({ ok: false, error: 'userId is required' });
 
   userProfilesStore[userId] = {
@@ -990,6 +990,7 @@ app.post('/api/user/profile', (req, res) => {
     targetWeight: Number(targetWeight) || null,
     goalType: goalType || 'weight_maintenance',
     startWeight: Number(startWeight) || null,
+    dietType: dietType || 'pure_veg',
     updatedAt: Date.now()
   };
   saveProfilesStore(userProfilesStore);

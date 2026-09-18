@@ -598,6 +598,19 @@
               </div>
               <div class="settings-group-row">
                 <div class="settings-row-left">
+                  <span class="settings-row-icon">🥗</span>
+                  <span>Dietary Preference</span>
+                </div>
+                <select id="settings-diet-select" style="padding:4px 8px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.8rem;">
+                  <option value="pure_veg">🌱 Pure Vegetarian</option>
+                  <option value="veg">🥦 Vegetarian</option>
+                  <option value="partial_veg">🥗 Partial Vegetarian</option>
+                  <option value="omni">🍱 Omnivore</option>
+                  <option value="nonveg">🍗 Non-Vegetarian</option>
+                </select>
+              </div>
+              <div class="settings-group-row">
+                <div class="settings-row-left">
                   <span class="settings-row-icon">🕢</span>
                   <div>
                     <span style="display:block;">Typical Wake-up Time</span>
@@ -1477,8 +1490,10 @@
           <div class="form-group" style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-weight:600; font-size:0.9rem;">Diet Preference</label>
             <select id="setup-diet" style="padding:10px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <option value="pure_veg">🌱 Pure Vegetarian (No Meat, Fish, or Eggs)</option>
+              <option value="veg">🥦 Vegetarian (Dairy & Plant-Based)</option>
+              <option value="partial_veg">🥗 Partial Vegetarian / Eggetarian</option>
               <option value="omni">🍱 Omnivore</option>
-              <option value="veg">🥦 Vegetarian</option>
               <option value="nonveg">🍗 Non-Vegetarian (High Protein)</option>
             </select>
           </div>

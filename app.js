@@ -540,6 +540,7 @@ const els = {
   setupWeight: document.getElementById('setup-weight'),
   setupTarget: document.getElementById('setup-target'),
   setupDiet: document.getElementById('setup-diet'),
+  settingsDietSelect: document.getElementById('settings-diet-select'),
   setupSkinType: document.getElementById('setup-skin-type'),
   setupWakeUpTime: document.getElementById('setup-wakeup-time'),
   setupWeightFieldsContainer: document.getElementById('setup-weight-fields-container'),
@@ -575,7 +576,79 @@ const FOOD_LOG_INTENT_PATTERNS = [
   /\b(?:খেয়েছি|খাইছি|খেলাম|খাবো|খাচ্ছি|যোগ|লগ|রেকর্ড|সংরক্ষণ|খাইলাম|খেয়ে\s*ফেললাম)\b/i,
   /\b(?:khe\s*chilam|kheye\s*chilam|kheyelam|khabo|khailam|kheye\s*fellam|kheyechi)\b/i
 ];
-const BEEF_BLOCK_PATTERNS = /\b(?:beef|beef\s*curry|beef\s*steak|beef\s*burger|beef\s*biryani|beef\s*kebab|beef\s*nihari|cow\s*meat|gau\s*maans|gaay\s*ka\s*gosht|goru\s*r?\s*mangsho|gorur\s*mangsho|bœuf|steer\s*meat)\b/i;
+// =============================================================================
+// CULTURAL & RELIGIOUS RESPECT + DIETARY SAFEGUARD ENGINE
+// =============================================================================
+// 1. Hindu Sacred Dietary Guidelines: Cow, Bull, Buffalo, Beef, Steer, Veal, Ox
+const SACRED_COW_BEEF_PATTERNS = /\b(?:beef|beef\s*curry|beef\s*steak|beef\s*burger|beef\s*biryani|beef\s*kebab|beef\s*nihari|beef\s*roll|beef\s*roast|beef\s*stew|beef\s*jerky|beef\s*broth|beef\s*patty|ground\s*beef|minced\s*beef|corned\s*beef|cow\s*meat|cows\s*meat|cow|cows|bull\s*meat|bull|bulls|buffalo\s*meat|water\s*buffalo|buffalo|buffalos|buffalow|buff\s*meat|buff\s*curry|buff\s*biryani|buff\s*steak|carabeef|steer\s*meat|steer|ox\s*meat|oxtail|oxen|ox|veal|gau\s*maans|gau\s*maas|gaumans|gau\s*gosht|gaay\s*ka\s*gosht|gay\s*ka\s*gosht|gai\s*ka\s*gosht|goru\s*r?\s*mangsho|gorur\s*mangsho|mohis\s*mangsho|mohis|bhains\s*ka\s*gosht|bhains\s*ka\s*meat|bhainsa|bada\s*gosht|bade\s*ka\s*gosht|bade\s*ka\s*meat|bœuf)\b/i;
+
+// 2. Islamic Dietary Guidelines (Halal): Pork, Bacon, Ham, Swine, Pig, Hog, Lard
+const SACRED_PORK_PATTERNS = /\b(?:pork|pork\s*chop|pork\s*ribs|pork\s*belly|pork\s*curry|pork\s*sausage|pork\s*roast|pork\s*loin|pork\s*shoulder|pork\s*patty|pulled\s*pork|ground\s*pork|bacon|bacon\s*strips|bacon\s*bits|bacon\s*burger|crispy\s*bacon|pancetta|guanciale|ham|ham\s*sandwich|honey\s*ham|cured\s*ham|black\s*forest\s*ham|parma\s*ham|prosciutto|jamon|swine|pig\s*meat|pigs\s*meat|pig\s*roast|pig|pigs|hog|hogs|wild\s*boar|boar|pork\s*lard|lard|suar|suwar|suar\s*ka\s*gosht|suar\s*ka\s*meat|soor|soor\s*ka\s*gosht|sukar|sukar\s*maas|sukor|sukor\s*mangsho|shukor|shukor\s*mangsho|khanzeer|khinzir)\b/i;
+
+// 3. Pure Vegetarian Restricted: All meat, poultry, seafood, fish, and eggs
+const PURE_VEG_RESTRICTED_PATTERNS = /\b(?:chicken|chicken\s*breast|chicken\s*curry|chicken\s*biryani|mutton|mutton\s*curry|mutton\s*biryani|lamb|goat|goat\s*meat|gosht|meat|keema|qeema|kebab|kabab|nihari|wings|drumstick|leg\s*piece|turkey|duck|quail|fish|fish\s*curry|fish\s*fry|salmon|tuna|prawn|prawns|shrimp|shrimps|crab|crabs|lobster|lobsters|seafood|squid|calamari|octopus|clam|clams|mussels|anchovy|anchovies|machh|macher|machli|egg|eggs|egg\s*white|egg\s*whites|boiled\s*egg|boiled\s*eggs|omelet|omelette|anda|ande|anda\s*bhurji|dim|dime|non\s*veg|nonveg|flesh|poultry)\b/i;
+
+// 4. Vegetarian Restricted: Meat, poultry, seafood (allows dairy)
+const VEG_RESTRICTED_PATTERNS = /\b(?:chicken|chicken\s*breast|chicken\s*curry|chicken\s*biryani|mutton|mutton\s*curry|mutton\s*biryani|lamb|goat|goat\s*meat|gosht|meat|keema|qeema|kebab|kabab|nihari|wings|drumstick|leg\s*piece|turkey|duck|quail|fish|fish\s*curry|fish\s*fry|salmon|tuna|prawn|prawns|shrimp|shrimps|crab|crabs|lobster|lobsters|seafood|squid|calamari|octopus|clam|clams|mussels|anchovy|anchovies|machh|macher|machli|non\s*veg|nonveg|flesh|poultry)\b/i;
+
+// Backward-compatible alias
+const BEEF_BLOCK_PATTERNS = SACRED_COW_BEEF_PATTERNS;
+
+function getProteinEmoji() {
+  const dt = (typeof state !== 'undefined' && state?.dietType) ? state.dietType : 'pure_veg';
+  if (dt === 'pure_veg' || dt === 'veg' || dt === 'partial_veg') {
+    return '🌱';
+  }
+  return '🥩';
+}
+
+function validateFoodItemRespect(foodName) {
+  if (!foodName || typeof foodName !== 'string') return { valid: true };
+  const text = foodName.toLowerCase().trim();
+
+  // 1. Universal Sacred Check: Cow / Bull / Buffalo / Beef (Hindu guidelines)
+  if (SACRED_COW_BEEF_PATTERNS.test(text)) {
+    return {
+      valid: false,
+      reason: 'hindu_guidelines',
+      message: '🙏 Sorry, but logging beef, cow, bull, or buffalo violates Hindu dietary guidelines. At Reliv, we want to be in a peaceful environment and respect each other\'s sentiments and beliefs.'
+    };
+  }
+
+  // 2. Universal Sacred Check: Pork / Bacon / Ham (Islamic guidelines - Halal)
+  if (SACRED_PORK_PATTERNS.test(text)) {
+    return {
+      valid: false,
+      reason: 'islamic_guidelines',
+      message: '🙏 Sorry, but logging pork, bacon, or ham violates Islamic dietary guidelines (Halal). At Reliv, we want to be in a peaceful environment and respect each other\'s sentiments and beliefs.'
+    };
+  }
+
+  // 3. User Preference Check: Pure Vegetarian
+  const dt = (typeof state !== 'undefined' && state?.dietType) ? state.dietType : 'nonveg';
+  if (dt === 'pure_veg') {
+    if (PURE_VEG_RESTRICTED_PATTERNS.test(text)) {
+      return {
+        valid: false,
+        reason: 'pure_veg_violation',
+        message: '🌱 You are set to Pure Vegetarian mode. Meat, poultry, seafood, and eggs cannot be logged under this preference. Please change your dietary preference in Me > Goal & Body Targets if you wish to log non-vegetarian food.'
+      };
+    }
+  }
+
+  // 4. User Preference Check: Vegetarian (allows dairy, no meat/fish/poultry)
+  if (dt === 'veg') {
+    if (VEG_RESTRICTED_PATTERNS.test(text)) {
+      return {
+        valid: false,
+        reason: 'veg_violation',
+        message: '🥦 You are set to Vegetarian mode. Meat, poultry, and seafood cannot be logged under this preference. Please change your dietary preference in Me > Goal & Body Targets if you wish to log non-vegetarian food.'
+      };
+    }
+  }
+
+  return { valid: true };
+}
 
 let voiceRecorder = null;
 let voiceChunks = [];
@@ -1196,7 +1269,7 @@ function renderHistoricalLogs() {
       </div>
       <div style="display:flex; gap:12px; font-size:0.78rem; color:var(--muted); margin-top:4px;">
         <span>🔥 <strong style="color:var(--text);">${log.calories || 0}</strong> kcal</span>
-        <span>🥩 <strong style="color:var(--text);">${log.protein || 0}</strong>g protein</span>
+        <span>${getProteinEmoji()} <strong style="color:var(--text);">${log.protein || 0}</strong>g protein</span>
         <span>💧 <strong style="color:var(--text);">${((log.hydration || 0) / 1000).toFixed(1)}</strong>L water</span>
       </div>
       <div style="font-size:0.74rem; color:var(--muted); margin-top:4px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -1277,6 +1350,14 @@ function undoLastHydrationLog() {
 
 function logFoodEntry(entry, options = {}) {
   if (!entry || !entry.name) return false;
+
+  // Cultural, religious and dietary respect guard
+  const validation = validateFoodItemRespect(entry.name);
+  if (!validation.valid) {
+    showToast(validation.message, null, null, 6000);
+    return false;
+  }
+
   const fromChat = Boolean(options.fromChat);
   if (!options.skipDuplicateCheck && !confirmFoodLog(entry, fromChat)) {
     if (fromChat) {
@@ -1573,6 +1654,10 @@ function applyQuickCoachCommand(message) {
       trackerName = 'Daily Leg Pain Log';
       xp = 20;
     } else if (isLegPiece) {
+      if (state.dietType === 'pure_veg' || state.dietType === 'veg') {
+        showToast('🌱 Chicken cannot be tracked in Vegetarian mode. Please update your dietary preference in Goal & Body Targets if you eat non-veg.');
+        return null;
+      }
       icon = '🍗';
       category = 'food';
       calories = 220;
@@ -1726,7 +1811,7 @@ function applyQuickCoachCommand(message) {
     state.targetProtein = newProtein;
     updates.push(`Protein target updated\n${prevProtein} g → ${newProtein} g\n\nYour daily plan has been recalculated.`);
     actionCard = {
-      icon: '🥩',
+      icon: getProteinEmoji(),
       title: `Protein target: ${prevProtein} g → ${newProtein} g`,
       canUndo: true,
       undoAction: { type: 'protein', prevVal: prevProtein }
@@ -3168,7 +3253,7 @@ function bindEvents() {
       const heightVal = (els.setupHeight?.value || '').trim();
       const weightVal = els.setupWeight?.value ? Number(els.setupWeight.value) : null;
       const targetWeightVal = els.setupTarget?.value ? Number(els.setupTarget.value) : null;
-      const dietVal = els.setupDiet?.value || 'nonveg';
+      const dietVal = els.setupDiet?.value || 'pure_veg';
       const skinTypeVal = els.setupSkinType?.value || 'oily';
       const wakeUpTimeVal = els.setupWakeUpTime?.value || '07:00';
 
@@ -3216,6 +3301,7 @@ function bindEvents() {
       state.age = ageVal;
       state.height = heightVal;
       state.dietType = dietVal;
+      if (els.settingsDietSelect) els.settingsDietSelect.value = dietVal;
       state.skinType = skinTypeVal;
       state.wakeUpTime = wakeUpTimeVal;
       state.setupComplete = true;
@@ -3639,6 +3725,26 @@ function parseLocalFoodIntake(text) {
     });
   }
 
+  if (els.settingsDietSelect) {
+    els.settingsDietSelect.value = state.dietType || 'pure_veg';
+    els.settingsDietSelect.addEventListener('change', (e) => {
+      const newDiet = e.target.value;
+      state.dietType = newDiet;
+      localStorage.setItem('relix-diet', newDiet);
+      if (els.setupDiet) els.setupDiet.value = newDiet;
+      saveState();
+      refreshTrackerViews();
+      renderDashboard();
+      renderRoutine();
+      renderProfile();
+      if (typeof syncUserProfileToServer === 'function') {
+        syncUserProfileToServer({ dietType: newDiet });
+      }
+      const dietName = newDiet === 'pure_veg' ? 'Pure Vegetarian' : newDiet === 'veg' ? 'Vegetarian' : newDiet === 'partial_veg' ? 'Partial Vegetarian' : newDiet === 'omni' ? 'Omnivore' : 'Non-Vegetarian';
+      showToast(`🥗 Dietary preference updated: ${dietName}`);
+    });
+  }
+
   if (els.pauseRemindersButton) {
     els.pauseRemindersButton.addEventListener('click', toggleAllReminders);
   }
@@ -3972,7 +4078,7 @@ function renderDashboard() {
       nextBtn.textContent = `Log ${timeCtx.nextMealType}`;
       nextBtn.onclick = () => openQuickLogModal('meal');
     } else if (state.consumedProtein < (state.targetProtein * 0.7)) {
-      if (nextIcon) nextIcon.textContent = '🥩';
+      if (nextIcon) nextIcon.textContent = getProteinEmoji();
       if (nextTitle) nextTitle.textContent = 'Hit Protein Target';
       if (nextDesc) nextDesc.textContent = `${state.consumedProtein} / ${state.targetProtein}g protein logged. Add a high-protein snack.`;
       nextBtn.textContent = 'Log Protein';
@@ -4012,7 +4118,7 @@ function renderDashboard() {
       items = [
         { id: 'water', label: 'Hydration & Satiety Flush', done: waterDone, icon: '💧' },
         { id: 'meal', label: 'Calorie Deficit Check', done: mealDone, icon: '🥗' },
-        { id: 'protein', label: `Protein Satiety Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: '🥩' }
+        { id: 'protein', label: `Protein Satiety Target (${state.consumedProtein}/${state.targetProtein}g)`, done: proDone, icon: getProteinEmoji() }
       ];
       if (trackWorkouts) {
         items.push({ id: 'movement', label: 'Daily Movement / Cardio', done: completedCust.includes('movement') || routineDone, icon: '🏃' });
@@ -4312,29 +4418,86 @@ function renderCloseTheGap() {
     
     if (!isCalOver) {
       let suggestionsHTML = '';
+      const isPureVeg = state.dietType === 'pure_veg';
+      const isVeg = state.dietType === 'veg';
+      const isPartialVeg = state.dietType === 'partial_veg';
+
       if (state.foodFrequencyDetails && Object.keys(state.foodFrequencyDetails).length >= 3) {
-        const topFoods = Object.values(state.foodFrequencyDetails).slice(0, 3);
-        suggestionsHTML = topFoods.map(f => `
-          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-            <div>⭐ <strong>${f.name}</strong>: ~${f.calories} kcal | ${f.protein}g protein</div>
-            <button class="primary-btn log-suggested-btn" data-name="${f.name}" data-cal="${f.calories}" data-pro="${f.protein}" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
-          </div>
-        `).join('');
-      } else {
-        suggestionsHTML = `
-          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-            <div>🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein</div>
-            <button class="primary-btn log-suggested-btn" data-name="3 Boiled Egg Whites" data-cal="50" data-pro="12" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
-          </div>
-          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-            <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
-            <button class="primary-btn log-suggested-btn" data-name="Cucumber & Curd Salad" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
-          </div>
-          <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-            <div>🍗 <strong>Grilled Breast Chicken (150g)</strong>: ~165 kcal | 31g protein</div>
-            <button class="primary-btn log-suggested-btn" data-name="Grilled Breast Chicken" data-cal="165" data-pro="31" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
-          </div>
-        `;
+        const topFoods = Object.values(state.foodFrequencyDetails)
+          .filter(f => f && validateFoodItemRespect(f.name).valid)
+          .slice(0, 3);
+        if (topFoods.length >= 2) {
+          suggestionsHTML = topFoods.map(f => `
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>⭐ <strong>${escapeHtml(f.name)}</strong>: ~${f.calories} kcal | ${f.protein}g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="${escapeHtml(f.name)}" data-cal="${f.calories}" data-pro="${f.protein}" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+          `).join('');
+        }
+      }
+
+      if (!suggestionsHTML) {
+        if (isPureVeg) {
+          suggestionsHTML = `
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🧀 <strong>Paneer Cubes (100g)</strong>: ~260 kcal | 18g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Paneer Cubes (100g)" data-cal="260" data-pro="18" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Cucumber & Curd Salad" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🌱 <strong>Soya Chunks / Tofu (100g)</strong>: ~140 kcal | 25g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Soya Chunks (100g)" data-cal="140" data-pro="25" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+          `;
+        } else if (isVeg) {
+          suggestionsHTML = `
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🧀 <strong>Paneer Cubes (100g)</strong>: ~260 kcal | 18g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Paneer Cubes (100g)" data-cal="260" data-pro="18" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Cucumber & Curd Salad" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🌱 <strong>Sprouted Moong Dal (150g)</strong>: ~130 kcal | 12g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Sprouted Moong Dal (150g)" data-cal="130" data-pro="12" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+          `;
+        } else if (isPartialVeg) {
+          suggestionsHTML = `
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="3 Boiled Egg Whites" data-cal="50" data-pro="12" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Cucumber & Curd Salad" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🧀 <strong>Paneer Cubes (100g)</strong>: ~260 kcal | 18g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Paneer Cubes (100g)" data-cal="260" data-pro="18" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+          `;
+        } else {
+          suggestionsHTML = `
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥚 <strong>3 Boiled Egg Whites</strong>: ~50 kcal | 12g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="3 Boiled Egg Whites" data-cal="50" data-pro="12" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🥗 <strong>Cucumber & Curd Salad (200g)</strong>: ~110 kcal | 8g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Cucumber & Curd Salad" data-cal="110" data-pro="8" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+            <div style="background:rgba(17,17,17,0.03); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>🍗 <strong>Grilled Breast Chicken (150g)</strong>: ~165 kcal | 31g protein</div>
+              <button class="primary-btn log-suggested-btn" data-name="Grilled Breast Chicken" data-cal="165" data-pro="31" type="button" style="font-size:0.75rem; padding:6px 10px; border-radius:8px; line-height:1; border:none; box-shadow:none;">+ Log</button>
+            </div>
+          `;
+        }
       }
 
       html += `
@@ -4932,7 +5095,7 @@ function renderRoutine() {
     priorities = [
       { id: 'simple_hyd', title: 'Stay hydrated through the day', sub: 'Sip water steadily', icon: '💧' },
       { id: 'simple_meal1', title: 'Eat something nourishing', sub: 'Include a good protein source', icon: '🥗' },
-      { id: 'simple_pro', title: 'Protein-rich food', sub: 'Eggs, paneer, chicken, lentils, or tofu', icon: '🥩' },
+      { id: 'simple_pro', title: 'Protein-rich food', sub: (state.dietType === 'pure_veg' ? 'Paneer, tofu, lentils, soya chunks, or curd' : state.dietType === 'veg' ? 'Paneer, lentils, tofu, dairy, or sprouts' : 'Eggs, paneer, chicken, lentils, or tofu'), icon: getProteinEmoji() },
       { id: 'simple_move', title: 'Daily movement & fresh air', sub: movementDone ? 'Completed today ✓' : 'Light walk, stretch, or gym session', icon: '🚶' }
     ];
   } else if (state.dayAdjustment === 'missed_meals' || (state.consumedCalories === 0 && nowHour >= 15)) {
@@ -4940,14 +5103,14 @@ function renderRoutine() {
     priorities = [
       { id: 'skip_hyd', title: 'Hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' },
       { id: 'skip_nourish', title: 'Eat something nourishing', sub: 'Wholesome meal when you can', icon: '🥗' },
-      { id: 'skip_pro', title: 'Protein-rich food', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
+      { id: 'skip_pro', title: 'Protein-rich food', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: getProteinEmoji() },
       { id: 'skip_work', title: 'Movement — optional today', sub: movementDone ? 'Completed today ✓' : 'Rest day · listen to your body', icon: '🏋️' }
     ];
   } else if (style === 'two_meals' || style === '2_meals') {
     // Meal 1 / Meal 2: zero breakfast/lunch terminology
     priorities = [
       { id: 'meal1', title: 'Meal 1 fuel', sub: 'High-protein substantial nourishment', icon: '🍽️' },
-      { id: 'meal2', title: 'Meal 2 target', sub: 'Complete daily nutritional benchmark', icon: '🥩' },
+      { id: 'meal2', title: 'Meal 2 target', sub: 'Complete daily nutritional benchmark', icon: (state.dietType === 'pure_veg' || state.dietType === 'veg' ? '🍲' : '🍽️') },
       { id: 'm2_work', title: 'Daily Movement / Training', sub: movementSub, icon: '🏋️' },
       { id: 'm2_hyd', title: 'Daily hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' }
     ];
@@ -4970,7 +5133,7 @@ function renderRoutine() {
   } else if (isLose) {
     priorities = [
       { id: 'lose_nutr', title: 'Nutrition within target', sub: `${state.consumedCalories <= state.targetCalories ? 'Within today\'s target' : 'Over by ' + (state.consumedCalories - state.targetCalories) + ' kcal'} · ${state.consumedCalories}/${state.targetCalories} kcal`, icon: '🍽️' },
-      { id: 'lose_pro', title: 'Protein satiety benchmark', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
+      { id: 'lose_pro', title: 'Protein satiety benchmark', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: getProteinEmoji() },
       { id: 'lose_steps', title: 'Daily active movement', sub: movementDone ? 'Active session completed ✓' : 'Brisk walk, cardio, or workout', icon: '🚶' }
     ];
   } else {
@@ -4978,7 +5141,7 @@ function renderRoutine() {
     priorities = [
       { id: 'reg_hyd', title: 'Daily hydration', sub: `${(state.consumedHydration/1000).toFixed(1)} / ${(state.targetHydration/1000).toFixed(1)} L water logged`, icon: '💧' },
       { id: 'reg_first', title: 'First meal (Breakfast)', sub: 'Nutritious morning start', icon: '🍳' },
-      { id: 'reg_pro', title: 'Protein target', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: '🥩' },
+      { id: 'reg_pro', title: 'Protein target', sub: `${state.consumedProtein} / ${state.targetProtein} g logged`, icon: getProteinEmoji() },
       { id: 'reg_work', title: 'Daily Movement / Training', sub: movementSub, icon: '🏋️' }
     ];
   }
@@ -5246,7 +5409,7 @@ function renderWeightForecast() {
   const dateStr = targetDate.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
 
   const goalText = isLoss ? 'Weight Loss & Tone' : 'Muscle & Weight Gain';
-  const dietText = state.dietType === 'veg' ? 'Vegetarian' : state.dietType === 'omni' ? 'Omnivore' : 'Non-Vegetarian';
+  const dietText = state.dietType === 'pure_veg' ? 'Pure Vegetarian' : state.dietType === 'veg' ? 'Vegetarian' : state.dietType === 'partial_veg' ? 'Partial Vegetarian' : state.dietType === 'omni' ? 'Omnivore' : 'Non-Vegetarian';
   const macroStatus = `Today: ${state.consumedCalories} / ${state.targetCalories} kcal, ${state.consumedProtein} / ${state.targetProtein}g protein`;
 
   titleEl.textContent = `Estimated Timeline: ${weeks} Weeks`;
@@ -6102,11 +6265,50 @@ function sendCoachMessage(message) {
   renderMessages();
   const trimmed = message.toLowerCase();
 
-  // Beef / cow block
-  if (BEEF_BLOCK_PATTERNS.test(trimmed)) {
-    chatMessages.push({ role: 'assistant', text: '🙏 We gently refrain from suggesting or logging beef/cow-based food items out of respect for religious sentiments. We\'d love to help you with other protein-rich alternatives like chicken, mutton, paneer, eggs, or fish! Let me know what you\'d like.' });
+  // 1. Universal Sacred Check: Cow / Bull / Buffalo / Beef (Hindu guidelines)
+  if (SACRED_COW_BEEF_PATTERNS.test(trimmed)) {
+    chatMessages.push({
+      role: 'assistant',
+      text: '🙏 Sorry, but logging beef, cow, bull, or buffalo violates Hindu dietary guidelines. At Reliv, we want to be in a peaceful environment and respect each other\'s sentiments and beliefs.'
+    });
     renderMessages();
     return;
+  }
+
+  // 2. Universal Sacred Check: Pork / Bacon / Ham (Islamic guidelines - Halal)
+  if (SACRED_PORK_PATTERNS.test(trimmed)) {
+    chatMessages.push({
+      role: 'assistant',
+      text: '🙏 Sorry, but logging pork, bacon, or ham violates Islamic dietary guidelines (Halal). At Reliv, we want to be in a peaceful environment and respect each other\'s sentiments and beliefs.'
+    });
+    renderMessages();
+    return;
+  }
+
+  // 3. User Preference Check: Pure Vegetarian
+  if (state.dietType === 'pure_veg') {
+    const isFoodIntent = hasExplicitFoodLogIntent(trimmed) || /\b(?:log|add|record|track|ate|had|consumed|eat|khaya|khaa|leliya|peeliya)\b/i.test(trimmed);
+    if (isFoodIntent && PURE_VEG_RESTRICTED_PATTERNS.test(trimmed)) {
+      chatMessages.push({
+        role: 'assistant',
+        text: '🌱 You are set to Pure Vegetarian mode. Meat, poultry, seafood, and eggs cannot be logged under this preference. Please change your dietary preference in Me > Goal & Body Targets if you wish to log non-vegetarian food.'
+      });
+      renderMessages();
+      return;
+    }
+  }
+
+  // 4. User Preference Check: Vegetarian
+  if (state.dietType === 'veg') {
+    const isFoodIntent = hasExplicitFoodLogIntent(trimmed) || /\b(?:log|add|record|track|ate|had|consumed|eat|khaya|khaa|leliya|peeliya)\b/i.test(trimmed);
+    if (isFoodIntent && VEG_RESTRICTED_PATTERNS.test(trimmed)) {
+      chatMessages.push({
+        role: 'assistant',
+        text: '🥦 You are set to Vegetarian mode. Meat, poultry, and seafood cannot be logged under this preference. Please change your dietary preference in Me > Goal & Body Targets if you wish to log non-vegetarian food.'
+      });
+      renderMessages();
+      return;
+    }
   }
 
   const blocked = ['politics', 'sports', 'movies', 'programming', 'relationships', 'finance'];
@@ -6307,7 +6509,7 @@ async function getCoachReply(message) {
     2. To add a functional tracker button to their dashboard, include "createTracker" in your JSON response:
        "createTracker": {
          "name": "Name of tracker",
-         "icon": "Relevant emoji (🍗, 🦵, 🩹, 💊, 🧊, 🧘, 💧)",
+         "icon": "Relevant emoji (🌱, 🥗, 🦵, 🩹, 💊, 🧊, 🧘, 💧)",
          "category": "food" | "symptom" | "habit" | "workout" | "skincare" | "water",
          "calories": Number,
          "protein": Number,
@@ -6333,9 +6535,27 @@ async function getCoachReply(message) {
   - When user mentions "biryani" without specifying type, ASK: "Which biryani? Chicken Biryani (~450 kcal, 28g protein), Mutton Biryani (~520 kcal, 30g protein), or Veg Biryani (~380 kcal, 10g protein)?"
   - Do NOT guess. Return calories: 0 and protein: 0 until they clarify.
 
-  *** BEEF/COW RESTRICTION ***
-  - NEVER suggest, log, or discuss beef or cow meat. If user mentions beef/cow meat, politely decline: "We refrain from suggesting beef/cow-based items out of respect for religious sentiments. Try chicken, mutton, paneer, eggs, or fish instead!"
-  - Set logFood to null for any beef item.
+  *** SACRED CULTURAL & RELIGIOUS RESPECT PROTOCOLS ***
+  1. COW / BULL / BUFFALO / BEEF RESTRICTION (Hindu guidelines):
+     - NEVER suggest, log, or discuss beef, cow meat, bull, or buffalo.
+     - If user mentions beef, cow, bull, or buffalo, decline with: "Sorry, but logging beef, cow, bull, or buffalo violates Hindu dietary guidelines. At Reliv, we want to be in a peaceful environment and respect each other's sentiments and beliefs. 🙏"
+     - Set logFood to null for any beef/cow/bull/buffalo item.
+  2. PORK / BACON / HAM RESTRICTION (Islamic guidelines - Halal):
+     - NEVER suggest, log, or discuss pork, bacon, ham, or swine.
+     - If user mentions pork, bacon, or ham, decline with: "Sorry, but logging pork, bacon, or ham violates Islamic dietary guidelines (Halal). At Reliv, we want to be in a peaceful environment and respect each other's sentiments and beliefs. 🙏"
+     - Set logFood to null for any pork/bacon/ham item.
+  3. USER DIETARY PREFERENCE: ${state.dietType || 'pure_veg'}
+     - If pure_veg:
+       * The user is PURE VEGETARIAN.
+       * NEVER suggest, discuss, or log any meat, chicken, mutton, fish, seafood, or eggs!
+       * NEVER output meat emojis (🥩, 🍗, 🍖, 🥓, 🍤, 🍔, 🌭). Always use clean plant emojis (🌱, 🥗, 🥦, 🍲, 🧀, 🥜, 🥑, 💪).
+       * If user asks to log meat, poultry, fish, or eggs, refuse: "You are set to Pure Vegetarian mode. Meat, poultry, seafood, and eggs cannot be logged under this preference. Please change your dietary preference in Me > Goal & Body Targets if you wish to log non-vegetarian food."
+       * High-protein sources to suggest: Paneer, Tofu, Soya chunks, Lentils / Dal, Chickpeas (chana), Sprouts, Greek yogurt, Almonds, Sattu.
+     - If veg:
+       * The user is VEGETARIAN (dairy allowed, no meat/poultry/fish).
+       * NEVER suggest or log meat/poultry/fish. NEVER output meat emojis.
+     - If partial_veg:
+       * The user is PARTIAL VEGETARIAN (eggs and dairy allowed, no red meat/poultry/fish).
 
   *** TRACKER TARGET CHANGES ***
   - If the user asks to update their tracking targets (e.g. "change my cal to 2300", "set my protein goal to 150g"):
