@@ -577,7 +577,13 @@ function rateLimit(bucket) {
 }
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-const GROQ_TEXT_MODEL = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+const GROQ_TEXT_MODELS = [
+  process.env.GROQ_TEXT_MODEL,
+  'openai/gpt-oss-120b',
+  'qwen/qwen3.8-27b',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant'
+].filter(Boolean);
 const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 function geminiUrl() {
@@ -589,26 +595,38 @@ app.post('/api/ai/chat', rateLimit('chat'), async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    if (customGroqKey) {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${customGroqKey}`
-        },
-        body: JSON.stringify({
-          model: GROQ_TEXT_MODEL,
-          messages: [
-            { role: 'system', content: systemInstruction },
-            ...messages,
-            { role: 'user', content: message }
-          ],
-          response_format: { type: "json_object" }
-        })
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      return res.json({ text: data.choices[0].message.content });
+    const effectiveGroqKey = customGroqKey || GROQ_API_KEY;
+    if (effectiveGroqKey) {
+      let lastError = null;
+      for (const model of GROQ_TEXT_MODELS) {
+        try {
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${effectiveGroqKey}`
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: systemInstruction },
+                ...messages,
+                { role: 'user', content: message }
+              ],
+              response_format: { type: "json_object" }
+            })
+          });
+          const data = await response.json();
+          if (data.error) throw new Error(data.error.message || 'Groq error');
+          if (data.choices && data.choices[0]?.message?.content) {
+            return res.json({ text: data.choices[0].message.content, modelUsed: model });
+          }
+        } catch (mErr) {
+          lastError = mErr;
+          console.warn(`[Groq Model ${model} failed]:`, mErr.message);
+        }
+      }
+      throw lastError || new Error('All Groq models failed');
     } else {
       const url = geminiUrl();
       const payload = {
@@ -859,6 +877,16 @@ app.post('/api/streak/restore/order', async (req, res) => {
   }
 
   const rupees = restorePriceRupees(lostStreak);
+
+  // Double payment guard: reuse active unpaid order within last 5 minutes for same streak
+  const existingActiveOrderId = Object.keys(restores.orders).find((id) => {
+    const r = restores.orders[id];
+    return r && r.userId === userId && !r.paidAt && (Date.now() - r.createdAt < 5 * 60 * 1000) && r.lostStreak === lostStreak;
+  });
+  if (existingActiveOrderId) {
+    const existing = restores.orders[existingActiveOrderId];
+    return res.json({ orderId: existingActiveOrderId, amount: existing.rupees * 100, currency: 'INR', keyId: RAZORPAY_KEY_ID, rupees: existing.rupees });
+  }
 
   try {
     const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');

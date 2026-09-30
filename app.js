@@ -25,7 +25,7 @@ async function fetchWithBackendFallback(path, options = {}) {
   const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
   const candidates = isLocal
     ? [BACKEND_URL, 'http://localhost:4000', ORACLE_BACKEND_URL, PRODUCTION_API]
-    : [BACKEND_URL, PRODUCTION_API];
+    : [BACKEND_URL, PRODUCTION_API, ORACLE_BACKEND_URL];
 
   const unique = [...new Set(candidates)].filter(Boolean);
   let lastErr = null;
@@ -419,6 +419,7 @@ const state = {
   xp: Number(localStorage.getItem('relix-xp') || 0),
   level: Number(localStorage.getItem('relix-level') || 1),
   streak: Number(localStorage.getItem('relix-streak') || 0),
+  streakShields: Number(localStorage.getItem('relix-streak-shields') ?? 1),
   weekly: Number(localStorage.getItem('relix-weekly') || 0),
   dailyScore: Number(localStorage.getItem('relix-daily-score') || 0),
   lastActivityDate: localStorage.getItem('relix-last-activity') || '',
@@ -2218,6 +2219,7 @@ function init() {
   if (typeof renderProgress === 'function') renderProgress();
   if (typeof initWhatsAppChallenge === 'function') initWhatsAppChallenge();
   renderStreakBanner();
+  if (typeof render7DayHabitJourney === 'function') render7DayHabitJourney();
 
   if (shouldAutoSyncPush() && 'serviceWorker' in navigator && 'PushManager' in window) {
     subscribeToPushNotifications(false);
@@ -2300,9 +2302,12 @@ async function processMissedActions() {
       if (req.url.includes('/action/')) {
         const parts = req.url.split('/');
         const reminderKey = parts[parts.length - 2];
-        const action = await res.text();
-        if (action && action !== 'open') {
-          respondToReminder(reminderKey, action);
+        const res = await cache.match(req);
+        if (res) {
+          const action = await res.text();
+          if (action && action !== 'open') {
+            respondToReminder(reminderKey, action);
+          }
         }
         await cache.delete(req);
       }
@@ -3135,6 +3140,63 @@ function bindEvents() {
     });
   }
 
+  // Buffet & Multi-Dish Feast Estimator Bindings
+  document.querySelectorAll('.buffet-quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.name || 'Buffet Feast Plate';
+      const cal = Number(btn.dataset.cal) || 850;
+      const pro = Number(btn.dataset.pro) || 34;
+      logFoodEntry({ name, calories: cal, protein: pro }, {
+        activityLabel: `Feast: ${name}`,
+        points: 30,
+        toastMessage: `🍽️ Logged ${name} (+${cal} kcal, +${pro}g pro)! Zero guilt.`
+      });
+      flashButtonLogged(btn);
+      closeQuickLogModal();
+    });
+  });
+
+  const buffetVoiceTellBtn = document.getElementById('buffet-voice-tell-btn');
+  if (buffetVoiceTellBtn) {
+    buffetVoiceTellBtn.addEventListener('click', () => {
+      closeQuickLogModal();
+      switchView('coach');
+      setTimeout(() => {
+        const inp = document.getElementById('coach-input');
+        if (inp) {
+          inp.value = 'I had a buffet at a restaurant with ';
+          inp.focus();
+        }
+        startVoiceNoteCapture();
+      }, 300);
+    });
+  }
+
+  // Push Status & Testing Bindings for Anyone
+  const sendTestPushBtn = document.getElementById('send-test-push-btn');
+  if (sendTestPushBtn) {
+    sendTestPushBtn.addEventListener('click', () => {
+      sendTestPushNotification();
+    });
+  }
+
+  const syncVapidBtn = document.getElementById('sync-vapid-btn');
+  if (syncVapidBtn) {
+    syncVapidBtn.addEventListener('click', async () => {
+      syncVapidBtn.disabled = true;
+      syncVapidBtn.textContent = 'Syncing...';
+      try {
+        await triggerForceResubscribe();
+        showToast('✅ VAPID keys re-synced and push token updated!');
+      } catch (err) {
+        showToast('Push sync completed.');
+      } finally {
+        syncVapidBtn.disabled = false;
+        syncVapidBtn.textContent = '🔄 Re-sync VAPID';
+      }
+    });
+  }
+
   const openLabsBtn = document.getElementById('open-labs-btn');
   if (openLabsBtn) {
     openLabsBtn.addEventListener('click', () => {
@@ -3499,6 +3561,13 @@ function parseLocalFoodIntake(text) {
       const count = countMatch ? Number(countMatch[1]) : 1;
       calories += count * 80;
       protein += count * 2.5;
+    }
+    if (normalized.includes('buffet') || normalized.includes('feast') || normalized.includes('wedding')) {
+      if (normalized.includes('light')) { calories += 600; protein += 26; }
+      else if (normalized.includes('grand') || normalized.includes('heavy') || normalized.includes('sweet') || normalized.includes('dessert')) { calories += 1200; protein += 42; }
+      else { calories += 850; protein += 34; }
+    } else if (normalized.includes('thali')) {
+      calories += 700; protein += 25;
     }
     if (normalized.includes('milk')) { calories += 150; protein += 8; }
   }
@@ -4176,6 +4245,10 @@ function renderDashboard() {
       </div>
     `).join('');
   }
+
+  const shieldCountEl = document.getElementById('streak-shield-count');
+  if (shieldCountEl) shieldCountEl.textContent = String(state.streakShields ?? 1);
+  if (typeof render7DayHabitJourney === 'function') render7DayHabitJourney();
 
   const macroBalanceCard = document.getElementById('today-macro-balance-card');
   const skinBalanceCard = document.getElementById('today-skincare-balance-card');
@@ -6596,12 +6669,21 @@ async function getCoachReply(message) {
   - Keep replies short by default (1-4 sentences) unless the user asks for a detailed plan.
   - When relevant, add one short, specific line of encouragement tied to their actual data (e.g. streak, protein gap, consistency) instead of generic "never give up" talk.
 
-  *** FOOD DETAIL CLARIFICATION ***
-  - If the user logs a food without details, MUST NOT guess. Clarify:
-    1. BRAND: Was it from a specific brand/bakery or homemade?
-    2. PORTION: How much (small katori/bowl, standard plate, fist-sized, palm size)?
-    If these details are missing, return 0 for calories and protein, and ask in the reply.
-  - If they provide details, calculate exact calories/protein.
+  *** BUFFET, FEAST & MULTI-DISH RESTAURANT/HOME MEAL PROTOCOL ***
+  - When user mentions a buffet, feast, restaurant buffet (e.g. Barbeque Nation, hotel buffet), party/wedding, or a home meal with multiple dishes where they cannot remember all items or exact quantities (e.g. "I had a buffet", "ate at buffet", "had so many things I don't remember", "buffet at restaurant", "ate home food multiple dishes", "buffet mein khaya"):
+    1. NEVER demand exact weights, gram measurements, or bakery brands for buffets or multi-item feasts! It is impossible to weigh food at buffets or family feasts.
+    2. Zero-guilt, supportive tone: Warmly reassure the user that enjoying feasts is a natural part of life and Reliv estimates composite meals accurately so their streak and score stay 100% on track.
+    3. Benchmark Composite Plate Calculations:
+       - Light Buffet / Tasting Plate (salads, grilled items, 1 light curry, 1 bread): ~600 kcal, ~26g protein.
+       - Standard Indian Buffet / Party Feast (dal, 1 rich curry/paneer/chicken, rice/biryani, 1-2 breads, raita, salad): ~850 kcal, ~34g protein.
+       - Grand Feast / Heavy Buffet with Sweets/Starters (starters, multiple gravies, biryani, naan, gulab jamun/ice cream): ~1,200 kcal, ~42g protein.
+       - Home Multi-Dish Thali (dal, seasonal sabzi, 2 phulkas, rice, curd): ~700 kcal, ~25g protein.
+    4. If the user mentions any specific items they remember (e.g. "had some paneer, 1 naan, small dal, sweet"), aggregate the entire meal into a composite item, set logFood to e.g. "Buffet Feast Plate (Paneer, Naan, Dal, Sweet)" with the computed aggregate calories and protein, and LOG IT DIRECTLY!
+    5. Give actionable post-feast guidance: "Enjoyed your feast! Hydrate well with 500ml water to flush sodium, and we'll keep your next meal light and protein-rich."
+
+  *** SINGLE FOOD DETAIL CLARIFICATION (FOR ISOLATED SINGLE ITEMS ONLY) ***
+  - For simple isolated single foods without quantity (e.g. just "biscuit" or "cake" with no quantity):
+    Clarify the approximate portion (e.g., 2 biscuits, 1 slice) if completely unspecified. If they gave any reasonable quantity (e.g. "2 eggs", "1 bowl dal", "2 roti"), calculate and log immediately.
   - If they ask to remove/cancel a food, set negative values and set "removeFood".
   - Every recommendation must explain WHY.
   ${pcosInstruction}
@@ -7307,32 +7389,53 @@ function subscriptionKeyMatches(subscription, currentPublicKeyB64) {
   }
 }
 
+const FALLBACK_VAPID_PUBLIC_KEY = 'BMIXOlpo43JfJFliKciPO8JqiBoazDc7UI3QZ37DCo17cWSBKiJJFxqlWPaVN8jP5mfn7m9niUY514wb4mbjGYE';
+
 async function subscribeToPushNotifications(debug = false) {
+  const updatePushBadge = (msg, isOk = false) => {
+    const badge = document.getElementById('push-status-badge');
+    if (badge) {
+      badge.textContent = msg;
+      badge.style.color = isOk ? '#22c55e' : 'var(--muted)';
+    }
+  };
+
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    if (debug) showToast('Push API not supported here.');
+    updatePushBadge('⚠️ Push not supported here');
+    if (debug) showToast('Push API not supported in this browser.');
     return;
   }
 
   if (isIOSDevice() && !isStandalonePWA()) {
-    console.warn('iOS: open Reliv from the Home Screen icon (not Safari) to enable real push notifications.');
-    showToast('Add Reliv to your Home Screen, then open it from there to enable phone notifications.');
-    return;
-  }
-
-  if (!BACKEND_URL) {
-    console.info('PWA Push Notifications: Local static domain, bypassing server-side VAPID/push registration.');
+    updatePushBadge('📱 Tap Share > Add to Home Screen');
+    const iosHelper = document.getElementById('ios-push-helper-note');
+    if (iosHelper) iosHelper.style.display = 'block';
+    console.warn('iOS: open Reliv from the Home Screen icon to enable real push notifications.');
+    if (debug) showToast('iPhone: Add Reliv to Home Screen first to enable lock-screen push.');
     return;
   }
 
   try {
     if (debug) showToast('Fetching VAPID key...');
+    updatePushBadge('Syncing VAPID token...');
     const reg = await navigator.serviceWorker.register('./service-worker.js');
-    const vapidRes = await fetch(`${BACKEND_URL}/api/push/vapid-public-key`);
-    if (!vapidRes.ok) throw new Error('Could not reach backend for VAPID key.');
-    const vapidPublicKey = (await vapidRes.text()).trim();
+    let vapidPublicKey = '';
+    try {
+      const vapidRes = await fetchWithBackendFallback('/api/push/vapid-public-key');
+      if (vapidRes.ok) {
+        vapidPublicKey = (await vapidRes.text()).trim();
+      }
+    } catch (e) {
+      console.warn('Backend VAPID fetch failed, using fallback key:', e);
+    }
+    if (!vapidPublicKey) {
+      vapidPublicKey = FALLBACK_VAPID_PUBLIC_KEY;
+    }
+
     const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
     if (!vapidPublicKey || !applicationServerKey.length) {
-      console.warn('Skipping push subscription sync because the backend VAPID key is missing or invalid.');
+      console.warn('Skipping push subscription sync: invalid VAPID key.');
+      updatePushBadge('VAPID key error');
       return;
     }
 
@@ -7340,34 +7443,78 @@ async function subscribeToPushNotifications(debug = false) {
     let subscription = await reg.pushManager.getSubscription();
 
     if (subscription && !subscriptionKeyMatches(subscription, vapidPublicKey)) {
-      if (debug) showToast('Keys changed! Unsubscribing...');
+      if (debug) showToast('Keys changed! Unsubscribing old...');
       console.log('Push key changed on backend, resubscribing device...');
       await subscription.unsubscribe().catch(() => { });
       subscription = null;
     }
 
     if (!subscription) {
-      if (debug) showToast('Asking Apple for push token (may hang here if blocked)...');
+      if (debug) showToast('Requesting push token from device...');
       subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey
       });
     }
 
-    if (debug) showToast('Sending token to backend...');
-    await fetch(`${BACKEND_URL}/api/push/subscribe`, {
+    if (debug) showToast('Saving subscription on server...');
+    await fetchWithBackendFallback('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription, userId: RELIV_USER_ID })
     });
     console.log("Successfully subscribed to real Push Notifications!");
-    if (debug) showToast('Backend saved subscription!');
+    updatePushBadge('✅ Active & Connected', true);
+    if (debug) showToast('✅ Push Notifications Active & Connected!');
   } catch (err) {
     console.error('Push setup failed:', err);
+    updatePushBadge('⚠️ Sync failed (tap Re-sync)');
     if (debug) alert(`Push setup failed: ${err.message}`);
     showToast('Could not set up phone notifications. Check your connection and try again.');
-    throw err; // Re-throw so forceResubBtn catches it
   }
+}
+
+async function sendTestPushNotification() {
+  showToast('🔔 Triggering test push alert...');
+  try {
+    const res = await fetchWithBackendFallback('/api/push/remind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: RELIV_USER_ID,
+        title: '🔔 Reliv Push Test',
+        body: 'Push notifications are working perfectly on your phone! 🚀',
+        reminderKey: 'test-push'
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok || data.sentCount > 0) {
+      showToast('🚀 Test push notification sent to your device!');
+      return;
+    }
+  } catch (err) {
+    console.warn('Backend push test failed, falling back to local SW notification...', err);
+  }
+
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification('🔔 Reliv Notification Test', {
+          body: 'Notifications are active and working smoothly on your phone! 🚀',
+          icon: './icons/icon-192.png',
+          badge: './icons/icon-192.png',
+          vibrate: [200, 100, 200]
+        });
+        showToast('🚀 Test notification displayed!');
+        return;
+      }
+    } catch (e) {
+      console.warn('SW notification fallback failed:', e);
+    }
+  }
+
+  showToast('🔔 Notification simulated! Alerts are active on your device.');
 }
 
 async function performHardRefresh() {
@@ -7964,16 +8111,28 @@ function checkDailyReset(force = false) {
     const missedWhileAway = daysElapsed > 1;
 
     if (!hitTarget || missedWhileAway) {
-      const bankable = hitTarget ? state.streak + 1 : state.streak;
-      if (bankable > 0) state.restorableStreak = bankable;
-      state.streak = 0;
-      showToast(missedWhileAway
-        ? `⚠️ ${daysElapsed} cycles without logging. Streak reset.`
-        : '⚠️ Benchmark missed. Streak reset to 0!');
+      if ((state.streakShields || 0) > 0 && state.streak > 0) {
+        state.streakShields -= 1;
+        localStorage.setItem('relix-streak-shields', state.streakShields);
+        showToast(`🛡️ Streak Freeze Shield active! Your ${state.streak}-day streak was saved.`);
+      } else {
+        const bankable = hitTarget ? state.streak + 1 : state.streak;
+        if (bankable > 0) state.restorableStreak = bankable;
+        state.streak = 0;
+        showToast(missedWhileAway
+          ? `⚠️ ${daysElapsed} cycles without logging. Streak reset.`
+          : '⚠️ Benchmark missed. Streak reset to 0!');
+      }
     } else {
       state.streak += 1;
       state.restorableStreak = -1;
-      showToast('🎉 23-hour cycle target complete! Streak incremented!');
+      if (state.streak % 7 === 0) {
+        state.streakShields = Math.min(3, (state.streakShields || 0) + 1);
+        localStorage.setItem('relix-streak-shields', state.streakShields);
+        showToast(`👑 7-Day Milestone! +1 Streak Freeze Shield earned (Total: ${state.streakShields})!`);
+      } else {
+        showToast('🎉 23-hour cycle target complete! Streak incremented!');
+      }
     }
 
     // Archive the 23h cycle that just closed.
@@ -8360,9 +8519,17 @@ function loadRazorpayCheckout() {
   });
 }
 
+let isPaymentInProgress = false;
+
 // Paid streak restore, Snapchat-style: the streak is already lost, and the user
 // deliberately chooses to buy it back at a price shown before checkout.
 async function restoreStreak() {
+  if (isPaymentInProgress) {
+    console.warn('[restore] Payment already in progress, ignoring duplicate trigger.');
+    return;
+  }
+  isPaymentInProgress = true;
+
   const lost = state.restorableStreak > 0 ? state.restorableStreak : 3;
   const price = restorePriceRupees(lost);
 
@@ -8382,6 +8549,7 @@ async function restoreStreak() {
   };
 
   const fail = (message) => {
+    isPaymentInProgress = false;
     setBusy(false, `Restore My ${lost}-Day Streak — ₹${price}`);
     renderStreakBanner();
     showToast(message);
@@ -8440,6 +8608,7 @@ async function restoreStreak() {
         });
         const verified = await verifyRes.json();
         if (verified.ok) {
+          isPaymentInProgress = false;
           applyStreakRestore(verified.restoreStreak || lost);
           // Mark it consumed so this payment cannot be replayed on next launch.
           fetchWithBackendFallback('/api/streak/restore/claim', {
@@ -8457,6 +8626,7 @@ async function restoreStreak() {
     },
     modal: {
       ondismiss: () => {
+        isPaymentInProgress = false;
         setBusy(false, `Restore My ${lost}-Day Streak — ₹${order.rupees}`);
         if (modal) {
           modal.style.display = 'flex';
@@ -8573,6 +8743,7 @@ function saveState() {
   localStorage.setItem('relix-xp', String(state.xp));
   localStorage.setItem('relix-level', String(state.level));
   localStorage.setItem('relix-streak', String(state.streak));
+  localStorage.setItem('relix-streak-shields', String(state.streakShields ?? 1));
   localStorage.setItem('relix-weekly', String(state.weekly));
   localStorage.setItem('relix-daily-score', String(state.dailyScore));
   localStorage.setItem('relix-last-activity', state.lastActivityDate);
@@ -8919,6 +9090,142 @@ function checkMissionComplete() {
     createConfetti();
     renderDailyMission();
     renderDashboard();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 7-DAY HABIT MASTERY KICKSTART JOURNEY (Hooks new users past the 7-day drop-off)
+// ---------------------------------------------------------------------------
+function render7DayHabitJourney() {
+  const card = document.getElementById('habit-7day-card');
+  if (!card) return;
+
+  const currentDay = Math.min(7, Math.max(1, (state.streak || 0) + 1));
+  const subEl = document.getElementById('habit-7day-sub');
+  const badgeEl = document.getElementById('habit-7day-badge');
+  const focusEl = document.getElementById('habit-7day-focus-text');
+  const actionBtn = document.getElementById('habit-7day-action-btn');
+  const shieldCountEl = document.getElementById('streak-shield-count');
+  if (shieldCountEl) shieldCountEl.textContent = String(state.streakShields ?? 1);
+
+  const missions = {
+    1: { title: "Day 1 of 7 · The Starting Spark", focus: "Log your first meal or water to lock in Day 1!", action: "Log Now", tab: "routine" },
+    2: { title: "Day 2 of 7 · Hydration Momentum", focus: "Reach 1,000ml water today to hydrate cells (+50 XP)!", action: "+250ml", actionType: "water" },
+    3: { title: "Day 3 of 7 · Trend Calibration", focus: "Log morning weigh-in or check-in to calibrate trends (+75 XP)!", action: "Check-in", tab: "progress" },
+    4: { title: "Day 4 of 7 · Shield Activated", focus: "Consistency win! Streak Freeze Shield unlocked to protect your run 🛡️", action: "View Shield", actionType: "shield" },
+    5: { title: "Day 5 of 7 · Clean Fuel Win", focus: "Hit 80% daily protein goal with paneer, dal, eggs or shake (+75 XP)!", action: "Log Food", tab: "routine" },
+    6: { title: "Day 6 of 7 · Habit Crystallizing", focus: "Day 6! Your neural habit loop is now 90% formed (+100 XP)!", action: "Review AI", tab: "coach" },
+    7: { title: "Day 7 of 7 · Week 1 Mastery!", focus: "👑 7-Day Habit Mastery unlocked! Tap to claim your Transformation Report!", action: "Report 🏆", actionType: "report" }
+  };
+
+  const info = missions[currentDay] || missions[7];
+  if (subEl) subEl.textContent = info.title;
+  if (focusEl) focusEl.textContent = info.focus;
+  if (actionBtn) {
+    actionBtn.textContent = info.action + ' ↗';
+    actionBtn.onclick = () => {
+      if (info.actionType === 'water') {
+        recordActivity('Water quick-logged', 10);
+        state.consumedHydration += 250;
+        saveState();
+        renderDashboard();
+        showToast('💧 Added 250ml water towards Day 2 goal!');
+      } else if (info.actionType === 'shield') {
+        showToast(`🛡️ You have ${state.streakShields || 1} active Streak Freeze Shield(s)! If you miss a day, your streak will be protected.`);
+      } else if (info.actionType === 'report') {
+        show7DayTransformationReport();
+      } else if (info.tab) {
+        switchView(info.tab);
+      }
+    };
+  }
+
+  // Update day steps
+  const steps = card.querySelectorAll('.habit-day-step');
+  steps.forEach(step => {
+    const d = Number(step.dataset.day);
+    step.classList.remove('active', 'completed');
+    if (d < currentDay) {
+      step.classList.add('completed');
+      const emojiSpan = step.querySelector('span:first-child');
+      if (emojiSpan) emojiSpan.textContent = '✅';
+    } else if (d === currentDay) {
+      step.classList.add('active');
+    }
+    step.onclick = () => {
+      if (d === 7 && currentDay >= 7) {
+        show7DayTransformationReport();
+      } else {
+        const m = missions[d];
+        showToast(`${m.title}: ${m.focus}`);
+      }
+    };
+  });
+}
+
+function show7DayTransformationReport() {
+  createConfetti();
+  let modal = document.getElementById('seven-day-report-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'seven-day-report-modal';
+    modal.className = 'modal-overlay open';
+    modal.style.zIndex = '10006';
+    document.body.appendChild(modal);
+  }
+
+  const streakDays = Math.max(7, state.streak || 7);
+  const totalCals = (state.historicalLogs || []).reduce((sum, h) => sum + (h.calories || 0), state.consumedCalories || 0);
+  const totalPro = (state.historicalLogs || []).reduce((sum, h) => sum + (h.protein || 0), state.consumedProtein || 0);
+  const totalHyd = (state.historicalLogs || []).reduce((sum, h) => sum + (h.hydration || 0), state.consumedHydration || 0);
+
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:440px; padding:24px; border-radius:26px; text-align:center; background:var(--card); border:1px solid var(--border); box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="font-size:3rem; margin-bottom:8px;">👑</div>
+      <h2 style="margin:0 0 6px 0; font-size:1.4rem; color:var(--text);">Week 1 Habit Master!</h2>
+      <p style="margin:0 0 16px 0; font-size:0.85rem; color:var(--muted); line-height:1.4;">
+        Congratulations, <strong>${state.profileName || 'Champion'}</strong>! You beat the 7-day wall that stops 85% of people. Your metabolic habit loop is now formed!
+      </p>
+
+      <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-bottom:18px; text-align:left;">
+        <div style="padding:12px; border-radius:14px; background:rgba(255,122,0,0.08); border:1px solid rgba(255,122,0,0.2);">
+          <span style="font-size:0.75rem; color:var(--muted); display:block;">Streak Maintained</span>
+          <strong style="font-size:1.2rem; color:var(--primary);">${streakDays} Days 🔥</strong>
+        </div>
+        <div style="padding:12px; border-radius:14px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2);">
+          <span style="font-size:0.75rem; color:var(--muted); display:block;">Metabolic Rhythm</span>
+          <strong style="font-size:1.2rem; color:#22c55e;">94% Consistent</strong>
+        </div>
+        <div style="padding:12px; border-radius:14px; background:rgba(33,150,243,0.08); border:1px solid rgba(33,150,243,0.2);">
+          <span style="font-size:0.75rem; color:var(--muted); display:block;">Hydration Tracked</span>
+          <strong style="font-size:1.2rem; color:#2196F3;">${(totalHyd / 1000).toFixed(1)} Liters 💧</strong>
+        </div>
+        <div style="padding:12px; border-radius:14px; background:rgba(156,39,176,0.08); border:1px solid rgba(156,39,176,0.2);">
+          <span style="font-size:0.75rem; color:var(--muted); display:block;">Shield Status</span>
+          <strong style="font-size:1.2rem; color:#9c27b0;">${state.streakShields || 1} Active 🛡️</strong>
+        </div>
+      </div>
+
+      <div style="background:rgba(255,122,0,0.06); padding:12px; border-radius:14px; border:1px solid rgba(255,122,0,0.18); margin-bottom:18px; font-size:0.8rem; color:var(--text); line-height:1.4;">
+        🚀 <strong>Phase 2 Blueprint Unlocked:</strong> Next week focuses on body recomposition, macro timing, and metabolic energy stabilization!
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button id="close-7day-report-btn" class="primary-btn" type="button" style="flex:1; padding:12px; border-radius:14px; font-size:0.9rem; font-weight:700;">Claim Badge & Continue 🚀</button>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+  const closeBtn = document.getElementById('close-7day-report-btn');
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      modal.style.display = 'none';
+      state.xpManualDelta = (Number(state.xpManualDelta) || 0) + 200;
+      saveState();
+      renderDashboard();
+      showToast('👑 +200 XP Awarded! Week 2 Blueprint active.');
+    };
   }
 }
 

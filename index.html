@@ -152,8 +152,9 @@
                 <button id="hard-refresh-btn" class="icon-btn" type="button" aria-label="Refresh app" style="display:none;">↻</button>
               </div>
             </div>
-            <div class="hero-meta">
+            <div class="hero-meta" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
               <span class="pill" id="today-streak-pill" style="font-size:0.8rem; font-weight:700;">🔥 <strong id="streak-value">0</strong> day streak</span>
+              <span class="pill" id="streak-shield-pill" style="font-size:0.8rem; font-weight:700; background:rgba(33,150,243,0.12); color:#2196F3; border:1px solid rgba(33,150,243,0.25);" title="Streak Freeze Shields active">🛡️ <strong id="streak-shield-count">1</strong> Shield</span>
             </div>
           </div>
 
@@ -188,6 +189,57 @@
           <div id="streak-restore-banner" style="display:none; align-items:center; justify-content:space-between; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); padding:12px 16px; border-radius:18px; margin-top:14px;">
             <span style="font-size:0.85rem; color:#ef4444; font-weight:600;">⚠️ Streak lost! benchmark not met.</span>
             <button id="restore-streak-btn" class="primary-btn" type="button" style="padding:6px 12px; font-size:0.8rem; background:#ef4444; border:none; box-shadow:none; margin:0;">Restore</button>
+          </div>
+        </div>
+
+        <!-- 7-Day Habit Mastery Kickstart Journey Card -->
+        <div class="card habit-journey-card" id="habit-7day-card" style="padding:16px 18px; border-radius:22px; margin-bottom:14px; background:linear-gradient(135deg, rgba(255,122,0,0.06), rgba(33,150,243,0.05)); border:1px solid rgba(255,122,0,0.2);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:1.25rem;">🎯</span>
+              <div>
+                <strong style="font-size:0.92rem; color:var(--text); display:block;">7-Day Habit Kickstart</strong>
+                <span id="habit-7day-sub" style="font-size:0.75rem; color:var(--muted);">Day 1 of 7 · Form the habit that sticks</span>
+              </div>
+            </div>
+            <span id="habit-7day-badge" style="font-size:0.75rem; font-weight:700; color:var(--primary); background:rgba(255,122,0,0.12); padding:3px 8px; border-radius:999px;">+200 XP Trophy</span>
+          </div>
+
+          <!-- Day 1-7 Interactive Milestone Path -->
+          <div class="habit-7day-strip" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; margin:12px 0 10px 0;">
+            <div class="habit-day-step" data-day="1" style="text-align:center; padding:6px 2px; border-radius:10px; background:var(--card); border:1px solid var(--border); font-size:0.7rem;">
+              <span style="display:block; font-size:0.85rem;">🚀</span>
+              <span style="font-weight:700;">D1</span>
+            </div>
+            <div class="habit-day-step" data-day="2" style="text-align:center; padding:6px 2px; border-radius:10px; background:var(--card); border:1px solid var(--border); font-size:0.7rem;">
+              <span style="display:block; font-size:0.85rem;">💧</span>
+              <span style="font-weight:700;">D2</span>
+            </div>
+            <div class="habit-day-step" data-day="3" style="text-align:center; padding:6px 2px; border-radius:10px; background:var(--card); border:1px solid var(--border); font-size:0.7rem;">
+              <span style="display:block; font-size:0.85rem;">⚖️</span>
+              <span style="font-weight:700;">D3</span>
+            </div>
+            <div class="habit-day-step" data-day="4" style="text-align:center; padding:6px 2px; border-radius:10px; background:var(--card); border:1px solid var(--border); font-size:0.7rem;">
+              <span style="display:block; font-size:0.85rem;">🛡️</span>
+              <span style="font-weight:700;">D4</span>
+            </div>
+            <div class="habit-day-step" data-day="5" style="text-align:center; padding:6px 2px; border-radius:10px; background:var(--card); border:1px solid var(--border); font-size:0.7rem;">
+              <span style="display:block; font-size:0.85rem;">🍳</span>
+              <span style="font-weight:700;">D5</span>
+            </div>
+            <div class="habit-day-step" data-day="6" style="text-align:center; padding:6px 2px; border-radius:10px; background:var(--card); border:1px solid var(--border); font-size:0.7rem;">
+              <span style="display:block; font-size:0.85rem;">🧠</span>
+              <span style="font-weight:700;">D6</span>
+            </div>
+            <div class="habit-day-step" data-day="7" style="text-align:center; padding:6px 2px; border-radius:10px; background:var(--card); border:1px solid var(--border); font-size:0.7rem;">
+              <span style="display:block; font-size:0.85rem;">👑</span>
+              <span style="font-weight:700;">D7</span>
+            </div>
+          </div>
+
+          <div id="habit-7day-mission-desc" style="font-size:0.78rem; color:var(--text); background:rgba(255,255,255,0.4); dark:background:rgba(0,0,0,0.2); padding:8px 12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <span id="habit-7day-focus-text">Today's Goal: Log your first meal or water to lock in Day 1!</span>
+            <button id="habit-7day-action-btn" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.72rem; font-weight:700; color:var(--primary); border:1px solid var(--primary); border-radius:8px;">Start ↗</button>
           </div>
         </div>
 
@@ -499,6 +551,7 @@
               <button class="suggestion-pill" data-prompt="ate lunch: 2 roti and dal" type="button">🍳 Log lunch</button>
               <button class="suggestion-pill" data-prompt="change target weight to 72" type="button">⚖️ Target 72 kg</button>
               <button class="suggestion-pill" data-prompt="How is my progress looking this week?" type="button">📈 Progress check</button>
+              <button class="suggestion-pill" data-prompt="I ate at a buffet / restaurant with many dishes, estimate my plate" type="button">🍽️ Buffet / Feast estimate</button>
             </div>
             <form id="coach-form" class="coach-form" style="margin-top: 12px;">
               <input id="coach-input" placeholder="Ask or tell Reliv e.g. drank 500ml..." aria-label="Ask Reliv" />
@@ -684,6 +737,21 @@
                 <div style="display:flex; gap:8px; align-items:center;">
                   <label class="switch"><input id="notify-toggle" type="checkbox" checked /><span></span></label>
                   <button id="settings-enable-alerts" class="ghost-btn" type="button" style="padding:4px 8px; font-size:0.75rem;">Allow alerts</button>
+                </div>
+              </div>
+              <div class="settings-group-row" style="flex-direction:column; align-items:stretch; gap:8px; padding:12px 16px; background:rgba(0,0,0,0.02); border-top:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <span style="font-size:0.82rem; font-weight:700; color:var(--text);">Push Notification Status</span>
+                    <span id="push-status-badge" style="display:block; font-size:0.73rem; color:var(--muted); margin-top:2px;">Tap below to test or re-sync</span>
+                  </div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button id="send-test-push-btn" class="primary-btn" type="button" style="flex:1; padding:7px 10px; font-size:0.78rem; font-weight:700; background:var(--primary);">🔔 Send Test Push</button>
+                  <button id="sync-vapid-btn" class="ghost-btn" type="button" style="flex:1; padding:7px 10px; font-size:0.78rem; font-weight:600; border:1px solid var(--border);">🔄 Re-sync VAPID</button>
+                </div>
+                <div id="ios-push-helper-note" style="display:none; font-size:0.73rem; color:var(--muted); line-height:1.4; background:rgba(255,122,0,0.08); padding:8px 10px; border-radius:10px; border:1px solid rgba(255,122,0,0.2);">
+                  📱 <strong>iPhone users:</strong> To receive lock-screen push alerts from Apple, tap the Share icon (square with arrow) &gt; <strong>'Add to Home Screen'</strong>!
                 </div>
               </div>
               <div class="settings-group-row">
@@ -1202,6 +1270,42 @@
 
         <!-- Food Panel (inline) -->
         <div id="ql-panel-food" style="margin-top:14px; border-top:1px dashed var(--border); padding-top:12px;">
+          <!-- Buffet & Multi-Dish Feast Estimator Card -->
+          <div class="buffet-estimator-card" style="background:linear-gradient(135deg, rgba(255,122,0,0.08), rgba(255,153,51,0.03)); border:1px solid rgba(255,122,0,0.22); border-radius:16px; padding:12px 14px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-weight:700; font-size:0.84rem; color:var(--text); display:flex; align-items:center; gap:6px;">
+                <span>🍽️</span>
+                <span>Buffet & Feast Estimator</span>
+              </span>
+              <span style="font-size:0.7rem; font-weight:700; color:var(--primary); background:rgba(255,122,0,0.12); padding:2px 8px; border-radius:999px;">Zero-Guilt</span>
+            </div>
+            <p style="font-size:0.74rem; color:var(--muted); margin:0 0 10px 0; line-height:1.35;">
+              Ate at a restaurant buffet, party, or home feast with many dishes? 1-tap estimates keep your streak and score 100% on track:
+            </p>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px; margin-bottom:10px;">
+              <button class="ghost-btn buffet-quick-btn" data-name="Light Buffet / Tasting Plate" data-cal="600" data-pro="26" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card);">
+                <span style="display:block; font-weight:700; font-size:0.8rem; color:var(--text);">🥗 Light Tasting</span>
+                <span style="font-size:0.7rem; color:var(--muted);">~600 kcal · 26g Pro</span>
+              </button>
+              <button class="ghost-btn buffet-quick-btn" data-name="Standard Buffet / Feast Plate" data-cal="850" data-pro="34" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card);">
+                <span style="display:block; font-weight:700; font-size:0.8rem; color:var(--text);">🍛 Standard Buffet</span>
+                <span style="font-size:0.7rem; color:var(--muted);">~850 kcal · 34g Pro</span>
+              </button>
+              <button class="ghost-btn buffet-quick-btn" data-name="Grand Celebration Feast" data-cal="1200" data-pro="42" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card);">
+                <span style="display:block; font-weight:700; font-size:0.8rem; color:var(--text);">🍨 Grand Feast</span>
+                <span style="font-size:0.7rem; color:var(--muted);">~1,200 kcal · 42g Pro</span>
+              </button>
+              <button class="ghost-btn buffet-quick-btn" data-name="Home Multi-Dish Thali" data-cal="700" data-pro="25" type="button" style="text-align:left; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card);">
+                <span style="display:block; font-weight:700; font-size:0.8rem; color:var(--text);">🍲 Home Thali</span>
+                <span style="font-size:0.7rem; color:var(--muted);">~700 kcal · 25g Pro</span>
+              </button>
+            </div>
+            <button id="buffet-voice-tell-btn" class="ghost-btn" type="button" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 10px; font-size:0.78rem; font-weight:700; color:var(--primary); border:1px dashed rgba(255,122,0,0.4); border-radius:10px; background:rgba(255,122,0,0.04);">
+              <span>🎙️</span>
+              <span>Say what you remember (e.g. "had dal, paneer, naan & sweet")</span>
+            </button>
+          </div>
+
           <strong style="font-size:0.8rem; color:var(--text); text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Recent & Quick Foods:</strong>
           <div id="ql-recent-foods-container" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:10px;">
             <!-- Populated dynamically by renderRecentQuickFoods() -->
