@@ -192,6 +192,26 @@
           </div>
         </div>
 
+        <!-- Quick Action Floating Bar (Visible on all phones, zero submenus required) -->
+        <div class="today-quick-bar" style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding:2px 2px 6px 2px;">
+          <button id="today-buffet-btn" class="primary-btn" type="button" style="display:inline-flex; align-items:center; gap:6px; padding:10px 14px; border-radius:14px; font-size:0.82rem; font-weight:700; white-space:nowrap; background:linear-gradient(135deg, #ff7a00, #ff9800); box-shadow:0 4px 14px rgba(255,122,0,0.25); flex-shrink:0;">
+            <span>🍽️</span>
+            <span>Buffet & Feast Log</span>
+          </button>
+          <button id="today-quick-water-btn" class="ghost-btn" type="button" style="display:inline-flex; align-items:center; gap:6px; padding:10px 14px; border-radius:14px; font-size:0.82rem; font-weight:600; white-space:nowrap; border:1px solid var(--border); background:var(--card); flex-shrink:0;">
+            <span>💧</span>
+            <span>+250ml Water</span>
+          </button>
+          <button id="today-voice-tell-btn" class="ghost-btn" type="button" style="display:inline-flex; align-items:center; gap:6px; padding:10px 14px; border-radius:14px; font-size:0.82rem; font-weight:600; white-space:nowrap; border:1px solid var(--border); background:var(--card); flex-shrink:0;">
+            <span>🎙️</span>
+            <span>Voice Recall</span>
+          </button>
+          <button id="today-test-alert-btn" class="ghost-btn" type="button" style="display:inline-flex; align-items:center; gap:6px; padding:10px 14px; border-radius:14px; font-size:0.82rem; font-weight:600; white-space:nowrap; border:1px solid var(--border); background:var(--card); flex-shrink:0;">
+            <span>🔔</span>
+            <span>Test Phone Alert</span>
+          </button>
+        </div>
+
         <!-- 7-Day Habit Mastery Kickstart Journey Card -->
         <div class="card habit-journey-card" id="habit-7day-card" style="padding:16px 18px; border-radius:22px; margin-bottom:14px; background:linear-gradient(135deg, rgba(255,122,0,0.06), rgba(33,150,243,0.05)); border:1px solid rgba(255,122,0,0.2);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -1692,6 +1712,54 @@
         </div>
         <div class="modal-actions" style="margin-top:16px;">
           <button id="dismiss-mission-modal" class="primary-btn" type="button" style="width:100%; padding:12px; font-weight:700;">Got it! Let's Start 🚀</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dedicated Buffet & Multi-Dish Feast Estimator Modal -->
+    <div id="buffet-modal" class="modal-overlay" aria-hidden="true" style="display:none; z-index:10007;">
+      <div class="modal-card" style="max-width:440px; padding:20px; border-radius:24px;">
+        <div class="hero-head" style="margin-bottom:12px;">
+          <div class="hero-title">
+            <p style="margin:0; font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase;">Zero-Guilt Recall</p>
+            <h3 style="margin:2px 0 0 0; font-size:1.2rem;">🍽️ Buffet & Feast Estimator</h3>
+          </div>
+          <button id="close-buffet-modal" class="icon-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <p style="font-size:0.78rem; color:var(--muted); margin:0 0 14px 0; line-height:1.4;">
+          Ate at a restaurant buffet, party, wedding, or multi-dish home feast? You don't have to remember every single spoon or gram! Tap a preset or speak what you recall:
+        </p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+          <button class="ghost-btn buffet-modal-preset" data-name="Light Buffet / Tasting Plate" data-cal="600" data-pro="26" type="button" style="text-align:left; padding:12px; border-radius:14px; border:1px solid var(--border); background:var(--card);">
+            <strong style="display:block; font-size:0.84rem; color:var(--text);">🥗 Light Tasting</strong>
+            <span style="display:block; font-size:0.72rem; color:var(--primary); font-weight:600; margin:2px 0;">~600 kcal · 26g Pro</span>
+            <span style="font-size:0.68rem; color:var(--muted); line-height:1.2; display:block;">Salads, grilled items, 1 light curry, 1 roti</span>
+          </button>
+          <button class="ghost-btn buffet-modal-preset" data-name="Standard Buffet / Feast Plate" data-cal="850" data-pro="34" type="button" style="text-align:left; padding:12px; border-radius:14px; border:1px solid var(--border); background:var(--card);">
+            <strong style="display:block; font-size:0.84rem; color:var(--text);">🍛 Standard Buffet</strong>
+            <span style="display:block; font-size:0.72rem; color:var(--primary); font-weight:600; margin:2px 0;">~850 kcal · 34g Pro</span>
+            <span style="font-size:0.68rem; color:var(--muted); line-height:1.2; display:block;">Curry/paneer/chicken, rice/biryani, breads & sides</span>
+          </button>
+          <button class="ghost-btn buffet-modal-preset" data-name="Grand Celebration Feast" data-cal="1200" data-pro="42" type="button" style="text-align:left; padding:12px; border-radius:14px; border:1px solid var(--border); background:var(--card);">
+            <strong style="display:block; font-size:0.84rem; color:var(--text);">🍨 Grand Feast</strong>
+            <span style="display:block; font-size:0.72rem; color:var(--primary); font-weight:600; margin:2px 0;">~1,200 kcal · 42g Pro</span>
+            <span style="font-size:0.68rem; color:var(--muted); line-height:1.2; display:block;">Starters, rich gravies, biryani, naan & desserts</span>
+          </button>
+          <button class="ghost-btn buffet-modal-preset" data-name="Home Multi-Dish Thali" data-cal="700" data-pro="25" type="button" style="text-align:left; padding:12px; border-radius:14px; border:1px solid var(--border); background:var(--card);">
+            <strong style="display:block; font-size:0.84rem; color:var(--text);">🍲 Home Thali</strong>
+            <span style="display:block; font-size:0.72rem; color:var(--primary); font-weight:600; margin:2px 0;">~700 kcal · 25g Pro</span>
+            <span style="font-size:0.68rem; color:var(--muted); line-height:1.2; display:block;">Dal, seasonal sabzi, 2 phulkas, rice & dahi</span>
+          </button>
+        </div>
+
+        <div style="border-top:1px dashed var(--border); padding-top:12px;">
+          <label style="display:block; font-size:0.78rem; font-weight:600; margin-bottom:6px; color:var(--text);">Or tell AI what you remember eating:</label>
+          <form id="buffet-custom-form" style="display:flex; gap:8px;">
+            <input id="buffet-custom-input" placeholder="e.g. had dal, 1 naan, paneer tikka & small sweet..." aria-label="Buffet foods" style="flex:1; padding:9px 12px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:16px;" />
+            <button id="buffet-modal-voice-btn" class="ghost-btn" type="button" style="padding:0 10px; font-size:1.1rem; border-radius:12px; border:1px solid var(--border);" title="Speak">🎙️</button>
+            <button class="primary-btn" type="submit" style="padding:0 14px; font-size:0.84rem; border-radius:12px; font-weight:700;">Log</button>
+          </form>
         </div>
       </div>
     </div>
