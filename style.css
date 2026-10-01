@@ -387,7 +387,18 @@ body.strict-phone-frame .bottom-nav {
 .install-button.visible { display: inline-flex; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(9,9,9,0.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 40; }
 .modal-overlay.open { display: flex; }
-.modal-card { width: min(520px, 100%); padding: 22px; border-radius: 24px; background: var(--card); box-shadow: var(--shadow); }
+.modal-card {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 22px;
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
 .modal-card h3 { margin-top: 0; }
 .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(0); padding: 12px 18px; border-radius: 999px; background: rgba(20,20,20,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 30px rgba(0,0,0,0.3); color: white; z-index: 120; animation: toastIn 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; font-weight: 500; font-size: 0.9rem; }
 .toast.hide { animation: toastOut 200ms ease forwards; }

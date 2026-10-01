@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reliv-v12';
+const CACHE_NAME = 'reliv-v13';
 const CORE_ASSETS = [
   './',
   './index.html',

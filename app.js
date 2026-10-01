@@ -25,19 +25,24 @@ async function fetchWithBackendFallback(path, options = {}) {
   const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
   const candidates = isLocal
     ? [BACKEND_URL, 'http://localhost:4000', ORACLE_BACKEND_URL, PRODUCTION_API]
-    : [BACKEND_URL, PRODUCTION_API, ORACLE_BACKEND_URL];
+    : [BACKEND_URL, '', PRODUCTION_API, ORACLE_BACKEND_URL];
 
-  const unique = [...new Set(candidates)].filter(Boolean);
+  const unique = [...new Set(candidates)];
   let lastErr = null;
   for (const base of unique) {
     try {
-      const url = `${base}${normPath}`;
+      const url = base ? `${base}${normPath}` : normPath;
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), 4000);
       const res = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(t);
       if (res.ok) {
-        BACKEND_URL = base;
+        const ct = res.headers.get('content-type') || '';
+        // If an API request returned index.html, it hit the SPA fallback rather than real API
+        if (normPath.startsWith('/api') && ct.includes('text/html')) {
+          continue;
+        }
+        if (base) BACKEND_URL = base;
         return res;
       }
     } catch (err) {
@@ -3292,6 +3297,45 @@ function bindEvents() {
   const buffetModalVoiceBtn = document.getElementById('buffet-modal-voice-btn');
   if (buffetModalVoiceBtn) {
     buffetModalVoiceBtn.addEventListener('click', () => {
+      const input = document.getElementById('buffet-custom-input');
+      const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognitionImpl) {
+        try {
+          const rec = new SpeechRecognitionImpl();
+          rec.lang = 'en-US';
+          rec.interimResults = true;
+          buffetModalVoiceBtn.textContent = '🔴';
+          buffetModalVoiceBtn.style.color = '#ef4444';
+          showToast('🎙️ Speak what you ate at the buffet...');
+          
+          rec.onresult = (evt) => {
+            let transcript = '';
+            for (let i = 0; i < evt.results.length; i++) {
+              transcript += evt.results[i][0].transcript;
+            }
+            if (input) input.value = transcript;
+          };
+          rec.onerror = (e) => {
+            console.warn('Buffet mic notice:', e.error);
+            buffetModalVoiceBtn.textContent = '🎙️';
+            buffetModalVoiceBtn.style.color = '';
+            showToast('Voice listening ended.');
+          };
+          rec.onend = () => {
+            buffetModalVoiceBtn.textContent = '🎙️';
+            buffetModalVoiceBtn.style.color = '';
+            if (input && input.value.trim()) {
+              showToast('✅ Voice captured! Tap Log to confirm.');
+            }
+          };
+          rec.start();
+          return;
+        } catch (err) {
+          console.warn('SpeechRecognition fallback to coach...', err);
+        }
+      }
+
+      // Fallback: switch to Coach with voice capture
       closeBuffetModal();
       switchView('coach');
       setTimeout(() => {
@@ -7609,6 +7653,25 @@ async function subscribeToPushNotifications(debug = false) {
 
 let universalAudioCtx = null;
 
+function unlockUniversalAudio() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!universalAudioCtx) {
+      universalAudioCtx = new AudioCtx();
+    }
+    if (universalAudioCtx.state === 'suspended') {
+      universalAudioCtx.resume().catch(() => {});
+    }
+  } catch (e) {}
+}
+
+if (typeof window !== 'undefined') {
+  ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, unlockUniversalAudio, { once: true, passive: true });
+  });
+}
+
 function playUniversalNotificationChime() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -9349,13 +9412,95 @@ function render7DayHabitJourney() {
   const card = document.getElementById('habit-7day-card');
   if (!card) return;
 
-  const currentDay = Math.min(7, Math.max(1, (state.streak || 0) + 1));
+  const streak = state.streak || 0;
   const subEl = document.getElementById('habit-7day-sub');
   const badgeEl = document.getElementById('habit-7day-badge');
   const focusEl = document.getElementById('habit-7day-focus-text');
   const actionBtn = document.getElementById('habit-7day-action-btn');
   const shieldCountEl = document.getElementById('streak-shield-count');
   if (shieldCountEl) shieldCountEl.textContent = String(state.streakShields ?? 1);
+
+  if (streak >= 7) {
+    // -------------------------------------------------------------
+    // PHASE 2+: 30-DAY METABOLIC MASTERY CLUB (Eliminates 7-day drop-off!)
+    // -------------------------------------------------------------
+    const currentDay = streak + 1;
+    const currentWeek = Math.floor(streak / 7) + 1;
+    if (badgeEl) badgeEl.textContent = `Phase ${currentWeek} Master 🔥`;
+    
+    let missionTitle = `Day ${currentDay} · 30-Day Master Club`;
+    let missionFocus = `You conquered the 7-day barrier! Week ${currentWeek} focus: optimize metabolic energy & body recomposition (+100 XP)!`;
+    let btnText = '+250ml Water ↗';
+    let btnAction = 'water';
+
+    if (currentDay % 7 === 0) {
+      missionTitle = `Day ${currentDay} · Milestone Celebration!`;
+      missionFocus = `👑 Week ${currentWeek - 1} Mastered! Claim your progress transformation review & reward!`;
+      btnText = 'Claim 🏆';
+      btnAction = 'report';
+    } else if (currentDay % 3 === 0) {
+      missionTitle = `Day ${currentDay} · Recovery & Freeze Shield`;
+      missionFocus = `Streak Shield active 🛡️ Your habits are now second nature (+75 XP)!`;
+      btnText = 'View Shield ↗';
+      btnAction = 'shield';
+    }
+
+    if (subEl) subEl.textContent = missionTitle;
+    if (focusEl) focusEl.textContent = missionFocus;
+    if (actionBtn) {
+      actionBtn.textContent = btnText;
+      actionBtn.onclick = () => {
+        if (btnAction === 'water') {
+          recordActivity('Water quick-logged', 10);
+          state.consumedHydration = (Number(state.consumedHydration) || 0) + 250;
+          saveState();
+          renderDashboard();
+          playUniversalNotificationChime();
+          triggerHapticVibration([80]);
+          showToast('💧 Added 250ml water towards daily goal!');
+        } else if (btnAction === 'shield') {
+          showToast(`🛡️ You have ${state.streakShields || 1} active Streak Freeze Shield(s) protecting your ${streak}-day run!`);
+        } else if (btnAction === 'report') {
+          show7DayTransformationReport();
+        }
+      };
+    }
+
+    // Adapt the 7 step chips to show the current 7-day window
+    const windowStart = (currentWeek - 1) * 7 + 1;
+    const steps = card.querySelectorAll('.habit-day-step');
+    steps.forEach((step, idx) => {
+      const stepDay = windowStart + idx;
+      step.dataset.day = String(stepDay);
+      const textSpan = step.querySelector('span:last-child');
+      if (textSpan) textSpan.textContent = `D${stepDay}`;
+      
+      step.classList.remove('active', 'completed');
+      const emojiSpan = step.querySelector('span:first-child');
+      if (stepDay < currentDay) {
+        step.classList.add('completed');
+        if (emojiSpan) emojiSpan.textContent = '✅';
+      } else if (stepDay === currentDay) {
+        step.classList.add('active');
+        if (emojiSpan) emojiSpan.textContent = '🌟';
+      } else {
+        if (emojiSpan) emojiSpan.textContent = '⭕';
+      }
+
+      step.onclick = () => {
+        if (stepDay <= currentDay) {
+          showToast(`Day ${stepDay} of 30-Day Master Run: Keep momentum strong!`);
+        } else {
+          showToast(`Day ${stepDay}: Locked until you complete earlier days!`);
+        }
+      };
+    });
+    return;
+  }
+
+  // Phase 1: Days 1-7 Kickstart
+  const currentDay = Math.min(7, Math.max(1, streak + 1));
+  if (badgeEl) badgeEl.textContent = `Day ${currentDay} of 7 🔥`;
 
   const missions = {
     1: { title: "Day 1 of 7 · The Starting Spark", focus: "Log your first meal or water to lock in Day 1!", action: "Log Now", tab: "routine" },
@@ -9378,6 +9523,8 @@ function render7DayHabitJourney() {
         state.consumedHydration += 250;
         saveState();
         renderDashboard();
+        playUniversalNotificationChime();
+        triggerHapticVibration([80]);
         showToast('💧 Added 250ml water towards Day 2 goal!');
       } else if (info.actionType === 'shield') {
         showToast(`🛡️ You have ${state.streakShields || 1} active Streak Freeze Shield(s)! If you miss a day, your streak will be protected.`);
@@ -9406,7 +9553,7 @@ function render7DayHabitJourney() {
         show7DayTransformationReport();
       } else {
         const m = missions[d];
-        showToast(`${m.title}: ${m.focus}`);
+        if (m) showToast(`${m.title}: ${m.focus}`);
       }
     };
   });
